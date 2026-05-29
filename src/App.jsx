@@ -11,12 +11,14 @@ import GuestPage from './pages/GuestPage';
 import GuestPageSettings from './pages/GuestPageSettings';
 import { MusicPage, VenuePage, RegistryPage, NotesPage } from './pages/Misc';
 
+import MobileNav from './components/MobileNav';
+
 export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* Public guest page - must be outside AdminLayout */}
-        <Route path="/guest/*" element={<GuestPage />} />
+        {/* Public guest page — completely separate from admin */}
+        <Route path="/guest/:slug" element={<GuestPage />} />
         <Route path="/*" element={<AdminLayout />} />
       </Routes>
     </BrowserRouter>
@@ -42,6 +44,7 @@ function AdminLayout() {
           <Route path="/guest-page" element={<GuestPageSettings />} />
           <Route path="/settings" element={<Settings />} />
         </Routes>
+        <MobileNav />
       </main>
     </div>
   );
