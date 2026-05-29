@@ -9,7 +9,7 @@ const avc = id => AV_COLORS[id % AV_COLORS.length];
 const CANVAS_W = 820, CANVAS_H = 540;
 const SEAT_R = 13;
 const BLOCKED_COLOR = '#EAE0D0';
-const PROXIMITY = 28; // px gap to detect adjacency
+const PROXIMITY = 4; // px — only block seats that are truly inside/touching the other table
 
 // ── geometry helpers ─────────────────────────────────────────────
 function deg2rad(d) { return d * Math.PI / 180; }
@@ -130,39 +130,70 @@ function getOBBSeparation(t1, t2) {
   return { separated: false, gap: -minSep, axis: minAxis };
 }
 
-// For each seat in t1, determine if it's blocked by proximity to t2
+// For each seat, check if it's physically overlapping the body of another table.
+// A seat is blocked when its centre is within the other table's padded footprint.
+// "vor Kopf" (head seats) = seats on the short ends of a rect → all blocked when touching.
+// Long-side seats → only blocked if actually inside the neighbour (not double-blocked).
 function getBlockedSeats(tables) {
-  const blocked = {}; // { `${tableId}_${seatIdx}`: true }
+  const blocked = {};
+
   for (let i = 0; i < tables.length; i++) {
     const t1 = tables[i];
-    if (t1.shape === 'round') continue; // round tables don't block
+    if (t1.shape === 'round') continue;
     const seats1 = getWorldSeats(t1);
+    const { rx: rx1, ry: ry1 } = getTableDims(t1.shape, t1.seats);
+    const rot1 = deg2rad(t1.rotation || 0);
+
     for (let j = 0; j < tables.length; j++) {
       if (i === j) continue;
       const t2 = tables[j];
       if (t2.shape === 'round') continue;
-      // Check if tables are close enough to matter
+
+      // Quick distance cull
       const dx = t1.x - t2.x, dy = t1.y - t2.y;
-      const dist = Math.sqrt(dx*dx + dy*dy);
-      const { rx: rx1, ry: ry1 } = getTableDims(t1.shape, t1.seats);
+      const dist = Math.sqrt(dx * dx + dy * dy);
       const { rx: rx2, ry: ry2 } = getTableDims(t2.shape, t2.seats);
-      const maxReach = (Math.max(rx1,ry1) + Math.max(rx2,ry2)) * 1.6;
-      if (dist > maxReach) continue;
-      // Get corners of t2 for proximity check
-      const corners2 = getTableCorners(t2);
-      // For each seat in t1, check if it's inside or very close to t2's OBB
+      if (dist > (Math.max(rx1, ry1) + Math.max(rx2, ry2)) * 2 + 80) continue;
+
+      const rot2 = deg2rad(t2.rotation || 0);
+
       seats1.forEach((seat, si) => {
-        // Transform seat into t2 local space
-        const rot2 = deg2rad(t2.rotation||0);
-        const dx = seat.wx - t2.x, dy = seat.wy - t2.y;
+        // Transform seat world position into t2's local space
+        const sdx = seat.wx - t2.x, sdy = seat.wy - t2.y;
         const cos2 = Math.cos(-rot2), sin2 = Math.sin(-rot2);
-        const lx = dx * cos2 - dy * sin2;
-        const ly = dx * sin2 + dy * cos2;
-        const { rx: rx2, ry: ry2 } = getTableDims(t2.shape, t2.seats);
-        // Is seat inside or within PROXIMITY of t2 footprint (+seat radius buffer)?
+        const lx = sdx * cos2 - sdy * sin2;
+        const ly = sdx * sin2 + sdy * cos2;
+
+        // Is the seat circle overlapping t2's body?
+        // Use a small pad = SEAT_R so the seat circle (not just its centre) matters
         const pad = SEAT_R + PROXIMITY;
-        if (lx >= -(rx2+pad) && lx <= (rx2+pad) && ly >= -(ry2+pad) && ly <= (ry2+pad)) {
-          blocked[`${t1.id}_${si}`] = true;
+        const insideX = lx >= -(rx2 + pad) && lx <= (rx2 + pad);
+        const insideY = ly >= -(ry2 + pad) && ly <= (ry2 + pad);
+
+        if (insideX && insideY) {
+          // Determine if this is a "head" seat (short end of a rect table)
+          // Head = the seat is on the short axis side of t1
+          // For a rect table, short sides are left/right (ry side), long sides top/bottom (rx side)
+          // We detect head seats by checking if the seat is near the short ends in t1 local space
+          const s1dx = seat.wx - t1.x, s1dy = seat.wy - t1.y;
+          const cos1 = Math.cos(-rot1), sin1 = Math.sin(-rot1);
+          const lx1 = s1dx * cos1 - s1dy * sin1;
+
+          // Head seat: seat is beyond the long dimension (rx1) ends → |lx1| > rx1*0.7
+          const isHeadSeat = t1.shape === 'rect' && Math.abs(lx1) > rx1 * 0.6;
+
+          if (isHeadSeat) {
+            // Block all head seats on this end
+            blocked[`${t1.id}_${si}`] = true;
+          } else {
+            // Long-side seat: only block if truly overlapping (not just proximity)
+            const strictPad = SEAT_R;
+            const strictX = lx >= -(rx2 + strictPad) && lx <= (rx2 + strictPad);
+            const strictY = ly >= -(ry2 + strictPad) && ly <= (ry2 + strictPad);
+            if (strictX && strictY) {
+              blocked[`${t1.id}_${si}`] = true;
+            }
+          }
         }
       });
     }
