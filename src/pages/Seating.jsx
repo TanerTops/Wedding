@@ -137,110 +137,78 @@ function getOBBSeparation(t1, t2) {
 function getBlockedSeats(tables) {
   const blocked = {};
 
+  // Helper: is a world-space point inside a table's padded footprint?
+  function pointInsideTable(wx, wy, table, extraPad = SEAT_R) {
+    const { rx, ry } = getTableDims(table.shape, table.seats);
+    const rot = deg2rad(table.rotation || 0);
+    const dx = wx - table.x, dy = wy - table.y;
+    const cos = Math.cos(-rot), sin = Math.sin(-rot);
+    const lx = dx * cos - dy * sin;
+    const ly = dx * sin + dy * cos;
+    return Math.abs(lx) < rx + extraPad && Math.abs(ly) < ry + extraPad;
+  }
+
+  // Helper: is a seat on the HEAD END (short side, ±X in local space) of its own table?
+  function isHeadSeat(wx, wy, table) {
+    const { rx } = getTableDims(table.shape, table.seats);
+    const rot = deg2rad(table.rotation || 0);
+    const dx = wx - table.x, dy = wy - table.y;
+    const cos = Math.cos(-rot), sin = Math.sin(-rot);
+    const lx = dx * cos - dy * sin;
+    // Head = seat is at the short ends of the rect (large |lx|)
+    return Math.abs(lx) > rx * 0.55;
+  }
+
+  // Check every pair of non-round tables
   for (let i = 0; i < tables.length; i++) {
     const t1 = tables[i];
     if (t1.shape === 'round') continue;
-    const seats1 = getWorldSeats(t1);
     const { rx: rx1, ry: ry1 } = getTableDims(t1.shape, t1.seats);
-    const rot1 = deg2rad(t1.rotation || 0);
+    const seats1 = getWorldSeats(t1);
 
     for (let j = 0; j < tables.length; j++) {
       if (i === j) continue;
       const t2 = tables[j];
       if (t2.shape === 'round') continue;
-
-      // Quick cull
-      const ddx = t1.x - t2.x, ddy = t1.y - t2.y;
-      if (Math.sqrt(ddx*ddx + ddy*ddy) > (Math.max(rx1,ry1) + Math.max(...Object.values(getTableDims(t2.shape,t2.seats)))) * 2 + 80) continue;
-
-      const rot2 = deg2rad(t2.rotation || 0);
       const { rx: rx2, ry: ry2 } = getTableDims(t2.shape, t2.seats);
 
-      // Are the two tables actually touching/overlapping?
-      // Check if any corner of t1 is inside t2 (rough touching test)
-      const corners1 = getTableCorners(t1);
-      let tablesTouching = false;
-      for (const corner of corners1) {
-        const cdx = corner.x - t2.x, cdy = corner.y - t2.y;
-        const cos2 = Math.cos(-rot2), sin2 = Math.sin(-rot2);
-        const clx = cdx*cos2 - cdy*sin2, cly = cdx*sin2 + cdy*cos2;
-        if (Math.abs(clx) < rx2 + 8 && Math.abs(cly) < ry2 + 8) { tablesTouching = true; break; }
-      }
-      if (!tablesTouching) {
-        // Also check seats of t1 vs t2 body
-        for (const seat of seats1) {
-          const sdx = seat.wx - t2.x, sdy = seat.wy - t2.y;
-          const cos2 = Math.cos(-rot2), sin2 = Math.sin(-rot2);
-          const slx = sdx*cos2 - sdy*sin2, sly = sdx*sin2 + sdy*cos2;
-          if (Math.abs(slx) < rx2 + SEAT_R + 2 && Math.abs(sly) < ry2 + SEAT_R + 2) { tablesTouching = true; break; }
-        }
-      }
-      if (!tablesTouching) continue;
+      // Quick distance cull
+      const ddx = t1.x - t2.x, ddy = t1.y - t2.y;
+      if (Math.sqrt(ddx * ddx + ddy * ddy) > (Math.max(rx1, ry1) + Math.max(rx2, ry2)) * 2 + 90) continue;
 
-      // Determine which SIDE of t2 is facing t1 (to identify head vs long contact)
-      // Vector from t2 centre to t1 centre in t2 local space
-      const vecDx = t1.x - t2.x, vecDy = t1.y - t2.y;
-      const cos2 = Math.cos(-rot2), sin2 = Math.sin(-rot2);
-      const localVx = vecDx*cos2 - vecDy*sin2;
-      const localVy = vecDx*sin2 + vecDy*cos2;
-      // Is contact on left/right (head ends) or top/bottom (long sides) of t2?
-      const contactOnHead2 = Math.abs(localVx) > Math.abs(localVy); // head = short ends = ±X axis for rect
-
+      // For each seat of t1: check if it's inside t2's footprint
       seats1.forEach((seat, si) => {
-        const sdx = seat.wx - t2.x, sdy = seat.wy - t2.y;
-        const slx = sdx*cos2 - sdy*sin2, sly = sdx*sin2 + sdy*cos2;
+        if (!pointInsideTable(seat.wx, seat.wy, t2)) return;
 
-        // Is this seat physically overlapping t2?
-        const pad = SEAT_R;
-        const inside = Math.abs(slx) < rx2 + pad && Math.abs(sly) < ry2 + pad;
-        if (!inside) return;
+        const head = isHeadSeat(seat.wx, seat.wy, t1);
 
-        // Is this a head seat of t1?
-        // In t1 local space, head seats are on the ±X ends (short dimension for rect)
-        const s1dx = seat.wx - t1.x, s1dy = seat.wy - t1.y;
-        const cos1 = Math.cos(-rot1), sin1 = Math.sin(-rot1);
-        const s1lx = s1dx*cos1 - s1dy*sin1;
-        const isHeadSeat1 = Math.abs(s1lx) > rx1 * 0.55;
-
-        if (isHeadSeat1) {
-          // Head seat on t1: block it (touching another table at the head = Kopfende)
+        if (head) {
+          // HEAD END RULE: only block THIS seat (the one physically overlapping)
+          // Do NOT mirror-block the opposite t2 seat
           blocked[`${t1.id}_${si}`] = true;
         } else {
-          // Long-side seat: only block the ONE seat that overlaps, not both sides
-          // The seat on t1 that is inside t2 = it's physically in the gap = block it
+          // LONG SIDE RULE (Mitte): block THIS seat AND find+block the closest t2 seat facing it
           blocked[`${t1.id}_${si}`] = true;
+
+          // Find the nearest t2 seat to this seat and block it too (the "mirror" seat)
+          const seats2 = getWorldSeats(t2);
+          let minDist = Infinity, minIdx = -1;
+          seats2.forEach((s2, si2) => {
+            const d = Math.hypot(s2.wx - seat.wx, s2.wy - seat.wy);
+            if (d < minDist) { minDist = d; minIdx = si2; }
+          });
+          // Only mirror-block if the closest t2 seat is itself inside t1
+          if (minIdx >= 0 && pointInsideTable(seats2[minIdx].wx, seats2[minIdx].wy, t1)) {
+            blocked[`${t2.id}_${minIdx}`] = true;
+          }
         }
       });
-
-      // Now handle head-end blocking of t2 seats when t1's head end pushes into t2
-      // Vector from t1 to t2 in t1 local space
-      const vecDx2 = t2.x - t1.x, vecDy2 = t2.y - t1.y;
-      const cos1 = Math.cos(-rot1), sin1 = Math.sin(-rot1);
-      const localVx1 = vecDx2*cos1 - vecDy2*sin1;
-      // t1's head end is facing t2 if |localVx1| > |localVy1|
-      const localVy1 = vecDx2*sin1 + vecDy2*cos1;
-      const t1HeadFacingT2 = Math.abs(localVx1) > Math.abs(localVy1);
-
-      if (t1HeadFacingT2) {
-        // Also block head-end seats of t2 that face t1
-        const seats2 = getWorldSeats(t2);
-        const { rx: rx2b } = getTableDims(t2.shape, t2.seats);
-        seats2.forEach((seat, si) => {
-          const s2dx = seat.wx - t2.x, s2dy = seat.wy - t2.y;
-          const cos2b = Math.cos(-rot2), sin2b = Math.sin(-rot2);
-          const s2lx = s2dx*cos2b - s2dy*sin2b;
-          const isHeadSeat2 = Math.abs(s2lx) > rx2b * 0.55;
-          if (isHeadSeat2) {
-            // Check if this head end is the one facing t1
-            const sameDir = (s2lx * (-localVx)) > 0; // seat is on the side facing t1
-            if (sameDir) blocked[`${t2.id}_${si}`] = true;
-          }
-        });
-      }
     }
   }
+
   return blocked;
 }
+
 
 export default function Seating() {
   const [seating, setSeating] = useState(() => {
