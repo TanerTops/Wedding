@@ -41,6 +41,7 @@ const TYPE_LABELS = {
 };
 
 export default function GuestPage() {
+  const { slug } = useParams(); // used for future per-wedding data fetching
   const [active, setActive] = useState('');
   const [rsvpStep, setRsvpStep] = useState(1);
   const [rsvpData, setRsvpData] = useState({ name: '', email: '', attending: '', menu: '', plusOne: false, message: '' });
