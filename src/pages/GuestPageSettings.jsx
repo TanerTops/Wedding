@@ -27,7 +27,13 @@ export default function GuestPageSettings() {
   const [saved, setSaved] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  const guestUrl = `${window.location.origin}/guest/${makeSlug(wedding)}`;
+  function buildShareUrl() {
+    const tl = loadState('timeline', []);
+    const reg = loadState('registry', []);
+    const payload = { wedding, config, timeline: tl, registry: reg };
+    try { const b64 = btoa(encodeURIComponent(JSON.stringify(payload))); return `${window.location.origin}/guest/${makeSlug(wedding)}#data=${b64}`; } catch { return `${window.location.origin}/guest/${makeSlug(wedding)}`; }
+  }
+  const guestUrl = buildShareUrl();
 
   function update(key, val) { setConfig(c => ({ ...c, [key]: val })); }
   function toggleSection(id) { setConfig(c => ({ ...c, sections: { ...c.sections, [id]: !c.sections[id] } })); }
