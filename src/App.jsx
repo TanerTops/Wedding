@@ -11,7 +11,6 @@ import GuestPage from './pages/GuestPage';
 import GuestPageSettings from './pages/GuestPageSettings';
 import { MusicPage, VenuePage, RegistryPage, NotesPage } from './pages/Misc';
 
-import MobileNav from './components/MobileNav';
 
 export default function App() {
   return (
@@ -44,7 +43,7 @@ function AdminLayout() {
           <Route path="/guest-page" element={<GuestPageSettings />} />
           <Route path="/settings" element={<Settings />} />
         </Routes>
-        <MobileNav />
+
       </main>
     </div>
   );
