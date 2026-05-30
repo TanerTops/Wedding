@@ -137,7 +137,6 @@ function getOBBSeparation(t1, t2) {
 function getBlockedSeats(tables) {
   const blocked = {};
 
-  // Is world point inside table footprint?
   function pointInside(wx, wy, table, pad = SEAT_R) {
     const { rx, ry } = getTableDims(table.shape, table.seats);
     const rot = deg2rad(table.rotation || 0);
@@ -146,28 +145,24 @@ function getBlockedSeats(tables) {
     return Math.abs(dx*cos - dy*sin) < rx + pad && Math.abs(dx*sin + dy*cos) < ry + pad;
   }
 
-  // Seat local coords in its own table
-  function localCoords(wx, wy, table) {
+  function localX(wx, wy, table) {
     const rot = deg2rad(table.rotation || 0);
     const dx = wx - table.x, dy = wy - table.y;
-    const cos = Math.cos(-rot), sin = Math.sin(-rot);
-    return { lx: dx*cos - dy*sin, ly: dx*sin + dy*cos };
+    return dx * Math.cos(-rot) - dy * Math.sin(-rot);
   }
 
-  // Is seat on the HEAD END (short side) of its table? (large |lx|)
-  function isHeadSeat(wx, wy, table) {
-    const { rx } = getTableDims(table.shape, table.seats);
-    return Math.abs(localCoords(wx, wy, table).lx) > rx * 0.55;
+  function localY(wx, wy, table) {
+    const rot = deg2rad(table.rotation || 0);
+    const dx = wx - table.x, dy = wy - table.y;
+    return dx * Math.sin(-rot) + dy * Math.cos(-rot);
   }
 
-  // Are t1 and t2 in head-to-head contact?
-  // Returns true if t2 is along t1's long axis (±X in t1 local space)
-  function isHeadToHead(t1, t2) {
+  // Is t2 along t1's head axis (±X)?
+  function isH2H(t1, t2) {
     const rot1 = deg2rad(t1.rotation || 0);
     const dx = t2.x - t1.x, dy = t2.y - t1.y;
-    const cos1 = Math.cos(-rot1), sin1 = Math.sin(-rot1);
-    const lx = dx*cos1 - dy*sin1;
-    const ly = dx*sin1 + dy*cos1;
+    const lx = dx*Math.cos(-rot1) - dy*Math.sin(-rot1);
+    const ly = dx*Math.sin(-rot1) + dy*Math.cos(-rot1);
     return Math.abs(lx) > Math.abs(ly) * 1.1;
   }
 
@@ -183,63 +178,49 @@ function getBlockedSeats(tables) {
       if (t2.shape === 'round') continue;
       const { rx: rx2, ry: ry2 } = getTableDims(t2.shape, t2.seats);
 
-      // Distance cull
       const ddx = t1.x - t2.x, ddy = t1.y - t2.y;
-      if (Math.sqrt(ddx*ddx + ddy*ddy) > (Math.max(rx1,ry1) + Math.max(rx2,ry2)) * 2 + 90) continue;
+      if (Math.sqrt(ddx*ddx + ddy*ddy) > (Math.max(rx1,ry1) + Math.max(rx2,ry2))*2 + 90) continue;
 
-      const h2h = isHeadToHead(t1, t2);
       const seats2 = getWorldSeats(t2);
-
-      // Find closest t2 seat to a given world point
-      function closestT2Seat(wx, wy) {
-        let minD = Infinity, minIdx = -1;
-        seats2.forEach((s2, si2) => {
-          const d = Math.hypot(s2.wx - wx, s2.wy - wy);
-          if (d < minD) { minD = d; minIdx = si2; }
-        });
-        return { idx: minIdx, dist: minD };
-      }
+      const h2h = isH2H(t1, t2);
 
       seats1.forEach((seat, si) => {
-        const { lx: lx1, ly: ly1 } = localCoords(seat.wx, seat.wy, t1);
-        const head1 = Math.abs(lx1) > rx1 * 0.55;
+        const lx1 = localX(seat.wx, seat.wy, t1);
+        const ly1 = localY(seat.wx, seat.wy, t1);
+        const isHead = Math.abs(lx1) > rx1 * 0.55;
 
-        if (h2h && head1) {
-          // HEAD-TO-HEAD contact — this is a head-end seat of t1
+        // Find closest t2 seat
+        let minD = Infinity, minIdx = -1;
+        seats2.forEach((s2, si2) => {
+          const d = Math.hypot(s2.wx - seat.wx, s2.wy - seat.wy);
+          if (d < minD) { minD = d; minIdx = si2; }
+        });
+        if (minIdx < 0) return;
+        const nearbyThreshold = SEAT_R * 5;
 
-          // Find nearest t2 seat
-          const { idx: mirrorIdx, dist: mirrorDist } = closestT2Seat(seat.wx, seat.wy);
-          if (mirrorIdx < 0) return;
-          const mirror = seats2[mirrorIdx];
-          const mirrorHead = isHeadSeat(mirror.wx, mirror.wy, t2);
-          const proximity = mirrorDist < SEAT_R * 4 + 20; // seats are close neighbours
+        if (h2h && isHead && minD < nearbyThreshold) {
+          // HEAD-TO-HEAD: this seat of t1 is near a t2 seat at the contact zone
+          const isCentre = Math.abs(ly1) < ry1 * 0.35;
 
-          if (proximity) {
-            // CENTRE head seats (directly facing, very close): block BOTH
-            const isCentre = Math.abs(ly1) < ry1 * 0.35;
-            if (isCentre) {
-              blocked[`${t1.id}_${si}`] = true;
-              blocked[`${t2.id}_${mirrorIdx}`] = true;
-            } else {
-              // CORNER seats: block BOTH — they merge into one seat
-              // Use i < j to avoid double-processing: block t1 seat on i<j pass,
-              // block t2 mirror on i>j pass — net result: both blocked, one survives
-              // Actually we want BOTH blocked and exactly ONE rendered.
-              // Strategy: block both, but the seatOffsets counter only counts one.
-              // For rendering: block the one from the table that comes SECOND in group order.
-              // Simpler: always block t1's corner seat; mirror is blocked when j loop hits it.
-              blocked[`${t1.id}_${si}`] = true;
-              blocked[`${t2.id}_${mirrorIdx}`] = true;
+          if (isCentre) {
+            // CENTRE head: directly facing → block BOTH (no seat here at all)
+            blocked[`${t1.id}_${si}`] = true;
+            blocked[`${t2.id}_${minIdx}`] = true;
+          } else {
+            // CORNER head: the two seats become ONE → block only the t2 side (i < j)
+            // When i < j: block t2's corner seat (t1 keeps its corner = the shared seat)
+            // When i > j: t1's corner was already kept, so block t1's (= t2 already kept)
+            // Net: for each pair, the LEFT table keeps its corner, RIGHT table loses it
+            if (i < j) {
+              blocked[`${t2.id}_${minIdx}`] = true;
             }
           }
-        } else if (!h2h) {
-          // LONG-SIDE contact: seat of t1 is inside t2
-          if (!pointInside(seat.wx, seat.wy, t2)) return;
+        } else if (!h2h && pointInside(seat.wx, seat.wy, t2)) {
+          // LONG-SIDE: seat physically inside neighbour → block it
           blocked[`${t1.id}_${si}`] = true;
-          // Mirror-block closest t2 seat if it's also inside t1
-          const { idx: mIdx } = closestT2Seat(seat.wx, seat.wy);
-          if (mIdx >= 0 && pointInside(seats2[mIdx].wx, seats2[mIdx].wy, t1)) {
-            blocked[`${t2.id}_${mIdx}`] = true;
+          // Also block mirror seat on t2 if it's inside t1
+          if (pointInside(seats2[minIdx].wx, seats2[minIdx].wy, t1)) {
+            blocked[`${t2.id}_${minIdx}`] = true;
           }
         }
       });
