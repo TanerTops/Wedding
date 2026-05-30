@@ -421,6 +421,55 @@ export default function Seating() {
   }
 
   // ── Render tables ───────────────────────────────────────────────
+  // Group detection: find touching table clusters for continuous seat numbering
+  const seatOffsets = (() => {
+    const tables = seating.tables;
+
+    function areTouching(t1, t2) {
+      if (t1.shape === 'round' || t2.shape === 'round') return false;
+      const s1 = getWorldSeats(t1);
+      const { rx: rx2, ry: ry2 } = getTableDims(t2.shape, t2.seats);
+      const rot2 = deg2rad(t2.rotation || 0);
+      const cos2 = Math.cos(-rot2), sin2 = Math.sin(-rot2);
+      return s1.some(seat => {
+        const dx = seat.wx - t2.x, dy = seat.wy - t2.y;
+        const lx = dx*cos2 - dy*sin2, ly = dx*sin2 + dy*cos2;
+        return Math.abs(lx) < rx2 + SEAT_R + 4 && Math.abs(ly) < ry2 + SEAT_R + 4;
+      });
+    }
+
+    // Union-Find
+    const parent = {};
+    tables.forEach(t => { parent[t.id] = t.id; });
+    function find(id) { return parent[id] === id ? id : (parent[id] = find(parent[id])); }
+    function union(a, b) { parent[find(a)] = find(b); }
+    for (let i = 0; i < tables.length; i++)
+      for (let j = i+1; j < tables.length; j++)
+        if (areTouching(tables[i], tables[j])) union(tables[i].id, tables[j].id);
+
+    // Group and sort left-to-right, top-to-bottom
+    const groups = {};
+    tables.forEach(t => {
+      const root = find(t.id);
+      if (!groups[root]) groups[root] = [];
+      groups[root].push(t);
+    });
+    Object.values(groups).forEach(g => g.sort((a,b) => a.x - b.x || a.y - b.y));
+
+    // Assign offsets: skip blocked seats so numbers are truly sequential
+    const offsets = {};
+    Object.values(groups).forEach(group => {
+      let counter = 0;
+      group.forEach(t => {
+        offsets[t.id] = counter;
+        getWorldSeats(t).forEach((_, si) => {
+          if (!blockedSeats[`${t.id}_${si}`]) counter++;
+        });
+      });
+    });
+    return offsets;
+  })();
+
   function renderTable(table) {
     const { rx, ry } = getTableDims(table.shape, table.seats);
     const rot = table.rotation || 0;
@@ -428,6 +477,16 @@ export default function Seating() {
     const seatOrder = table.seatOrder || [];
     const isSelected = selectedTable === table.id;
     const isDragging = draggingTable?.id === table.id;
+    const tableOffset = seatOffsets[table.id] ?? 0;
+    // Build a local map: seatLocalIndex -> globalSeatNumber (skipping blocked)
+    const globalSeatNum = {};
+    let globalCounter = tableOffset;
+    getWorldSeats(table).forEach((_, si) => {
+      if (!blockedSeats[`${table.id}_${si}`]) {
+        globalSeatNum[si] = globalCounter + 1;
+        globalCounter++;
+      }
+    });
 
     // Rotation handle position (top of table in world space)
     const rHandleLocal = { x: 0, y: -(Math.max(rx,ry) + 48) };
@@ -476,7 +535,7 @@ export default function Seating() {
               {!blocked && (
                 <text x={seat.wx} y={seat.wy+1} textAnchor="middle" dominantBaseline="middle"
                   style={{ fontSize: 8, fontWeight: 600, fill: occupant ? '#fff' : '#C4A882', fontFamily: 'DM Sans,sans-serif', pointerEvents: 'none', userSelect: 'none' }}>
-                  {occupant ? ini(occupant.name) : si + 1}
+                  {occupant ? ini(occupant.name) : (globalSeatNum[si] ?? '')}
                 </text>
               )}
               {/* Tooltip on hover for assigned guest */}
