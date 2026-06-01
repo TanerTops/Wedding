@@ -135,7 +135,8 @@ function getOBBSeparation(t1, t2) {
 //   - Long side (side seats of rect): only block seats that are PHYSICALLY INSIDE the neighbour body
 //   - Head end (short ends of rect): block ALL seats on that end of BOTH tables when they touch
 function getBlockedSeats(tables) {
-  const blocked = {};
+  const blocked = {};     // shows X — both sides of centre head contact
+  const invisible = {};  // completely hidden — the discarded corner seat
 
   function pointInside(wx, wy, table, pad = SEAT_R) {
     const { rx, ry } = getTableDims(table.shape, table.seats);
@@ -198,14 +199,18 @@ function getBlockedSeats(tables) {
         if (h2h && isHead && minD < SEAT_R * 5) {
           const isCentre = Math.abs(ly1) < ry1 * 0.35;
           if (isCentre) {
+            // Centre: both physically in the gap → show X on both
             blocked[`${t1.id}_${si}`] = true;
             blocked[`${t2.id}_${minIdx}`] = true;
           } else {
+            // Corner: t2's seat is the discarded duplicate → make it INVISIBLE
+            // t1's corner seat stays visible (it's the shared seat)
             if (i < j) {
-              blocked[`${t2.id}_${minIdx}`] = true;
+              invisible[`${t2.id}_${minIdx}`] = true;
             }
           }
         } else if (!h2h && pointInside(seat.wx, seat.wy, t2)) {
+          // Long-side: show X
           blocked[`${t1.id}_${si}`] = true;
           if (pointInside(seats2[minIdx].wx, seats2[minIdx].wy, t1)) {
             blocked[`${t2.id}_${minIdx}`] = true;
@@ -215,7 +220,7 @@ function getBlockedSeats(tables) {
     }
   }
 
-  return blocked;
+  return { blocked, invisible };
 }
 
 
@@ -247,7 +252,7 @@ export default function Seating() {
 
   const assignedIds = seating.tables.flatMap(t => t.guests);
   const unassigned = guests.filter(g => !assignedIds.includes(g.id) && g.status !== 'declined');
-  const blockedSeats = getBlockedSeats(seating.tables);
+  const { blocked: blockedSeats, invisible: invisibleSeats } = getBlockedSeats(seating.tables);
 
   // ── SVG coords ─────────────────────────────────────────────────
   function getSVGPoint(e) {
@@ -410,7 +415,7 @@ export default function Seating() {
       group.forEach(t => {
         offsets[t.id] = counter;
         getWorldSeats(t).forEach((_, si) => {
-          if (!blockedSeats[`${t.id}_${si}`]) counter++;
+          if (!blockedSeats[`${t.id}_${si}`] && !invisibleSeats[`${t.id}_${si}`]) counter++;
         });
       });
     });
@@ -451,6 +456,8 @@ export default function Seating() {
         {worldSeats.map((seat, si) => {
           const key = `${table.id}_${si}`;
           const blocked = blockedSeats[key];
+          // Corner discarded seat — completely hidden, not even an X
+          if (invisibleSeats[key]) return null;
           const occupantId = seatOrder[si];
           const occupant = occupantId ? guests.find(g => g.id === occupantId) : null;
           const isHovered = hoveredSeat?.tableId === table.id && hoveredSeat?.seatIndex === si;
