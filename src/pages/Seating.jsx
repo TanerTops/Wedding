@@ -136,6 +136,8 @@ function getOBBSeparation(t1, t2) {
 //   - Head end (short ends of rect): block ALL seats on that end of BOTH tables when they touch
 function getBlockedSeats(tables) {
   const blocked = {};
+  // relocate[`${tableId}_${si}`] = {wx, wy} — move surviving corner seat to midpoint
+  const relocate = {};
 
   function pointInside(wx, wy, table, pad = SEAT_R) {
     const { rx, ry } = getTableDims(table.shape, table.seats);
@@ -157,7 +159,6 @@ function getBlockedSeats(tables) {
     return dx * Math.sin(-rot) + dy * Math.cos(-rot);
   }
 
-  // Is t2 along t1's head axis (±X)?
   function isH2H(t1, t2) {
     const rot1 = deg2rad(t1.rotation || 0);
     const dx = t2.x - t1.x, dy = t2.y - t1.y;
@@ -196,29 +197,27 @@ function getBlockedSeats(tables) {
           if (d < minD) { minD = d; minIdx = si2; }
         });
         if (minIdx < 0) return;
-        const nearbyThreshold = SEAT_R * 5;
 
-        if (h2h && isHead && minD < nearbyThreshold) {
-          // HEAD-TO-HEAD: this seat of t1 is near a t2 seat at the contact zone
+        if (h2h && isHead && minD < SEAT_R * 5) {
           const isCentre = Math.abs(ly1) < ry1 * 0.35;
+          const mirror = seats2[minIdx];
 
           if (isCentre) {
-            // CENTRE head: directly facing → block BOTH (no seat here at all)
+            // Centre head → block both
             blocked[`${t1.id}_${si}`] = true;
             blocked[`${t2.id}_${minIdx}`] = true;
           } else {
-            // CORNER head: the two seats become ONE → block only the t2 side (i < j)
-            // When i < j: block t2's corner seat (t1 keeps its corner = the shared seat)
-            // When i > j: t1's corner was already kept, so block t1's (= t2 already kept)
-            // Net: for each pair, the LEFT table keeps its corner, RIGHT table loses it
+            // Corner → block t2's seat (i < j pass), keep t1's but move it to midpoint
             if (i < j) {
               blocked[`${t2.id}_${minIdx}`] = true;
+              // Move t1's surviving corner seat to the midpoint between the two
+              const midX = (seat.wx + mirror.wx) / 2;
+              const midY = (seat.wy + mirror.wy) / 2;
+              relocate[`${t1.id}_${si}`] = { wx: midX, wy: midY };
             }
           }
         } else if (!h2h && pointInside(seat.wx, seat.wy, t2)) {
-          // LONG-SIDE: seat physically inside neighbour → block it
           blocked[`${t1.id}_${si}`] = true;
-          // Also block mirror seat on t2 if it's inside t1
           if (pointInside(seats2[minIdx].wx, seats2[minIdx].wy, t1)) {
             blocked[`${t2.id}_${minIdx}`] = true;
           }
@@ -227,7 +226,7 @@ function getBlockedSeats(tables) {
     }
   }
 
-  return blocked;
+  return { blocked, relocate };
 }
 
 
@@ -259,7 +258,7 @@ export default function Seating() {
 
   const assignedIds = seating.tables.flatMap(t => t.guests);
   const unassigned = guests.filter(g => !assignedIds.includes(g.id) && g.status !== 'declined');
-  const blockedSeats = getBlockedSeats(seating.tables);
+  const { blocked: blockedSeats, relocate: seatRelocate } = getBlockedSeats(seating.tables);
 
   // ── SVG coords ─────────────────────────────────────────────────
   function getSVGPoint(e) {
@@ -463,6 +462,11 @@ export default function Seating() {
         {worldSeats.map((seat, si) => {
           const key = `${table.id}_${si}`;
           const blocked = blockedSeats[key];
+          // Use relocated position for surviving corner seats (moved to midpoint)
+          const relocKey = `${table.id}_${si}`;
+          const rPos = seatRelocate[relocKey];
+          const renderWx = rPos ? rPos.wx : seat.wx;
+          const renderWy = rPos ? rPos.wy : seat.wy;
           const occupantId = seatOrder[si];
           const occupant = occupantId ? guests.find(g => g.id === occupantId) : null;
           const isHovered = hoveredSeat?.tableId === table.id && hoveredSeat?.seatIndex === si;
@@ -475,7 +479,7 @@ export default function Seating() {
             >
               {/* Seat */}
               <circle
-                cx={seat.wx} cy={seat.wy} r={SEAT_R}
+                cx={renderWx} cy={renderWy} r={SEAT_R}
                 fill={blocked ? BLOCKED_COLOR : occupant ? avc(occupant.id) : isHovered ? '#E8D5C0' : '#fff'}
                 stroke={blocked ? '#D4C0A8' : occupant ? avc(occupant.id) : isHovered ? 'var(--terra)' : '#C4A882'}
                 strokeWidth={isHovered && !blocked ? 2 : 1.5}
@@ -487,12 +491,12 @@ export default function Seating() {
               />
               {/* X icon for blocked */}
               {blocked && <>
-                <line x1={seat.wx-5} y1={seat.wy-5} x2={seat.wx+5} y2={seat.wy+5} stroke="#C4A882" strokeWidth={1.5} style={{ pointerEvents: 'none' }} />
-                <line x1={seat.wx+5} y1={seat.wy-5} x2={seat.wx-5} y2={seat.wy+5} stroke="#C4A882" strokeWidth={1.5} style={{ pointerEvents: 'none' }} />
+                <line x1={renderWx-5} y1={renderWy-5} x2={renderWx+5} y2={renderWy+5} stroke="#C4A882" strokeWidth={1.5} style={{ pointerEvents: 'none' }} />
+                <line x1={renderWx+5} y1={renderWy-5} x2={renderWx-5} y2={renderWy+5} stroke="#C4A882" strokeWidth={1.5} style={{ pointerEvents: 'none' }} />
               </>}
               {/* Initials or number */}
               {!blocked && (
-                <text x={seat.wx} y={seat.wy+1} textAnchor="middle" dominantBaseline="middle"
+                <text x={renderWx} y={renderWy+1} textAnchor="middle" dominantBaseline="middle"
                   style={{ fontSize: 8, fontWeight: 600, fill: occupant ? '#fff' : '#C4A882', fontFamily: 'DM Sans,sans-serif', pointerEvents: 'none', userSelect: 'none' }}>
                   {occupant ? ini(occupant.name) : (globalSeatNum[si] ?? '')}
                 </text>
@@ -500,8 +504,8 @@ export default function Seating() {
               {/* Tooltip on hover for assigned guest */}
               {occupant && isHovered && (
                 <g style={{ pointerEvents: 'none' }}>
-                  <rect x={seat.wx - 36} y={seat.wy - 32} width={72} height={16} rx={4} fill="rgba(60,36,16,0.85)" />
-                  <text x={seat.wx} y={seat.wy - 22} textAnchor="middle" dominantBaseline="middle"
+                  <rect x={renderWx - 36} y={renderWy - 32} width={72} height={16} rx={4} fill="rgba(60,36,16,0.85)" />
+                  <text x={renderWx} y={renderWy - 22} textAnchor="middle" dominantBaseline="middle"
                     style={{ fontSize: 8.5, fill: '#FAF7F0', fontFamily: 'DM Sans,sans-serif' }}>
                     {occupant.name.length > 14 ? occupant.name.slice(0,13)+'…' : occupant.name}
                   </text>
@@ -509,7 +513,7 @@ export default function Seating() {
               )}
               {/* Remove dot on occupied non-blocked seat */}
               {occupant && !blocked && (
-                <circle cx={seat.wx+9} cy={seat.wy-9} r={5} fill="#FFEBEE" stroke="#FFCDD2" strokeWidth={1}
+                <circle cx={renderWx+9} cy={renderWy-9} r={5} fill="#FFEBEE" stroke="#FFCDD2" strokeWidth={1}
                   style={{ cursor: 'pointer', opacity: 0, transition: 'opacity .15s' }}
                   onMouseEnter={e => e.target.style.opacity = 1}
                   onMouseLeave={e => e.target.style.opacity = 0}
