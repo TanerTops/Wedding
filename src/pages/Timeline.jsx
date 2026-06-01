@@ -25,22 +25,9 @@ const toTime = m => `${String(Math.floor(m/60)).padStart(2,'0')}:${String(m%60).
 // Format "HH:MM" nicely
 const fmt = t => { try { const [h,m]=t.split(':'); const d=new Date(2000,0,1,+h,+m); return d.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'}); } catch { return t; } };
 
-const DEFAULT_EVENTS = [
-  { id:1, time:'09:00', endTime:'12:30', title:'Getting Ready Sarah', type:'getting-ready', loc:'Hochzeitssuite', desc:'Haare, Make-up und Ankleiden', guests:false, vendor:false },
-  { id:2, time:'10:30', endTime:'12:00', title:'Getting Ready Tobias', type:'getting-ready', loc:'Zimmer 35', desc:'', guests:false, vendor:false },
-  { id:3, time:'12:30', endTime:'13:00', title:'First Look', type:'photo', loc:'Schlossgarten Pavillon', desc:'Erstes Treffen im Schlossgarten', guests:false, vendor:true },
-  { id:4, time:'14:00', endTime:'14:45', title:'Freie Trauung', type:'ceremony', loc:'Garten', desc:'Zeremonie unter der alten Eiche', guests:true, vendor:true },
-  { id:5, time:'14:45', endTime:'15:30', title:'Sektempfang & Gratulationen', type:'reception', loc:'Terrasse', desc:'Aperitif, Fingerfood & Gratulationsrunde', guests:true, vendor:true },
-  { id:6, time:'15:30', endTime:'16:30', title:'Paar- & Gruppenfotos', type:'photo', loc:'Schloss & Garten', desc:'Shootings im Garten & Schloss', guests:false, vendor:true },
-  { id:7, time:'17:00', endTime:'19:00', title:'Abendessen', type:'dinner', loc:'Festsaal', desc:'3-Gänge-Menü', guests:true, vendor:true },
-  { id:8, time:'19:30', endTime:'20:00', title:'Reden & Überraschungen', type:'speech', loc:'Festsaal', desc:'Reden der Trauzeugen & Spiele', guests:true, vendor:false },
-  { id:9, time:'20:30', endTime:'21:00', title:'Tortenanschnitt & Eröffnungstanz', type:'party', loc:'Festsaal', desc:'Hochzeitstorte & erster Tanz', guests:true, vendor:true },
-  { id:10, time:'21:00', endTime:'02:00', title:'Party & Tanz', type:'party', loc:'Festsaal & Terrasse', desc:'DJ Max sorgt für Stimmung', guests:true, vendor:true },
-  { id:11, time:'23:00', endTime:'23:30', title:'Mitternachtssnack', type:'logistics', loc:'Foyer', desc:'Kleine Stückchen & Brezen', guests:true, vendor:true },
-];
 
 export default function Timeline() {
-  const [events, setEvents] = useState(() => loadState('timeline', DEFAULT_EVENTS));
+  const [events, setEvents] = useState(() => loadState('timeline', defaultTimeline));
   const [tab, setTab] = useState('editor');
   const [activeFilter, setActiveFilter] = useState('all');
   const [modal, setModal] = useState(null);
@@ -140,6 +127,49 @@ export default function Timeline() {
         {/* ── EDITOR TAB ── */}
         {tab === 'editor' && (
           <>
+            {/* Day overview card */}
+            <div className="card" style={{ marginBottom: 20, padding: '14px 18px' }}>
+              <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 18, color: 'var(--espresso)', marginBottom: 12 }}>Übersicht Hochzeitstag</div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
+                <div style={{ background: 'var(--warm)', borderRadius: 10, padding: '8px 14px', textAlign: 'center', border: '1px solid var(--sand)' }}>
+                  <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--espresso)' }}>{events.length}</div>
+                  <div style={{ fontSize: 11, color: 'var(--mocha)' }}>Termine</div>
+                </div>
+                {(() => {
+                  const s = sorted;
+                  const first = s[0], last = s[s.length-1];
+                  const totalH = last && first ? ((parseInt((last.endTime||last.time).split(':')[0])*60+parseInt((last.endTime||last.time).split(':')[1]||0)) - (parseInt(first.time.split(':')[0])*60+parseInt(first.time.split(':')[1]||0))) : 0;
+                  return <>
+                    <div style={{ background: 'var(--warm)', borderRadius: 10, padding: '8px 14px', textAlign: 'center', border: '1px solid var(--sand)' }}>
+                      <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--espresso)' }}>{first ? first.time : '—'}</div>
+                      <div style={{ fontSize: 11, color: 'var(--mocha)' }}>Beginn</div>
+                    </div>
+                    <div style={{ background: 'var(--warm)', borderRadius: 10, padding: '8px 14px', textAlign: 'center', border: '1px solid var(--sand)' }}>
+                      <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--espresso)' }}>{last?.endTime || last?.time || '—'}</div>
+                      <div style={{ fontSize: 11, color: 'var(--mocha)' }}>Ende</div>
+                    </div>
+                    <div style={{ background: 'var(--warm)', borderRadius: 10, padding: '8px 14px', textAlign: 'center', border: '1px solid var(--sand)' }}>
+                      <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--espresso)' }}>{events.filter(e=>e.guests).length}</div>
+                      <div style={{ fontSize: 11, color: 'var(--mocha)' }}>mit Gästen</div>
+                    </div>
+                  </>;
+                })()}
+              </div>
+              {/* Mini timeline bar */}
+              <div style={{ display: 'flex', gap: 2, height: 8, borderRadius: 6, overflow: 'hidden' }}>
+                {sorted.map(ev => {
+                  const type = getType(ev.type);
+                  const dur = ev.endTime
+                    ? (parseInt(ev.endTime.split(':')[0])*60+parseInt(ev.endTime.split(':')[1]||0)) - (parseInt(ev.time.split(':')[0])*60+parseInt(ev.time.split(':')[1]||0))
+                    : 60;
+                  return <div key={ev.id} title={ev.title} style={{ flex: Math.max(1, dur), background: type.color, borderRadius: 2 }} />;
+                })}
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: 'var(--taupe)', marginTop: 3 }}>
+                <span>{sorted[0]?.time}</span><span>{sorted[sorted.length-1]?.endTime || sorted[sorted.length-1]?.time}</span>
+              </div>
+            </div>
+
             {/* Category filter pills */}
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, marginBottom: 20, alignItems: 'center' }}>
               <div style={{ fontSize: 12, color: 'var(--mocha)', marginRight: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
