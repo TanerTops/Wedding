@@ -411,8 +411,10 @@ export default function GuestPage() {
           <div className="guest-section">
             <SectionHeader title="Eure Erinnerungen" sub="Teilt eure schönsten Fotos vom großen Tag mit uns!" />
 
-            {/* Approved public photos */}
+            {/* Approved public gallery */}
             <GuestMemoriesGallery />
+
+            <div style={{ width: 60, height: 1, background: 'linear-gradient(90deg,transparent,var(--mocha),transparent)', margin: '32px auto 0' }} />
 
             {/* Upload form */}
             <div className="card" style={{ maxWidth: 520, margin: '32px auto 0' }}>
@@ -471,20 +473,104 @@ export default function GuestPage() {
 
 
 function GuestMemoriesGallery() {
-  const approvedPhotos = loadState('memories', []).filter(p => p.approved);
-  if (approvedPhotos.length === 0) return null;
+  const [lightbox, setLightbox] = useState(null);
+  const [activeCategory, setActiveCategory] = useState('all');
+
+  // Load from hash (shared link) or localStorage
+  const hashData = loadFromHash();
+  const allPhotos = hashData?.memories || loadState('memories', []);
+  const categories = hashData?.memoryCategories || loadState('memoryCategories', []);
+  const approvedPhotos = allPhotos.filter(p => p.approved);
+
+  if (approvedPhotos.length === 0) return (
+    <div style={{ textAlign: 'center', padding: '32px 0', color: 'var(--mocha)' }}>
+      <div style={{ fontSize: 36, marginBottom: 8 }}>📷</div>
+      <p style={{ fontSize: 14 }}>Noch keine Fotos freigegeben — schaut bald wieder vorbei!</p>
+    </div>
+  );
+
+  // Build category list from photos actually present
+  const catIds = [...new Set(approvedPhotos.map(p => p.category).filter(Boolean))];
+  const getCat = id => categories.find(c => c.id === id) || { label: id || 'Sonstiges', emoji: '📷' };
+
+  const filtered = activeCategory === 'all' ? approvedPhotos
+    : approvedPhotos.filter(p => p.category === activeCategory);
+
   return (
-    <div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 10, maxWidth: 720, margin: '0 auto' }}>
-        {approvedPhotos.map(photo => (
-          <div key={photo.id} style={{ borderRadius: 12, overflow: 'hidden', aspectRatio: '4/3', background: 'var(--sand)' }}>
-            <img src={photo.thumb || photo.url} alt={photo.name}
-              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-              onError={e => { e.target.style.display='none'; }}
-            />
-          </div>
-        ))}
+    <div style={{ maxWidth: 720, margin: '0 auto' }}>
+      {/* Category filter pills */}
+      {catIds.length > 1 && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, justifyContent: 'center', marginBottom: 20 }}>
+          <button onClick={() => setActiveCategory('all')}
+            style={{ padding: '5px 14px', borderRadius: 30, border: '1px solid var(--sand)', background: activeCategory === 'all' ? 'var(--brown)' : '#fff', color: activeCategory === 'all' ? '#fff' : 'var(--mocha)', fontSize: 12.5, cursor: 'pointer', fontFamily: "'DM Sans',sans-serif", transition: 'all .15s' }}>
+            Alle ({approvedPhotos.length})
+          </button>
+          {catIds.map(id => {
+            const cat = getCat(id);
+            const count = approvedPhotos.filter(p => p.category === id).length;
+            return (
+              <button key={id} onClick={() => setActiveCategory(id)}
+                style={{ padding: '5px 14px', borderRadius: 30, border: '1px solid var(--sand)', background: activeCategory === id ? 'var(--brown)' : '#fff', color: activeCategory === id ? '#fff' : 'var(--mocha)', fontSize: 12.5, cursor: 'pointer', fontFamily: "'DM Sans',sans-serif", transition: 'all .15s' }}>
+                {cat.emoji} {cat.label} ({count})
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Photo grid */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 10 }}>
+        {filtered.map(photo => {
+          const cat = getCat(photo.category);
+          return (
+            <div key={photo.id}
+              onClick={() => setLightbox(photo)}
+              style={{ borderRadius: 12, overflow: 'hidden', aspectRatio: '4/3', background: 'var(--sand)', cursor: 'pointer', position: 'relative', transition: 'transform .2s', boxShadow: '0 2px 8px rgba(91,61,30,0.1)' }}
+              onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.02)'}
+              onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}>
+              <img src={photo.thumb || photo.url} alt={photo.name}
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                onError={e => { e.target.style.display='none'; }}
+              />
+              {/* Category chip */}
+              <div style={{ position: 'absolute', bottom: 6, left: 6, background: 'rgba(253,248,242,0.9)', backdropFilter: 'blur(4px)', borderRadius: 20, padding: '2px 8px', fontSize: 10, fontWeight: 500, color: 'var(--espresso)' }}>
+                {cat.emoji} {cat.label}
+              </div>
+            </div>
+          );
+        })}
       </div>
+
+      {/* Lightbox */}
+      {lightbox && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.92)', zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
+          onClick={() => setLightbox(null)}>
+          <button onClick={() => setLightbox(null)}
+            style={{ position: 'absolute', top: 16, right: 16, background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: '50%', width: 40, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#fff', fontSize: 18 }}>
+            ✕
+          </button>
+          <img src={lightbox.url} alt={lightbox.name}
+            style={{ maxWidth: '90vw', maxHeight: '80vh', objectFit: 'contain', borderRadius: 8 }}
+            onClick={e => e.stopPropagation()}
+          />
+          <div style={{ position: 'absolute', bottom: 16, left: '50%', transform: 'translateX(-50%)', color: '#fff', textAlign: 'center' }}>
+            <div style={{ fontSize: 14, fontWeight: 500 }}>{lightbox.name}</div>
+            <div style={{ fontSize: 12, opacity: 0.55, marginTop: 2 }}>
+              {getCat(lightbox.category).emoji} {getCat(lightbox.category).label} · von {lightbox.uploader}
+            </div>
+          </div>
+          {/* Prev/Next */}
+          {(() => {
+            const idx = filtered.findIndex(p => p.id === lightbox.id);
+            return <>
+              {idx > 0 && <button onClick={e => { e.stopPropagation(); setLightbox(filtered[idx-1]); }}
+                style={{ position: 'absolute', left: 16, top: '50%', transform: 'translateY(-50%)', background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: '50%', width: 44, height: 44, fontSize: 20, color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>‹</button>}
+              {idx < filtered.length-1 && <button onClick={e => { e.stopPropagation(); setLightbox(filtered[idx+1]); }}
+                style={{ position: 'absolute', right: 16, top: '50%', transform: 'translateY(-50%)', background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: '50%', width: 44, height: 44, fontSize: 20, color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>›</button>}
+            </>;
+          })()}
+        </div>
+      )}
     </div>
   );
 }
