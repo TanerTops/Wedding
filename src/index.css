@@ -375,6 +375,7 @@ h1, h2, h3, h4 { font-family: 'Cormorant Garamond', serif; font-weight: 400; }
 
 @media (min-width: 769px) {
   .mobile-nav { display: none !important; }
+  .mobile-nav-wrapper { display: none !important; }
 }
 
 /* ── GUEST PAGE MOBILE ─────────────────────────────────────────── */
