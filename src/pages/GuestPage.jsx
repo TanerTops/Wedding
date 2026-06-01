@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { loadState, defaultWedding, defaultTimeline } from '../data/store';
+import { submitRSVP, uploadPhoto, submitScheduleRequest, submitMusicWish } from '../lib/db';
 import {
   IconCalendar, IconMapPin, IconMusic, IconGift, IconShirt,
   IconChevronDown, IconCheck, IconArrowRight, IconHeart, IconPlus, IconUpload
@@ -246,7 +247,10 @@ export default function GuestPage() {
                     ))}
                     <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
                       <button className="btn btn-secondary" onClick={() => setRsvpStep(2)}>← Zurück</button>
-                      <button className="btn btn-primary" style={{ flex: 1, justifyContent: 'center' }} onClick={() => setRsvpDone(true)}>Absenden 🌸</button>
+                      <button className="btn btn-primary" style={{ flex: 1, justifyContent: 'center' }} onClick={async () => {
+                await submitRSVP(rsvpData);
+                setRsvpDone(true);
+              }}>Absenden 🌸</button>
                     </div>
                   </div>
                 )}
@@ -385,7 +389,18 @@ export default function GuestPage() {
                   <button
                     className="btn btn-primary"
                     style={{ width: '100%', justifyContent: 'center', marginTop: 4 }}
-                    onClick={() => { if (scheduleForm.name.trim()) setScheduleSubmitted(true); }}
+                    onClick={async () => {
+                      if (!scheduleForm.name.trim()) return;
+                      const slot = (config.scheduleSlots||[]).find(s => s.id === scheduleForm.slotId);
+                      await submitScheduleRequest({
+                        name: scheduleForm.name,
+                        slot_id: scheduleForm.slotId || '',
+                        slot_label: slot?.label || scheduleForm.type || '',
+                        description: scheduleForm.description,
+                        duration: parseInt(scheduleForm.duration) || 5,
+                      });
+                      setScheduleSubmitted(true);
+                    }}
                     disabled={!scheduleForm.name.trim()}
                   >
                     Anfrage senden 🎊
@@ -480,7 +495,10 @@ export default function GuestPage() {
                   <button className="btn btn-secondary btn-sm" onClick={() => setSongs([...songs, { title:'', artist:'' }])}>
                     <IconPlus size={13} stroke={2} /> Weiterer Song
                   </button>
-                  <button className="btn btn-primary" style={{ flex: 1, justifyContent: 'center' }} onClick={() => setSongSent(true)}>
+                  <button className="btn btn-primary" style={{ flex: 1, justifyContent: 'center' }} onClick={async () => {
+                    await submitMusicWish({ sender_name: '', songs });
+                    setSongSent(true);
+                  }}>
                     Absenden <IconMusic size={14} stroke={1.5} />
                   </button>
                 </div>
@@ -561,7 +579,13 @@ export default function GuestPage() {
                   <button
                     className="btn btn-primary"
                     style={{ width: '100%', justifyContent: 'center' }}
-                    onClick={() => { if (uploads.length > 0) setUploadDone(true); }}
+                    onClick={async () => {
+                    if (!uploads.length) return;
+                    for (const file of uploads) {
+                      await uploadPhoto(file, uploadName || 'Gast', 'guest');
+                    }
+                    setUploadDone(true);
+                  }}
                     disabled={uploads.length === 0}
                   >
                     <IconUpload size={15} stroke={2} /> Fotos einreichen
