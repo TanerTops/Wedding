@@ -31,7 +31,9 @@ export default function GuestPageSettings() {
   function buildShareUrl() {
     const tl = loadState('timeline', []);
     const reg = loadState('registry', []);
-    const payload = { wedding, config, timeline: tl, registry: reg };
+    const memories = loadState('memories', []).filter(p => p.approved);
+    const memCats = loadState('memoryCategories', []);
+    const payload = { wedding, config, timeline: tl, registry: reg, memories, memoryCategories: memCats };
     try { const b64 = btoa(encodeURIComponent(JSON.stringify(payload))); return `${window.location.origin}/guest/${makeSlug(wedding)}#data=${b64}`; } catch { return `${window.location.origin}/guest/${makeSlug(wedding)}`; }
   }
   const guestUrl = buildShareUrl();
