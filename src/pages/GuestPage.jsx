@@ -102,18 +102,10 @@ export default function GuestPage() {
     <div style={{ minHeight: '100vh', background: 'var(--cream)', fontFamily: "'DM Sans', sans-serif" }}>
 
       {/* NAV */}
-      <nav style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100, background: 'rgba(251,247,240,0.92)', backdropFilter: 'blur(12px)', borderBottom: '1px solid var(--sand)', height: 56, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 24px' }}>
-        <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 19, fontStyle: 'italic', color: 'var(--brown)' }}>
-          {wedding.bride} & {wedding.groom}
-        </div>
-        <div style={{ display: 'flex', gap: 2, flexWrap: 'wrap' }} className="guest-nav-links">
-          {activeSections.map(s => (
-            <button key={s.id} onClick={() => scrollTo(s.id)} style={{ padding: '5px 12px', borderRadius: 30, fontSize: 12, border: 'none', cursor: 'pointer', background: active === s.id ? 'var(--sand)' : 'transparent', color: active === s.id ? 'var(--espresso)' : 'var(--mocha)', fontWeight: active === s.id ? 500 : 400, transition: 'all .15s', fontFamily: "'DM Sans',sans-serif" }}>
-              {s.label}
-            </button>
-          ))}
-        </div>
-      </nav>
+      <GuestNav
+        bride={wedding.bride} groom={wedding.groom}
+        sections={activeSections} active={active} onNav={scrollTo}
+      />
 
       {/* HERO */}
       <section id="hero" style={{ minHeight: '100vh', paddingTop: 56, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden', background: config.heroImageUrl ? `linear-gradient(rgba(0,0,0,0.28),rgba(0,0,0,0.18)), url(${config.heroImageUrl}) ${config.heroImagePosition}/cover no-repeat` : 'linear-gradient(160deg,#FDF8F0 0%,#F0E8D8 50%,#EAE0D0 100%)' }}>
@@ -326,6 +318,86 @@ export default function GuestPage() {
         </section>
       )}
 
+      {/* SCHEDULE — programme slot requests */}
+      {config.sections?.schedule !== false && (
+        <section id="schedule" style={{ background: '#fff' }}>
+          <div className="guest-section">
+            <SectionHeader
+              title={config.scheduleTitle || 'Programmwünsche'}
+              sub={config.scheduleSubtitle || 'Habt ihr eine Rede, einen Auftritt oder eine Überraschung geplant? Meldet euch hier!'}
+            />
+
+            {scheduleSubmitted ? (
+              <div style={{ textAlign: 'center', padding: '40px 0' }}>
+                <div style={{ fontSize: 44, marginBottom: 12 }}>🎉</div>
+                <h3 style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 26, color: 'var(--espresso)', marginBottom: 8 }}>Vielen Dank!</h3>
+                <p style={{ color: 'var(--mocha)', fontSize: 14 }}>Euer Programmwunsch ist eingegangen. Wir melden uns!</p>
+              </div>
+            ) : (
+              <div style={{ maxWidth: 520, margin: '0 auto' }}>
+                {/* Slot cards */}
+                {(config.scheduleSlots || []).length > 0 && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 28 }}>
+                    {(config.scheduleSlots || []).map(slot => (
+                      <div key={slot.id}
+                        onClick={() => setScheduleForm(f => ({ ...f, slotId: slot.id === f.slotId ? '' : slot.id }))}
+                        style={{
+                          padding: '14px 18px', borderRadius: 14, cursor: 'pointer', transition: 'all .15s',
+                          border: `2px solid ${scheduleForm.slotId === slot.id ? 'var(--terra)' : 'var(--sand)'}`,
+                          background: scheduleForm.slotId === slot.id ? '#FDF5E8' : '#fff',
+                        }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <div>
+                            <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--espresso)' }}>{slot.label}</div>
+                            <div style={{ fontSize: 12, color: 'var(--mocha)', marginTop: 2 }}>
+                              🕐 {slot.time} · max. {slot.maxMin} Minuten
+                            </div>
+                          </div>
+                          <div style={{ width: 22, height: 22, borderRadius: '50%', border: `2px solid ${scheduleForm.slotId === slot.id ? 'var(--terra)' : 'var(--sand)'}`, background: scheduleForm.slotId === slot.id ? 'var(--terra)' : '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                            {scheduleForm.slotId === slot.id && <span style={{ color: '#fff', fontSize: 11, fontWeight: 700 }}>✓</span>}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Form */}
+                <div className="card" style={{ padding: 22 }}>
+                  <div className="form-group">
+                    <label className="form-label">Euer Name *</label>
+                    <input className="input" placeholder="Vollständiger Name" value={scheduleForm.name} onChange={e => setScheduleForm(f => ({ ...f, name: e.target.value }))} />
+                  </div>
+                  {(!config.scheduleSlots || config.scheduleSlots.length === 0) && (
+                    <div className="form-group">
+                      <label className="form-label">Art des Programmpunkts</label>
+                      <input className="input" placeholder="z.B. Rede, Spiel, Auftritt" value={scheduleForm.type} onChange={e => setScheduleForm(f => ({ ...f, type: e.target.value }))} />
+                    </div>
+                  )}
+                  <div className="form-group">
+                    <label className="form-label">Beschreibung</label>
+                    <textarea className="input" rows={3} placeholder="Was habt ihr geplant? Wie können wir helfen?" value={scheduleForm.description} onChange={e => setScheduleForm(f => ({ ...f, description: e.target.value }))} style={{ resize: 'vertical' }} />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Benötigte Zeit (Minuten)</label>
+                    <input className="input" type="number" min="1" max="60" placeholder="5" value={scheduleForm.duration} onChange={e => setScheduleForm(f => ({ ...f, duration: e.target.value }))} />
+                  </div>
+                  <button
+                    className="btn btn-primary"
+                    style={{ width: '100%', justifyContent: 'center', marginTop: 4 }}
+                    onClick={() => { if (scheduleForm.name.trim()) setScheduleSubmitted(true); }}
+                    disabled={!scheduleForm.name.trim()}
+                  >
+                    Anfrage senden 🎊
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </section>
+      )}
+
+
       {/* LOCATION </section>
       )}
 
@@ -444,84 +516,6 @@ export default function GuestPage() {
         </section>
       )}
 
-      {/* SCHEDULE — programme slot requests */}
-      {config.sections?.schedule !== false && (
-        <section id="schedule" style={{ background: '#fff' }}>
-          <div className="guest-section">
-            <SectionHeader
-              title={config.scheduleTitle || 'Programmwünsche'}
-              sub={config.scheduleSubtitle || 'Habt ihr eine Rede, einen Auftritt oder eine Überraschung geplant? Meldet euch hier!'}
-            />
-
-            {scheduleSubmitted ? (
-              <div style={{ textAlign: 'center', padding: '40px 0' }}>
-                <div style={{ fontSize: 44, marginBottom: 12 }}>🎉</div>
-                <h3 style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 26, color: 'var(--espresso)', marginBottom: 8 }}>Vielen Dank!</h3>
-                <p style={{ color: 'var(--mocha)', fontSize: 14 }}>Euer Programmwunsch ist eingegangen. Wir melden uns!</p>
-              </div>
-            ) : (
-              <div style={{ maxWidth: 520, margin: '0 auto' }}>
-                {/* Slot cards */}
-                {(config.scheduleSlots || []).length > 0 && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 28 }}>
-                    {(config.scheduleSlots || []).map(slot => (
-                      <div key={slot.id}
-                        onClick={() => setScheduleForm(f => ({ ...f, slotId: slot.id === f.slotId ? '' : slot.id }))}
-                        style={{
-                          padding: '14px 18px', borderRadius: 14, cursor: 'pointer', transition: 'all .15s',
-                          border: `2px solid ${scheduleForm.slotId === slot.id ? 'var(--terra)' : 'var(--sand)'}`,
-                          background: scheduleForm.slotId === slot.id ? '#FDF5E8' : '#fff',
-                        }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <div>
-                            <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--espresso)' }}>{slot.label}</div>
-                            <div style={{ fontSize: 12, color: 'var(--mocha)', marginTop: 2 }}>
-                              🕐 {slot.time} · max. {slot.maxMin} Minuten
-                            </div>
-                          </div>
-                          <div style={{ width: 22, height: 22, borderRadius: '50%', border: `2px solid ${scheduleForm.slotId === slot.id ? 'var(--terra)' : 'var(--sand)'}`, background: scheduleForm.slotId === slot.id ? 'var(--terra)' : '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                            {scheduleForm.slotId === slot.id && <span style={{ color: '#fff', fontSize: 11, fontWeight: 700 }}>✓</span>}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {/* Form */}
-                <div className="card" style={{ padding: 22 }}>
-                  <div className="form-group">
-                    <label className="form-label">Euer Name *</label>
-                    <input className="input" placeholder="Vollständiger Name" value={scheduleForm.name} onChange={e => setScheduleForm(f => ({ ...f, name: e.target.value }))} />
-                  </div>
-                  {(!config.scheduleSlots || config.scheduleSlots.length === 0) && (
-                    <div className="form-group">
-                      <label className="form-label">Art des Programmpunkts</label>
-                      <input className="input" placeholder="z.B. Rede, Spiel, Auftritt" value={scheduleForm.type} onChange={e => setScheduleForm(f => ({ ...f, type: e.target.value }))} />
-                    </div>
-                  )}
-                  <div className="form-group">
-                    <label className="form-label">Beschreibung</label>
-                    <textarea className="input" rows={3} placeholder="Was habt ihr geplant? Wie können wir helfen?" value={scheduleForm.description} onChange={e => setScheduleForm(f => ({ ...f, description: e.target.value }))} style={{ resize: 'vertical' }} />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Benötigte Zeit (Minuten)</label>
-                    <input className="input" type="number" min="1" max="60" placeholder="5" value={scheduleForm.duration} onChange={e => setScheduleForm(f => ({ ...f, duration: e.target.value }))} />
-                  </div>
-                  <button
-                    className="btn btn-primary"
-                    style={{ width: '100%', justifyContent: 'center', marginTop: 4 }}
-                    onClick={() => { if (scheduleForm.name.trim()) setScheduleSubmitted(true); }}
-                    disabled={!scheduleForm.name.trim()}
-                  >
-                    Anfrage senden 🎊
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        </section>
-      )}
 
       {/* MEMORIES — guest photo upload */}
       {config.sections.memories !== false && (
@@ -589,6 +583,100 @@ export default function GuestPage() {
   );
 }
 
+
+// ── Guest page nav with mobile bottom sheet ──────────────────────
+function GuestNav({ bride, groom, sections, active, onNav }) {
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  function handleNav(id) {
+    onNav(id);
+    setMenuOpen(false);
+  }
+
+  return (
+    <>
+      {/* Desktop & tablet sticky top nav */}
+      <nav style={{
+        position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100,
+        background: 'rgba(251,247,240,0.92)', backdropFilter: 'blur(12px)',
+        borderBottom: '1px solid var(--sand)', height: 56,
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: '0 20px',
+      }}>
+        <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 19, fontStyle: 'italic', color: 'var(--brown)', flexShrink: 0 }}>
+          {bride} & {groom}
+        </div>
+
+        {/* Desktop links */}
+        <div style={{ display: 'flex', gap: 2, flexWrap: 'nowrap', overflow: 'hidden' }} className="guest-nav-links">
+          {sections.map(s => (
+            <button key={s.id} onClick={() => handleNav(s.id)}
+              style={{
+                padding: '5px 11px', borderRadius: 30, fontSize: 12, border: 'none', cursor: 'pointer',
+                background: active === s.id ? 'var(--sand)' : 'transparent',
+                color: active === s.id ? 'var(--espresso)' : 'var(--mocha)',
+                fontWeight: active === s.id ? 500 : 400,
+                transition: 'all .15s', fontFamily: "'DM Sans',sans-serif", whiteSpace: 'nowrap',
+              }}>
+              {s.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Mobile hamburger */}
+        <button
+          onClick={() => setMenuOpen(o => !o)}
+          style={{
+            display: 'none', border: 'none', background: 'var(--warm)', borderRadius: 10,
+            padding: '6px 10px', cursor: 'pointer', color: 'var(--brown)', fontSize: 18,
+            flexShrink: 0,
+          }}
+          className="guest-nav-burger"
+        >
+          {menuOpen ? '✕' : '☰'}
+        </button>
+      </nav>
+
+      {/* Mobile menu sheet */}
+      {menuOpen && (
+        <>
+          <div onClick={() => setMenuOpen(false)}
+            style={{ position: 'fixed', inset: 0, zIndex: 198, background: 'rgba(91,61,30,0.15)' }} />
+          <div style={{
+            position: 'fixed', top: 56, left: 0, right: 0, zIndex: 199,
+            background: 'rgba(251,247,240,0.98)', backdropFilter: 'blur(16px)',
+            borderBottom: '1px solid var(--sand)',
+            padding: '12px 16px 16px',
+            boxShadow: '0 4px 24px rgba(91,61,30,0.12)',
+          }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+              {sections.map(s => (
+                <button key={s.id} onClick={() => handleNav(s.id)}
+                  style={{
+                    padding: '11px 14px', borderRadius: 12, border: `1px solid ${active === s.id ? 'var(--terra)' : 'var(--sand)'}`,
+                    background: active === s.id ? 'var(--sand)' : '#fff',
+                    color: active === s.id ? 'var(--espresso)' : 'var(--mocha)',
+                    fontWeight: active === s.id ? 600 : 400, fontSize: 13.5,
+                    cursor: 'pointer', fontFamily: "'DM Sans',sans-serif",
+                    textAlign: 'left', transition: 'all .15s',
+                  }}>
+                  {s.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+
+      <style>{`
+        @media (max-width: 640px) {
+          .guest-nav-links { display: none !important; }
+          .guest-nav-burger { display: flex !important; }
+        }
+      `}</style>
+    </>
+  );
+}
 
 function GuestMemoriesGallery() {
   const [lightbox, setLightbox] = useState(null);
