@@ -3,7 +3,7 @@ import {
   IconLayoutDashboard, IconUsers, IconWallet, IconCheckbox,
   IconClock, IconLayoutColumns, IconMapPin, IconMusic,
   IconGift, IconNotes, IconSettings, IconExternalLink, IconWorldWww,
-  IconPhoto, IconCamera
+  IconPhoto, IconCamera, IconLogout
 } from '@tabler/icons-react';
 import { loadState, defaultWedding, makeSlug } from '../data/store';
 
@@ -24,7 +24,7 @@ const NAV = [
   { to: '/settings', icon: IconSettings, label: 'Einstellungen' },
 ];
 
-export default function Sidebar() {
+export default function Sidebar({ onLogout }) {
   const wedding = loadState('wedding', defaultWedding);
   const tasks = loadState('tasks', []);
   const days = Math.ceil((new Date(wedding.date) - new Date()) / 86400000);
@@ -69,6 +69,22 @@ export default function Sidebar() {
         </a>
       </nav>
 
+      {onLogout && (
+        <button onClick={onLogout} style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 12px', margin:'0 8px 8px', borderRadius:10, border:'none', background:'none', cursor:'pointer', color:'var(--mocha)', fontSize:12.5, fontFamily:"'DM Sans',sans-serif", width:'calc(100% - 16px)' }}
+          onMouseEnter={e=>e.currentTarget.style.background='var(--warm)'}
+          onMouseLeave={e=>e.currentTarget.style.background='none'}>
+          <IconLogout size={14} stroke={1.5}/> Ausloggen
+        </button>
+      )}
+      {onLogout && (
+        <button onClick={onLogout}
+          style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', margin: '0 8px 8px', borderRadius: 10, border: 'none', background: 'none', cursor: 'pointer', color: 'var(--mocha)', fontSize: 13, fontFamily: "'DM Sans',sans-serif", width: 'calc(100% - 16px)', transition: 'background .15s' }}
+          onMouseEnter={e => e.currentTarget.style.background = 'var(--sand)'}
+          onMouseLeave={e => e.currentTarget.style.background = 'none'}>
+          <IconLogout size={15} stroke={1.5} />
+          Abmelden
+        </button>
+      )}
       <div className="sidebar-footer">with love ♡</div>
     </aside>
   );
