@@ -3,7 +3,7 @@ import { useParams } from 'react-router-dom';
 import { loadState, defaultWedding, defaultTimeline } from '../data/store';
 import {
   IconCalendar, IconMapPin, IconMusic, IconGift, IconShirt,
-  IconChevronDown, IconCheck, IconArrowRight, IconHeart, IconPlus
+  IconChevronDown, IconCheck, IconArrowRight, IconHeart, IconPlus, IconUpload
 } from '@tabler/icons-react';
 
 // ─────────────────────────────────────────────────────────────────
@@ -40,6 +40,7 @@ const SECTION_NAV = [
   { id: 'dresscode', label: 'Dresscode' },
   { id: 'music', label: 'Musik' },
   { id: 'registry', label: 'Geschenke' },
+  { id: 'memories', label: 'Erinnerungen' },
 ];
 
 // Try to load embedded data from URL hash (for sharing across devices)
@@ -63,6 +64,9 @@ export default function GuestPage() {
   const [rsvpDone, setRsvpDone] = useState(false);
   const [songs, setSongs] = useState([{ title: '', artist: '' }]);
   const [songSent, setSongSent] = useState(false);
+  const [uploadName, setUploadName] = useState('');
+  const [uploads, setUploads] = useState([]);
+  const [uploadDone, setUploadDone] = useState(false);
 
   // Load data: URL hash takes priority (shared link), fallback to localStorage, fallback to defaults
   const hashData = loadFromHash();
@@ -401,12 +405,86 @@ export default function GuestPage() {
         </section>
       )}
 
+      {/* MEMORIES — guest photo upload */}
+      {config.sections.memories !== false && (
+        <section id="memories" style={{ background: 'var(--warm)' }}>
+          <div className="guest-section">
+            <SectionHeader title="Eure Erinnerungen" sub="Teilt eure schönsten Fotos vom großen Tag mit uns!" />
+
+            {/* Approved public photos */}
+            <GuestMemoriesGallery />
+
+            {/* Upload form */}
+            <div className="card" style={{ maxWidth: 520, margin: '32px auto 0' }}>
+              <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 20, color: 'var(--espresso)', marginBottom: 4 }}>Foto hochladen</div>
+              <p style={{ fontSize: 13, color: 'var(--mocha)', marginBottom: 16, lineHeight: 1.6 }}>
+                Ladet eure Fotos hoch — wir prüfen sie und schalten die schönsten für alle sichtbar.
+              </p>
+              {uploadDone ? (
+                <div style={{ textAlign: 'center', padding: '24px 0' }}>
+                  <div style={{ fontSize: 36, marginBottom: 10 }}>🌸</div>
+                  <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 20, color: 'var(--espresso)' }}>Vielen Dank!</div>
+                  <div style={{ fontSize: 13, color: 'var(--mocha)', marginTop: 6 }}>Eure Fotos wurden eingereicht und werden bald freigeschaltet.</div>
+                </div>
+              ) : (
+                <>
+                  <div className="form-group">
+                    <label className="form-label">Euer Name</label>
+                    <input className="input" placeholder="Damit wir wissen von wem die Fotos sind" value={uploadName} onChange={e => setUploadName(e.target.value)} />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Fotos auswählen</label>
+                    <input type="file" accept="image/*" multiple
+                      onChange={e => setUploads(Array.from(e.target.files))}
+                      style={{ width: '100%', padding: '8px', border: '1px dashed var(--taupe)', borderRadius: 10, background: 'var(--warm)', fontSize: 13, cursor: 'pointer' }}
+                    />
+                    {uploads.length > 0 && (
+                      <div style={{ fontSize: 12, color: 'var(--mocha)', marginTop: 6 }}>
+                        {uploads.length} {uploads.length === 1 ? 'Foto' : 'Fotos'} ausgewählt
+                      </div>
+                    )}
+                  </div>
+                  <button
+                    className="btn btn-primary"
+                    style={{ width: '100%', justifyContent: 'center' }}
+                    onClick={() => { if (uploads.length > 0) setUploadDone(true); }}
+                    disabled={uploads.length === 0}
+                  >
+                    <IconUpload size={15} stroke={2} /> Fotos einreichen
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* FOOTER */}
       <footer style={{ background: 'var(--warm)', borderTop: '1px solid var(--sand)', padding: '36px 24px', textAlign: 'center' }}>
         <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 24, fontStyle: 'italic', color: 'var(--brown)', marginBottom: 6 }}>{wedding.bride} & {wedding.groom}</div>
         <div style={{ fontSize: 13, color: 'var(--mocha)' }}>{new Date(wedding.date).toLocaleDateString('de-DE', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
         <div style={{ fontSize: 12, color: 'var(--taupe)', marginTop: 12, fontFamily: "'Cormorant Garamond',serif", fontStyle: 'italic' }}>mit Liebe geplant ♡</div>
       </footer>
+    </div>
+  );
+}
+
+
+function GuestMemoriesGallery() {
+  const approvedPhotos = loadState('memories', []).filter(p => p.approved);
+  if (approvedPhotos.length === 0) return null;
+  return (
+    <div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 10, maxWidth: 720, margin: '0 auto' }}>
+        {approvedPhotos.map(photo => (
+          <div key={photo.id} style={{ borderRadius: 12, overflow: 'hidden', aspectRatio: '4/3', background: 'var(--sand)' }}>
+            <img src={photo.thumb || photo.url} alt={photo.name}
+              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+              onError={e => { e.target.style.display='none'; }}
+            />
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
