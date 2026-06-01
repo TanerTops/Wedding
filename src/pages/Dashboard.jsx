@@ -11,6 +11,8 @@ export default function Dashboard() {
   const guests = loadState('guests', defaultGuests);
   const budgetItems = loadState('budgetItems', defaultBudgetItems);
   const tasks = loadState('tasks', defaultTasks);
+  const memories = loadState('memories', []);
+  const pendingUploads = memories.filter(m => !m.approved && m.uploadedBy === 'guest').length;
 
   const days = Math.ceil((new Date(wedding.date) - new Date()) / 86400000);
   const confirmed = guests.filter(g => g.status === 'confirmed').length;
