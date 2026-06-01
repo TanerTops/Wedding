@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { IconPlus, IconTrash, IconX, IconRotateClockwise } from '@tabler/icons-react';
 import { loadState, saveState, defaultSeating, defaultGuests } from '../data/store';
 
@@ -260,6 +260,38 @@ export default function Seating() {
     const pt = svg.createSVGPoint();
     pt.x = e.clientX; pt.y = e.clientY;
     return pt.matrixTransform(svg.getScreenCTM().inverse());
+  }
+
+  function getSVGPointFromTouch(touch) {
+    const svg = svgRef.current;
+    const pt = svg.createSVGPoint();
+    pt.x = touch.clientX; pt.y = touch.clientY;
+    return pt.matrixTransform(svg.getScreenCTM().inverse());
+  }
+
+  // Touch handlers for table drag
+  function onTableTouchStart(e, tableId) {
+    e.stopPropagation();
+    const touch = e.touches[0];
+    const p = getSVGPointFromTouch(touch);
+    const t = seating.tables.find(t => t.id === tableId);
+    setDraggingTable({ id: tableId, offX: p.x - t.x, offY: p.y - t.y });
+    setSelectedTable(tableId);
+  }
+
+  function onSvgTouchMove(e) {
+    if (!draggingTable) return;
+    e.preventDefault();
+    const touch = e.touches[0];
+    const p = getSVGPointFromTouch(touch);
+    const newX = Math.max(60, Math.min(CANVAS_W - 60, p.x - draggingTable.offX));
+    const newY = Math.max(60, Math.min(CANVAS_H - 60, p.y - draggingTable.offY));
+    setSeating(s => ({ ...s, tables: s.tables.map(t => t.id === draggingTable.id ? { ...t, x: newX, y: newY } : t) }));
+  }
+
+  function onSvgTouchEnd() {
+    if (draggingTable) saveState('seating', seating);
+    setDraggingTable(null);
   }
 
   // ── Table drag ──────────────────────────────────────────────────
@@ -587,6 +619,17 @@ export default function Seating() {
 
   const selTable = seating.tables.find(t => t.id === selectedTable);
 
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 769;
+
+  if (isMobile) {
+    return <MobileSeating
+      seating={seating} guests={guests} blockedSeats={blockedSeats}
+      invisibleSeats={invisibleSeats} seatOffsets={seatOffsets}
+      assignedIds={assignedIds} unassigned={unassigned}
+      onSave={save} selectedTable={selectedTable} setSelectedTable={setSelectedTable}
+    />;
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
       <div className="topbar" style={{ flexShrink: 0 }}>
@@ -667,6 +710,8 @@ export default function Seating() {
             onMouseMove={onSvgMouseMove}
             onMouseUp={onSvgMouseUp}
             onMouseLeave={onSvgMouseUp}
+            onTouchMove={onSvgTouchMove}
+            onTouchEnd={onSvgTouchEnd}
             onClick={e => { if (e.target === svgRef.current) setSelectedTable(null); }}
           >
             {seating.tables.map(renderTable)}
@@ -830,6 +875,242 @@ export default function Seating() {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+
+// ── Mobile Seating View ──────────────────────────────────────────
+function MobileSeating({ seating, guests, blockedSeats, invisibleSeats, seatOffsets, assignedIds, unassigned, onSave, selectedTable, setSelectedTable }) {
+  const [modal, setModal] = useState(null); // 'addTable' | tableId (assign guest)
+  const [newTable, setNewTable] = useState({ name: '', shape: 'round', seats: 8 });
+  const [assignGuest, setAssignGuest] = useState('');
+  const [activeSeat, setActiveSeat] = useState(null); // {tableId, seatIdx}
+
+  function addTable() {
+    if (!newTable.name.trim()) return;
+    const id = Math.max(0, ...seating.tables.map(t => t.id)) + 1;
+    onSave({ ...seating, tables: [...seating.tables, { id, name: newTable.name, shape: newTable.shape, seats: newTable.seats, guests: [], seatOrder: [], rotation: 0, x: 200, y: 200 }] });
+    setNewTable({ name: '', shape: 'round', seats: 8 });
+    setModal(null);
+  }
+
+  function removeFromSeat(tableId, guestId, si) {
+    onSave({ ...seating, tables: seating.tables.map(t => t.id !== tableId ? t : { ...t, guests: t.guests.filter(g => g !== guestId), seatOrder: (t.seatOrder||[]).map((g,i) => i===si ? null : g) }) });
+  }
+
+  function assignToSeat() {
+    if (!activeSeat || !assignGuest) return;
+    const { tableId, seatIdx } = activeSeat;
+    const gid = parseInt(assignGuest);
+    const table = seating.tables.find(t => t.id === tableId);
+    const newGuests = table.guests.includes(gid) ? table.guests : [...table.guests, gid];
+    const newOrder = [...(table.seatOrder||[])];
+    newOrder[seatIdx] = gid;
+    onSave({ ...seating, tables: seating.tables.map(t => t.id !== tableId ? t : { ...t, guests: newGuests, seatOrder: newOrder }) });
+    setActiveSeat(null);
+    setAssignGuest('');
+    setModal(null);
+  }
+
+  function deleteTable(id) {
+    if (!window.confirm('Tisch löschen?')) return;
+    onSave({ ...seating, tables: seating.tables.filter(t => t.id !== id) });
+  }
+
+  const confirmedGuests = guests.filter(g => g.status === 'confirmed');
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', background: 'var(--cream)' }}>
+      {/* Topbar */}
+      <div className="topbar">
+        <div>
+          <h1>Sitzordnung</h1>
+          <div className="topbar-sub">{assignedIds.length} / {confirmedGuests.length} Gäste platziert</div>
+        </div>
+        <button className="btn btn-primary btn-sm" onClick={() => setModal('addTable')}>
+          <IconPlus size={14} stroke={2} /> Tisch
+        </button>
+      </div>
+
+      <div style={{ padding: '14px 14px 100px' }}>
+
+        {/* Unassigned banner */}
+        {unassigned.length > 0 && (
+          <div className="card" style={{ marginBottom: 14, borderLeft: '3px solid var(--gold)', padding: '12px 14px' }}>
+            <div className="section-title" style={{ marginBottom: 8 }}>Noch nicht zugewiesen ({unassigned.length})</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+              {unassigned.map(g => (
+                <div key={g.id} style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'var(--warm)', padding: '3px 9px', borderRadius: 20, fontSize: 12, border: '1px solid var(--sand)' }}>
+                  <div className="avatar" style={{ width: 18, height: 18, background: avc(g.id), fontSize: 8 }}>{ini(g.name)}</div>
+                  {g.name}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Table cards */}
+        {seating.tables.map(table => {
+          const seatOrder = table.seatOrder || [];
+          const worldSeats = getWorldSeats(table);
+          const tableOffset = seatOffsets[table.id] ?? 0;
+          let globalCounter = tableOffset;
+          const globalSeatNum = {};
+          worldSeats.forEach((_, si) => {
+            const key = `${table.id}_${si}`;
+            if (!blockedSeats[key] && !invisibleSeats[key]) {
+              globalSeatNum[si] = globalCounter + 1;
+              globalCounter++;
+            }
+          });
+
+          const tGuests = table.guests.map(id => guests.find(g => g.id === id)).filter(Boolean);
+          const isSelected = selectedTable === table.id;
+
+          return (
+            <div key={table.id} className="card" style={{ marginBottom: 12, border: isSelected ? '2px solid var(--terra)' : '1px solid var(--sand)' }}
+              onClick={() => setSelectedTable(isSelected ? null : table.id)}>
+
+              {/* Table header */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                <div>
+                  <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--espresso)' }}>{table.name}</div>
+                  <div style={{ fontSize: 11.5, color: 'var(--mocha)' }}>
+                    {table.shape === 'round' ? '⬤ Rund' : table.shape === 'rect' ? '▬ Rechteckig' : '■ Quadratisch'}
+                    · {table.guests.length}/{table.seats} Plätze
+                  </div>
+                </div>
+                <button className="btn-icon" style={{ color: '#E57373' }} onClick={e => { e.stopPropagation(); deleteTable(table.id); }}>
+                  <IconTrash size={14} stroke={1.5} />
+                </button>
+              </div>
+
+              {/* Progress bar */}
+              <div className="progress-bar" style={{ marginBottom: 12 }}>
+                <div className="progress-fill" style={{ width: (table.guests.length/table.seats*100)+'%', background: table.guests.length >= table.seats ? 'var(--blush)' : 'var(--sage)' }} />
+              </div>
+
+              {/* Seat grid */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(52px, 1fr))', gap: 6 }}>
+                {worldSeats.map((_, si) => {
+                  const key = `${table.id}_${si}`;
+                  if (invisibleSeats[key]) return null;
+                  const isBlocked = blockedSeats[key];
+                  const occupantId = seatOrder[si];
+                  const occupant = occupantId ? guests.find(g => g.id === occupantId) : null;
+                  const num = globalSeatNum[si];
+                  const isActive = activeSeat?.tableId === table.id && activeSeat?.seatIdx === si;
+
+                  return (
+                    <div key={si}
+                      onClick={e => {
+                        e.stopPropagation();
+                        if (isBlocked) return;
+                        if (occupant) { removeFromSeat(table.id, occupant.id, si); return; }
+                        setActiveSeat({ tableId: table.id, seatIdx: si });
+                        setModal('assignSeat');
+                      }}
+                      style={{
+                        height: 44, borderRadius: 8, display: 'flex', flexDirection: 'column',
+                        alignItems: 'center', justifyContent: 'center', gap: 1,
+                        background: isBlocked ? 'var(--sand)' : occupant ? avc(occupant.id) : isActive ? '#E8D5C0' : 'var(--warm)',
+                        border: `1px ${isBlocked ? 'solid #D4C0A8' : isActive ? 'solid var(--terra)' : occupant ? 'solid transparent' : 'dashed #C4A882'}`,
+                        cursor: isBlocked ? 'not-allowed' : 'pointer',
+                        transition: 'all .15s',
+                      }}
+                    >
+                      {isBlocked ? (
+                        <span style={{ fontSize: 12, color: '#C4A882' }}>✕</span>
+                      ) : occupant ? (
+                        <>
+                          <span style={{ fontSize: 10, fontWeight: 700, color: '#fff' }}>{ini(occupant.name)}</span>
+                          <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.8)' }}>{num}</span>
+                        </>
+                      ) : (
+                        <span style={{ fontSize: 11, color: '#C4A882', fontWeight: 500 }}>{num}</span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Guest list under table */}
+              {tGuests.length > 0 && (
+                <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--sand)' }}>
+                  {tGuests.map(g => (
+                    <div key={g.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0' }}>
+                      <div className="avatar" style={{ width: 24, height: 24, background: avc(g.id), fontSize: 9 }}>{ini(g.name)}</div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 12.5, fontWeight: 500, color: 'var(--espresso)' }}>{g.name}</div>
+                        {g.menu && <div style={{ fontSize: 11, color: 'var(--mocha)' }}>{g.menu}</div>}
+                      </div>
+                      <button className="btn-icon" style={{ padding: '2px 5px', fontSize: 11 }}
+                        onClick={e => { e.stopPropagation(); const si = seatOrder.indexOf(g.id); if (si >= 0) removeFromSeat(table.id, g.id, si); }}>
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
+
+        {seating.tables.length === 0 && (
+          <div className="card empty-state">
+            <div style={{ fontSize: 32, marginBottom: 10 }}>🌿</div>
+            <p>Noch keine Tische angelegt</p>
+          </div>
+        )}
+      </div>
+
+      {/* Modals */}
+      {modal === 'addTable' && (
+        <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setModal(null)}>
+          <div className="modal">
+            <h3>Tisch anlegen</h3>
+            <div className="form-group"><label className="form-label">Name</label><input className="input" placeholder="z.B. Tisch 1 – Familie" value={newTable.name} onChange={e => setNewTable(n => ({ ...n, name: e.target.value }))} /></div>
+            <div className="form-group">
+              <label className="form-label">Form</label>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
+                {[{ s: 'round', l: 'Rund', i: '⬤' }, { s: 'rect', l: 'Eckig', i: '▬' }, { s: 'square', l: 'Quadr.', i: '■' }].map(o => (
+                  <div key={o.s} onClick={() => setNewTable(n => ({ ...n, shape: o.s }))}
+                    style={{ padding: '10px 6px', borderRadius: 10, border: `2px solid ${newTable.shape === o.s ? 'var(--terra)' : 'var(--sand)'}`, background: newTable.shape === o.s ? '#FDF5E8' : '#fff', cursor: 'pointer', textAlign: 'center' }}>
+                    <div style={{ fontSize: 18, marginBottom: 3 }}>{o.i}</div>
+                    <div style={{ fontSize: 11, fontWeight: newTable.shape === o.s ? 600 : 400, color: 'var(--espresso)' }}>{o.l}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="form-group"><label className="form-label">Sitzplätze</label><input className="input" type="number" min="2" max="20" value={newTable.seats} onChange={e => setNewTable(n => ({ ...n, seats: parseInt(e.target.value) || 8 }))} /></div>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button className="btn btn-secondary" onClick={() => setModal(null)}>Abbrechen</button>
+              <button className="btn btn-primary" onClick={addTable}>Anlegen</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {modal === 'assignSeat' && activeSeat && (
+        <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setModal(null)}>
+          <div className="modal">
+            <h3>Gast zuweisen</h3>
+            <div className="form-group">
+              <label className="form-label">Gast auswählen</label>
+              <select className="input" value={assignGuest} onChange={e => setAssignGuest(e.target.value)}>
+                <option value="">– Gast wählen –</option>
+                {unassigned.map(g => <option key={g.id} value={g.id}>{g.name} ({g.group})</option>)}
+              </select>
+            </div>
+            {unassigned.length === 0 && <p style={{ fontSize: 13, color: 'var(--mocha)', marginBottom: 12 }}>Alle Gäste sind bereits platziert.</p>}
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button className="btn btn-secondary" onClick={() => setModal(null)}>Abbrechen</button>
+              <button className="btn btn-primary" onClick={assignToSeat}>Zuweisen</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
