@@ -2,7 +2,8 @@ import { NavLink } from 'react-router-dom';
 import {
   IconLayoutDashboard, IconUsers, IconWallet, IconCheckbox,
   IconClock, IconLayoutColumns, IconMapPin, IconMusic,
-  IconGift, IconNotes, IconSettings, IconExternalLink, IconWorldWww
+  IconGift, IconNotes, IconSettings, IconExternalLink, IconWorldWww,
+  IconPhoto, IconCamera
 } from '@tabler/icons-react';
 import { loadState, defaultWedding, makeSlug } from '../data/store';
 
@@ -18,6 +19,8 @@ const NAV = [
   { to: '/registry', icon: IconGift, label: 'Geschenke' },
   { to: '/notes', icon: IconNotes, label: 'Notizen' },
   { to: '/guest-page', icon: IconWorldWww, label: 'Gästeseite' },
+  { to: '/memories', icon: IconPhoto, label: 'Erinnerungen' },
+  { to: '/photos', icon: IconCamera, label: 'Fotoplanung' },
   { to: '/settings', icon: IconSettings, label: 'Einstellungen' },
 ];
 
