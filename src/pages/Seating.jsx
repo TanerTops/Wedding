@@ -848,18 +848,32 @@ export default function Seating() {
                           {blocked ? (
                             <span style={{ fontSize:11, color:'var(--mocha)', fontStyle:'italic' }}>Gesperrt</span>
                           ) : (
-                            <select className="input" style={{ fontSize:12, padding:'4px 8px' }} value={occupantId||''}
-                              onChange={e=>{
-                                const newGid = e.target.value ? parseInt(e.target.value) : null;
-                                const oldOrder = [...(liveTable.seatOrder||[])];
-                                let newGuests = [...(liveTable.guests||[])];
-                                if (oldOrder[si]) newGuests = newGuests.filter(g=>g!==oldOrder[si]);
-                                oldOrder[si] = newGid;
-                                if (newGid&&!newGuests.includes(newGid)) newGuests.push(newGid);
-                                updateTable(liveTable.id,{guests:newGuests,seatOrder:oldOrder});
-                              }}>
-                              {available.map(g=><option key={g.id||'null'} value={g.id||''}>{g.name||g.id}</option>)}
-                            </select>
+                            <div style={{ display:'flex', gap:4 }}>
+                              <select className="input" style={{ fontSize:12, padding:'4px 8px', flex:1 }} value={occupantId||''}
+                                onChange={e=>{
+                                  const newGid = e.target.value ? parseInt(e.target.value) : null;
+                                  const oldOrder = [...(liveTable.seatOrder||[])];
+                                  let newGuests = [...(liveTable.guests||[])];
+                                  if (oldOrder[si]) newGuests = newGuests.filter(g=>g!==oldOrder[si]);
+                                  oldOrder[si] = newGid;
+                                  if (newGid&&!newGuests.includes(newGid)) newGuests.push(newGid);
+                                  updateTable(liveTable.id,{guests:newGuests,seatOrder:oldOrder});
+                                }}>
+                                {available.map(g=><option key={g.id||'null'} value={g.id||''}>{g.name||g.id}</option>)}
+                              </select>
+                              {occupantId && (
+                                <button className="btn-icon" style={{ background:'#FEE2E2', color:'#991B1B', padding:'4px 7px', flexShrink:0 }}
+                                  onClick={()=>{
+                                    const oldOrder=[...(liveTable.seatOrder||[])];
+                                    let newGuests=[...(liveTable.guests||[])];
+                                    newGuests=newGuests.filter(g=>g!==oldOrder[si]);
+                                    oldOrder[si]=null;
+                                    updateTable(liveTable.id,{guests:newGuests,seatOrder:oldOrder});
+                                  }}>
+                                  <IconTrash size={11} stroke={1.5}/>
+                                </button>
+                              )}
+                            </div>
                           )}
                         </div>
                       );
@@ -880,70 +894,124 @@ export default function Seating() {
 }
 
 
+
 // ── Mobile Seating View ──────────────────────────────────────────
-function MobileSeating({ seating, guests, blockedSeats, invisibleSeats, seatOffsets, assignedIds, unassigned, onSave, selectedTable, setSelectedTable }) {
-  const [modal, setModal] = useState(null); // 'addTable' | tableId (assign guest)
+// Full mobile-optimised layout:
+// - Large seat tiles (easy to tap)
+// - Tap empty seat → pick guest from dropdown
+// - Tap occupied seat → options: change / remove
+// - Swipe-friendly table cards
+// - No drag needed — all via taps
+function MobileSeating({ seating, guests, blockedSeats, invisibleSeats, seatOffsets, assignedIds, unassigned, onSave }) {
+  const [modal, setModal] = useState(null);
+  // modal: null | 'addTable' | 'editSeat' | 'tableMenu'
   const [newTable, setNewTable] = useState({ name: '', shape: 'round', seats: 8 });
+  const [activeSeat, setActiveSeat] = useState(null); // { tableId, seatIdx, occupantId }
+  const [activeTableId, setActiveTableId] = useState(null);
   const [assignGuest, setAssignGuest] = useState('');
-  const [activeSeat, setActiveSeat] = useState(null); // {tableId, seatIdx}
+
+  const confirmedGuests = guests.filter(g => g.status === 'confirmed');
 
   function addTable() {
     if (!newTable.name.trim()) return;
     const id = Math.max(0, ...seating.tables.map(t => t.id)) + 1;
-    onSave({ ...seating, tables: [...seating.tables, { id, name: newTable.name, shape: newTable.shape, seats: newTable.seats, guests: [], seatOrder: [], rotation: 0, x: 200, y: 200 }] });
+    onSave({ ...seating, tables: [...seating.tables, {
+      id, name: newTable.name, shape: newTable.shape,
+      seats: newTable.seats, guests: [], seatOrder: [],
+      rotation: 0, x: 200, y: 200
+    }]});
     setNewTable({ name: '', shape: 'round', seats: 8 });
-    setModal(null);
-  }
-
-  function removeFromSeat(tableId, guestId, si) {
-    onSave({ ...seating, tables: seating.tables.map(t => t.id !== tableId ? t : { ...t, guests: t.guests.filter(g => g !== guestId), seatOrder: (t.seatOrder||[]).map((g,i) => i===si ? null : g) }) });
-  }
-
-  function assignToSeat() {
-    if (!activeSeat || !assignGuest) return;
-    const { tableId, seatIdx } = activeSeat;
-    const gid = parseInt(assignGuest);
-    const table = seating.tables.find(t => t.id === tableId);
-    const newGuests = table.guests.includes(gid) ? table.guests : [...table.guests, gid];
-    const newOrder = [...(table.seatOrder||[])];
-    newOrder[seatIdx] = gid;
-    onSave({ ...seating, tables: seating.tables.map(t => t.id !== tableId ? t : { ...t, guests: newGuests, seatOrder: newOrder }) });
-    setActiveSeat(null);
-    setAssignGuest('');
     setModal(null);
   }
 
   function deleteTable(id) {
     if (!window.confirm('Tisch löschen?')) return;
     onSave({ ...seating, tables: seating.tables.filter(t => t.id !== id) });
+    setModal(null);
   }
 
-  const confirmedGuests = guests.filter(g => g.status === 'confirmed');
+  function removeGuestFromSeat(tableId, guestId, si) {
+    onSave({ ...seating, tables: seating.tables.map(t => {
+      if (t.id !== tableId) return t;
+      return {
+        ...t,
+        guests: t.guests.filter(g => g !== guestId),
+        seatOrder: (t.seatOrder||[]).map((g, i) => i === si ? null : g)
+      };
+    })});
+  }
+
+  function assignGuestToSeat() {
+    if (!activeSeat || !assignGuest) return;
+    const { tableId, seatIdx } = activeSeat;
+    const gid = parseInt(assignGuest);
+    const table = seating.tables.find(t => t.id === tableId);
+    // Remove guest from any existing seat first
+    const cleanOrder = (table.seatOrder||[]).map(g => g === gid ? null : g);
+    const cleanGuests = table.guests.filter(g => g !== gid);
+    const newOrder = [...cleanOrder];
+    newOrder[seatIdx] = gid;
+    const newGuests = [...cleanGuests, gid];
+    onSave({ ...seating, tables: seating.tables.map(t =>
+      t.id !== tableId ? t : { ...t, guests: newGuests, seatOrder: newOrder }
+    )});
+    setActiveSeat(null);
+    setAssignGuest('');
+    setModal(null);
+  }
+
+  function moveGuestToSeat() {
+    // Same as assign but guest already has a seat — move them
+    assignGuestToSeat();
+  }
+
+  function tapSeat(table, si) {
+    const key = `${table.id}_${si}`;
+    if (blockedSeats[key] || invisibleSeats[key]) return;
+    const seatOrder = table.seatOrder || [];
+    const occupantId = seatOrder[si];
+    setActiveSeat({ tableId: table.id, seatIdx: si, occupantId });
+    setAssignGuest(occupantId ? String(occupantId) : '');
+    setModal('editSeat');
+  }
+
+  // Available guests for a seat: unassigned + current occupant
+  function availableFor(tableId, currentOccupantId) {
+    return [
+      { id: null, name: '– Sitz frei lassen –' },
+      ...guests.filter(g =>
+        g.status !== 'declined' &&
+        (!assignedIds.includes(g.id) || g.id === currentOccupantId)
+      )
+    ];
+  }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', background: 'var(--cream)' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--cream)', paddingBottom: 80 }}>
       {/* Topbar */}
       <div className="topbar">
         <div>
           <h1>Sitzordnung</h1>
-          <div className="topbar-sub">{assignedIds.length} / {confirmedGuests.length} Gäste platziert</div>
+          <div className="topbar-sub">{assignedIds.length} / {confirmedGuests.length} platziert</div>
         </div>
         <button className="btn btn-primary btn-sm" onClick={() => setModal('addTable')}>
           <IconPlus size={14} stroke={2} /> Tisch
         </button>
       </div>
 
-      <div style={{ padding: '14px 14px 100px' }}>
+      <div style={{ padding: '14px 14px' }}>
 
-        {/* Unassigned banner */}
+        {/* Unassigned guests */}
         {unassigned.length > 0 && (
-          <div className="card" style={{ marginBottom: 14, borderLeft: '3px solid var(--gold)', padding: '12px 14px' }}>
-            <div className="section-title" style={{ marginBottom: 8 }}>Noch nicht zugewiesen ({unassigned.length})</div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+          <div className="card-warm" style={{ marginBottom: 14, borderLeft: '3px solid var(--gold)', padding: '12px 14px' }}>
+            <div className="section-title" style={{ marginBottom: 8 }}>
+              Nicht zugewiesen ({unassigned.length})
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
               {unassigned.map(g => (
-                <div key={g.id} style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'var(--warm)', padding: '3px 9px', borderRadius: 20, fontSize: 12, border: '1px solid var(--sand)' }}>
-                  <div className="avatar" style={{ width: 18, height: 18, background: avc(g.id), fontSize: 8 }}>{ini(g.name)}</div>
-                  {g.name}
+                <div key={g.id} style={{ display: 'flex', alignItems: 'center', gap: 5, background: '#fff', padding: '4px 10px', borderRadius: 20, fontSize: 12, border: '1px solid var(--sand)' }}>
+                  <div className="avatar" style={{ width: 20, height: 20, background: avc(g.id), fontSize: 9 }}>{ini(g.name)}</div>
+                  <span style={{ color: 'var(--espresso)' }}>{g.name}</span>
                 </div>
               ))}
             </div>
@@ -955,102 +1023,129 @@ function MobileSeating({ seating, guests, blockedSeats, invisibleSeats, seatOffs
           const seatOrder = table.seatOrder || [];
           const worldSeats = getWorldSeats(table);
           const tableOffset = seatOffsets[table.id] ?? 0;
-          let globalCounter = tableOffset;
-          const globalSeatNum = {};
+          let counter = tableOffset;
+          const seatNums = {};
           worldSeats.forEach((_, si) => {
             const key = `${table.id}_${si}`;
             if (!blockedSeats[key] && !invisibleSeats[key]) {
-              globalSeatNum[si] = globalCounter + 1;
-              globalCounter++;
+              seatNums[si] = counter + 1;
+              counter++;
             }
           });
-
           const tGuests = table.guests.map(id => guests.find(g => g.id === id)).filter(Boolean);
-          const isSelected = selectedTable === table.id;
+          const pct = table.guests.length / table.seats;
 
           return (
-            <div key={table.id} className="card" style={{ marginBottom: 12, border: isSelected ? '2px solid var(--terra)' : '1px solid var(--sand)' }}
-              onClick={() => setSelectedTable(isSelected ? null : table.id)}>
-
+            <div key={table.id} className="card" style={{ marginBottom: 14 }}>
               {/* Table header */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
                 <div>
-                  <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--espresso)' }}>{table.name}</div>
-                  <div style={{ fontSize: 11.5, color: 'var(--mocha)' }}>
-                    {table.shape === 'round' ? '⬤ Rund' : table.shape === 'rect' ? '▬ Rechteckig' : '■ Quadratisch'}
-                    · {table.guests.length}/{table.seats} Plätze
+                  <div style={{ fontWeight: 600, fontSize: 15, color: 'var(--espresso)' }}>{table.name}</div>
+                  <div style={{ fontSize: 12, color: 'var(--mocha)', marginTop: 1 }}>
+                    {table.shape === 'round' ? '⬤' : table.shape === 'rect' ? '▬' : '■'}&nbsp;
+                    {table.guests.length} / {table.seats} Plätze
                   </div>
                 </div>
-                <button className="btn-icon" style={{ color: '#E57373' }} onClick={e => { e.stopPropagation(); deleteTable(table.id); }}>
-                  <IconTrash size={14} stroke={1.5} />
+                <button
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => { setActiveTableId(table.id); setModal('tableMenu'); }}
+                >
+                  ···
                 </button>
               </div>
 
-              {/* Progress bar */}
-              <div className="progress-bar" style={{ marginBottom: 12 }}>
-                <div className="progress-fill" style={{ width: (table.guests.length/table.seats*100)+'%', background: table.guests.length >= table.seats ? 'var(--blush)' : 'var(--sage)' }} />
+              {/* Fill bar */}
+              <div className="progress-bar" style={{ marginBottom: 14 }}>
+                <div className="progress-fill" style={{ width: Math.min(100, pct*100)+'%', background: pct >= 1 ? 'var(--blush)' : 'var(--sage)' }} />
               </div>
 
-              {/* Seat grid */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(52px, 1fr))', gap: 6 }}>
+              {/* Seat grid — large tiles easy to tap */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(64px, 1fr))', gap: 8 }}>
                 {worldSeats.map((_, si) => {
                   const key = `${table.id}_${si}`;
                   if (invisibleSeats[key]) return null;
                   const isBlocked = blockedSeats[key];
                   const occupantId = seatOrder[si];
                   const occupant = occupantId ? guests.find(g => g.id === occupantId) : null;
-                  const num = globalSeatNum[si];
-                  const isActive = activeSeat?.tableId === table.id && activeSeat?.seatIdx === si;
+                  const num = seatNums[si];
 
                   return (
-                    <div key={si}
-                      onClick={e => {
-                        e.stopPropagation();
-                        if (isBlocked) return;
-                        if (occupant) { removeFromSeat(table.id, occupant.id, si); return; }
-                        setActiveSeat({ tableId: table.id, seatIdx: si });
-                        setModal('assignSeat');
-                      }}
+                    <div
+                      key={si}
+                      onClick={() => tapSeat(table, si)}
                       style={{
-                        height: 44, borderRadius: 8, display: 'flex', flexDirection: 'column',
-                        alignItems: 'center', justifyContent: 'center', gap: 1,
-                        background: isBlocked ? 'var(--sand)' : occupant ? avc(occupant.id) : isActive ? '#E8D5C0' : 'var(--warm)',
-                        border: `1px ${isBlocked ? 'solid #D4C0A8' : isActive ? 'solid var(--terra)' : occupant ? 'solid transparent' : 'dashed #C4A882'}`,
+                        height: 56,
+                        borderRadius: 10,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: 2,
                         cursor: isBlocked ? 'not-allowed' : 'pointer',
+                        background: isBlocked ? '#F0EBE3'
+                          : occupant ? avc(occupant.id)
+                          : '#fff',
+                        border: isBlocked
+                          ? '1px solid #D4C0A8'
+                          : occupant
+                          ? '2px solid transparent'
+                          : '1.5px dashed #C4A882',
+                        boxShadow: occupant ? '0 2px 8px rgba(91,61,30,0.12)' : 'none',
                         transition: 'all .15s',
+                        WebkitTapHighlightColor: 'transparent',
                       }}
                     >
                       {isBlocked ? (
-                        <span style={{ fontSize: 12, color: '#C4A882' }}>✕</span>
+                        <span style={{ fontSize: 14, color: '#C4A882' }}>✕</span>
                       ) : occupant ? (
                         <>
-                          <span style={{ fontSize: 10, fontWeight: 700, color: '#fff' }}>{ini(occupant.name)}</span>
-                          <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.8)' }}>{num}</span>
+                          <div className="avatar" style={{ width: 26, height: 26, background: 'rgba(255,255,255,0.3)', color: '#fff', fontSize: 9, fontWeight: 700 }}>
+                            {ini(occupant.name)}
+                          </div>
+                          <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.85)', fontWeight: 500 }}>{num}</span>
                         </>
                       ) : (
-                        <span style={{ fontSize: 11, color: '#C4A882', fontWeight: 500 }}>{num}</span>
+                        <span style={{ fontSize: 13, color: '#C4A882', fontWeight: 500 }}>{num}</span>
                       )}
                     </div>
                   );
                 })}
               </div>
 
-              {/* Guest list under table */}
+              {/* Guest list */}
               {tGuests.length > 0 && (
-                <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--sand)' }}>
-                  {tGuests.map(g => (
-                    <div key={g.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0' }}>
-                      <div className="avatar" style={{ width: 24, height: 24, background: avc(g.id), fontSize: 9 }}>{ini(g.name)}</div>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: 12.5, fontWeight: 500, color: 'var(--espresso)' }}>{g.name}</div>
-                        {g.menu && <div style={{ fontSize: 11, color: 'var(--mocha)' }}>{g.menu}</div>}
+                <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--sand)' }}>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--mocha)', textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 8 }}>
+                    Belegung
+                  </div>
+                  {tGuests.map(g => {
+                    const si = seatOrder.indexOf(g.id);
+                    const num = si >= 0 ? seatNums[si] : null;
+                    return (
+                      <div key={g.id} style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '6px 0', borderBottom: '1px solid #F5EFE4' }}>
+                        <div className="avatar" style={{ width: 28, height: 28, background: avc(g.id), fontSize: 10 }}>{ini(g.name)}</div>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--espresso)' }}>
+                            {num ? `Sitz ${num} — ` : ''}{g.name}
+                          </div>
+                          {g.menu && <div style={{ fontSize: 11, color: 'var(--mocha)' }}>{g.menu}</div>}
+                        </div>
+                        <button
+                          className="btn btn-secondary btn-sm"
+                          onClick={() => { setActiveSeat({ tableId: table.id, seatIdx: si, occupantId: g.id }); setAssignGuest(String(g.id)); setModal('editSeat'); }}
+                        >
+                          ✏
+                        </button>
+                        <button
+                          className="btn-icon"
+                          style={{ background: '#FEE2E2', color: '#991B1B', padding: '4px 7px' }}
+                          onClick={() => removeGuestFromSeat(table.id, g.id, si)}
+                        >
+                          <IconTrash size={13} stroke={1.5} />
+                        </button>
                       </div>
-                      <button className="btn-icon" style={{ padding: '2px 5px', fontSize: 11 }}
-                        onClick={e => { e.stopPropagation(); const si = seatOrder.indexOf(g.id); if (si >= 0) removeFromSeat(table.id, g.id, si); }}>
-                        ✕
-                      </button>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -1058,33 +1153,44 @@ function MobileSeating({ seating, guests, blockedSeats, invisibleSeats, seatOffs
         })}
 
         {seating.tables.length === 0 && (
-          <div className="card empty-state">
-            <div style={{ fontSize: 32, marginBottom: 10 }}>🌿</div>
-            <p>Noch keine Tische angelegt</p>
+          <div className="card" style={{ textAlign: 'center', padding: 40, color: 'var(--mocha)' }}>
+            <div style={{ fontSize: 36, marginBottom: 10 }}>🌿</div>
+            <div style={{ fontSize: 15, fontFamily: "'Cormorant Garamond',serif", fontStyle: 'italic', color: 'var(--espresso)', marginBottom: 6 }}>Noch keine Tische</div>
+            <button className="btn btn-primary" onClick={() => setModal('addTable')}>
+              <IconPlus size={14} stroke={2} /> Ersten Tisch anlegen
+            </button>
           </div>
         )}
       </div>
 
-      {/* Modals */}
+      {/* ── MODALS ── */}
+
+      {/* Add table */}
       {modal === 'addTable' && (
         <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setModal(null)}>
           <div className="modal">
             <h3>Tisch anlegen</h3>
-            <div className="form-group"><label className="form-label">Name</label><input className="input" placeholder="z.B. Tisch 1 – Familie" value={newTable.name} onChange={e => setNewTable(n => ({ ...n, name: e.target.value }))} /></div>
+            <div className="form-group">
+              <label className="form-label">Name</label>
+              <input className="input" placeholder="z.B. Tisch 1 – Familie" value={newTable.name} onChange={e => setNewTable(n => ({ ...n, name: e.target.value }))} />
+            </div>
             <div className="form-group">
               <label className="form-label">Form</label>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
-                {[{ s: 'round', l: 'Rund', i: '⬤' }, { s: 'rect', l: 'Eckig', i: '▬' }, { s: 'square', l: 'Quadr.', i: '■' }].map(o => (
+                {[{ s:'round', l:'Rund', i:'⬤' }, { s:'rect', l:'Eckig', i:'▬' }, { s:'square', l:'Quadr.', i:'■' }].map(o => (
                   <div key={o.s} onClick={() => setNewTable(n => ({ ...n, shape: o.s }))}
-                    style={{ padding: '10px 6px', borderRadius: 10, border: `2px solid ${newTable.shape === o.s ? 'var(--terra)' : 'var(--sand)'}`, background: newTable.shape === o.s ? '#FDF5E8' : '#fff', cursor: 'pointer', textAlign: 'center' }}>
+                    style={{ padding: '10px 6px', borderRadius: 10, border: `2px solid ${newTable.shape===o.s?'var(--terra)':'var(--sand)'}`, background: newTable.shape===o.s?'#FDF5E8':'#fff', cursor:'pointer', textAlign:'center' }}>
                     <div style={{ fontSize: 18, marginBottom: 3 }}>{o.i}</div>
-                    <div style={{ fontSize: 11, fontWeight: newTable.shape === o.s ? 600 : 400, color: 'var(--espresso)' }}>{o.l}</div>
+                    <div style={{ fontSize: 11, fontWeight: newTable.shape===o.s?600:400, color:'var(--espresso)' }}>{o.l}</div>
                   </div>
                 ))}
               </div>
             </div>
-            <div className="form-group"><label className="form-label">Sitzplätze</label><input className="input" type="number" min="2" max="20" value={newTable.seats} onChange={e => setNewTable(n => ({ ...n, seats: parseInt(e.target.value) || 8 }))} /></div>
-            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+            <div className="form-group">
+              <label className="form-label">Sitzplätze</label>
+              <input className="input" type="number" min="2" max="20" value={newTable.seats} onChange={e => setNewTable(n => ({ ...n, seats: parseInt(e.target.value)||8 }))} />
+            </div>
+            <div style={{ display:'flex', gap:8, justifyContent:'flex-end' }}>
               <button className="btn btn-secondary" onClick={() => setModal(null)}>Abbrechen</button>
               <button className="btn btn-primary" onClick={addTable}>Anlegen</button>
             </div>
@@ -1092,21 +1198,65 @@ function MobileSeating({ seating, guests, blockedSeats, invisibleSeats, seatOffs
         </div>
       )}
 
-      {modal === 'assignSeat' && activeSeat && (
+      {/* Table menu */}
+      {modal === 'tableMenu' && activeTableId && (
+        <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setModal(null)}>
+          <div className="modal" style={{ maxWidth: 300 }}>
+            <h3>{seating.tables.find(t=>t.id===activeTableId)?.name}</h3>
+            <div style={{ display:'flex', flexDirection:'column', gap:8, marginTop:4 }}>
+              <button className="btn btn-secondary" style={{ justifyContent:'center' }} onClick={() => setModal(null)}>Schließen</button>
+              <button className="btn btn-danger" style={{ justifyContent:'center' }} onClick={() => deleteTable(activeTableId)}>
+                <IconTrash size={14} stroke={1.5} /> Tisch löschen
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit seat */}
+      {modal === 'editSeat' && activeSeat && (
         <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setModal(null)}>
           <div className="modal">
-            <h3>Gast zuweisen</h3>
+            <h3>{activeSeat.occupantId ? 'Sitz bearbeiten' : 'Gast zuweisen'}</h3>
+
+            {activeSeat.occupantId && (
+              <div style={{ background:'var(--warm)', borderRadius:10, padding:'10px 14px', marginBottom:14, display:'flex', alignItems:'center', gap:10 }}>
+                <div className="avatar" style={{ width:32, height:32, background: avc(activeSeat.occupantId), fontSize:11 }}>
+                  {ini(guests.find(g=>g.id===activeSeat.occupantId)?.name||'')}
+                </div>
+                <div style={{ flex:1 }}>
+                  <div style={{ fontWeight:600, fontSize:13.5, color:'var(--espresso)' }}>
+                    {guests.find(g=>g.id===activeSeat.occupantId)?.name}
+                  </div>
+                  <div style={{ fontSize:11, color:'var(--mocha)' }}>Aktuell hier zugewiesen</div>
+                </div>
+                <button
+                  className="btn btn-danger btn-sm"
+                  onClick={() => {
+                    removeGuestFromSeat(activeSeat.tableId, activeSeat.occupantId, activeSeat.seatIdx);
+                    setModal(null);
+                  }}
+                >
+                  Entfernen
+                </button>
+              </div>
+            )}
+
             <div className="form-group">
-              <label className="form-label">Gast auswählen</label>
+              <label className="form-label">{activeSeat.occupantId ? 'Anderen Gast zuweisen' : 'Gast auswählen'}</label>
               <select className="input" value={assignGuest} onChange={e => setAssignGuest(e.target.value)}>
                 <option value="">– Gast wählen –</option>
-                {unassigned.map(g => <option key={g.id} value={g.id}>{g.name} ({g.group})</option>)}
+                {availableFor(activeSeat.tableId, activeSeat.occupantId).filter(g=>g.id!==null).map(g => (
+                  <option key={g.id} value={g.id}>{g.name}{g.group ? ` (${g.group})` : ''}</option>
+                ))}
               </select>
             </div>
-            {unassigned.length === 0 && <p style={{ fontSize: 13, color: 'var(--mocha)', marginBottom: 12 }}>Alle Gäste sind bereits platziert.</p>}
-            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+
+            <div style={{ display:'flex', gap:8, justifyContent:'flex-end' }}>
               <button className="btn btn-secondary" onClick={() => setModal(null)}>Abbrechen</button>
-              <button className="btn btn-primary" onClick={assignToSeat}>Zuweisen</button>
+              <button className="btn btn-primary" onClick={assignGuestToSeat} disabled={!assignGuest}>
+                {activeSeat.occupantId ? 'Wechseln' : 'Zuweisen'}
+              </button>
             </div>
           </div>
         </div>
