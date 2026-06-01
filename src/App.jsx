@@ -44,7 +44,7 @@ function MobileNav() {
   const moreActive = NAV_MORE.some(n => location.pathname === n.to);
 
   return (
-    <>
+    <div className="mobile-nav-wrapper">
       {/* Sheet overlay */}
       {open && (
         <div
@@ -154,7 +154,7 @@ function MobileNav() {
           <span>Mehr</span>
         </button>
       </nav>
-    </>
+    </div>
   );
 }
 
