@@ -16,6 +16,8 @@ import Settings from './pages/Settings';
 import GuestPage from './pages/GuestPage';
 import GuestPageSettings from './pages/GuestPageSettings';
 import { MusicPage, VenuePage, RegistryPage, NotesPage } from './pages/Misc';
+import Memories from './pages/Memories';
+import Photos from './pages/Photos';
 
 // ── Bottom nav: 4 main + "Mehr" ──────────────────────────────────
 const NAV_MAIN = [
@@ -184,6 +186,8 @@ function AdminLayout() {
           <Route path="/registry"   element={<RegistryPage />} />
           <Route path="/notes"      element={<NotesPage />} />
           <Route path="/guest-page" element={<GuestPageSettings />} />
+          <Route path="/memories" element={<Memories />} />
+          <Route path="/photos" element={<Photos />} />
           <Route path="/settings"   element={<Settings />} />
         </Routes>
         <MobileNav />
