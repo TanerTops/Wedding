@@ -357,8 +357,20 @@ h1, h2, h3, h4 { font-family: 'Cormorant Garamond', serif; font-weight: 400; }
   .data-table th:nth-child(5),
   .data-table td:nth-child(5) { display: none; }
 
-  .modal { max-width: 100%; border-radius: 20px 20px 0 0; position: fixed; bottom: 0; left: 0; right: 0; max-height: 92vh; }
-  .modal-overlay { align-items: flex-end; padding: 0; }
+  .modal {
+    max-width: 100%;
+    border-radius: 20px 20px 0 0;
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    max-height: 85vh;
+    overflow-y: auto;
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 72px);
+  }
+  .modal-overlay {
+    align-items: flex-end;
+    padding: 0;
+    z-index: 500;
+  }
 }
 
 @media (min-width: 769px) {
