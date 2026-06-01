@@ -248,7 +248,14 @@ export default function GuestPage() {
                     <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
                       <button className="btn btn-secondary" onClick={() => setRsvpStep(2)}>← Zurück</button>
                       <button className="btn btn-primary" style={{ flex: 1, justifyContent: 'center' }} onClick={async () => {
-                await submitRSVP(rsvpData);
+                console.log('Submitting RSVP:', rsvpData);
+                const { data, error } = await submitRSVP(rsvpData);
+                console.log('RSVP result:', { data, error });
+                if (error) {
+                  console.error('RSVP error details:', JSON.stringify(error));
+                  alert('Fehler: ' + (error.message || JSON.stringify(error)));
+                  return;
+                }
                 setRsvpDone(true);
               }}>Absenden 🌸</button>
                     </div>
