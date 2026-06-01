@@ -19,6 +19,7 @@ const SECTIONS_META = [
   { id: 'dresscode', label: 'Dresscode', sub: 'Kleidungsempfehlungen für eure Gäste' },
   { id: 'music', label: 'Musikwünsche', sub: 'Gäste können Songs vorschlagen' },
   { id: 'registry', label: 'Geschenkeliste', sub: 'Eure Wunschliste für Gäste' },
+  { id: 'memories', label: 'Erinnerungen & Fotos', sub: 'Gäste können Fotos hochladen' },
 ];
 
 export default function GuestPageSettings() {
