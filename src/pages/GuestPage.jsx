@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { loadState, defaultWedding, defaultTimeline } from '../data/store';
-import { submitRSVP, uploadPhoto, submitScheduleRequest, submitMusicWish, getGuestPageData } from '../lib/db';
+import { submitRSVP, uploadPhoto, submitScheduleRequest, submitMusicWish, getGuestPageData, upsertRegistryItem } from '../lib/db';
 import {
   IconCalendar, IconMapPin, IconMusic, IconGift, IconShirt,
   IconChevronDown, IconCheck, IconArrowRight, IconHeart, IconPlus, IconUpload
@@ -56,6 +56,8 @@ export default function GuestPage() {
   const [uploads, setUploads] = useState([]);
   const [uploadDone, setUploadDone] = useState(false);
   const [scheduleSubmitted, setScheduleSubmitted] = useState(false);
+  const [reservedItems, setReservedItems] = useState([]);
+  const [reservingId, setReservingId] = useState(null);
   const [scheduleForm, setScheduleForm] = useState({ name: '', slotId: '', type: '', description: '', duration: '' });
   const [inviteCode, setInviteCode] = useState('');
   const [codeError, setCodeError] = useState('');
@@ -110,6 +112,14 @@ export default function GuestPage() {
     } else {
       setCodeError('Code nicht gefunden. Bitte prüfe deine Einladung.');
     }
+  }
+
+  async function reserveItem(item) {
+    if (item.reserved || reservedItems.includes(item.id) || reservingId === item.id) return;
+    setReservingId(item.id);
+    await upsertRegistryItem({ ...item, reserved: true });
+    setReservedItems(prev => [...prev, item.id]);
+    setReservingId(null);
   }
 
   async function handleFinalSubmit() {
@@ -586,8 +596,13 @@ export default function GuestPage() {
                     <div style={{ fontWeight: 600, fontSize: 13.5, color: 'var(--espresso)', marginBottom: 4 }}>{item.title}</div>
                     <div style={{ fontSize: 12, color: 'var(--mocha)', marginBottom: 8, lineHeight: 1.5 }}>{item.desc}</div>
                     {item.amount > 0 && <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--terra)', marginBottom: 8 }}>{item.amount.toLocaleString('de-DE')} €</div>}
-                    <button className="btn btn-primary btn-sm" style={{ width: '100%', justifyContent: 'center' }}>
-                      {item.type === 'fund' ? 'Beitragen' : 'Reservieren'}
+                    <button 
+                      className={`btn btn-sm ${(item.reserved || reservedItems.includes(item.id)) ? 'btn-secondary' : 'btn-primary'}`}
+                      style={{ width: '100%', justifyContent: 'center', opacity: (item.reserved || reservedItems.includes(item.id)) ? 0.7 : 1 }}
+                      onClick={() => !item.reserved && !reservedItems.includes(item.id) && reserveItem(item)}
+                      disabled={item.reserved || reservedItems.includes(item.id) || reservingId === item.id}
+                    >
+                      {reservingId === item.id ? '...' : (item.reserved || reservedItems.includes(item.id)) ? '✓ Reserviert' : (item.type === 'fund' ? 'Beitragen' : 'Reservieren')}
                     </button>
                   </div>
                 </div>
