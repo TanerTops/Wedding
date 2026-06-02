@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { loadState, saveState, defaultWedding, makeSlug } from '../data/store';
 import { saveGuestPageConfig, syncLocalToSupabase } from '../lib/db';
 import {
-  IconExternalLink, IconCopy, IconCheck,
+  IconExternalLink, IconCopy, IconCheck, IconQrcode,
   IconToggleRight, IconToggleLeft, IconPlus, IconTrash, IconX
 } from '@tabler/icons-react';
 
