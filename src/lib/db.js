@@ -34,6 +34,19 @@ const TEMPLATE_TIMELINE = [
   { time: '21:00', end_time: '02:00', title: 'Party & Tanz',                type: 'party',         loc: 'Festsaal',         description: 'DJ und Tanzfläche', guests: true, vendor: true },
 ];
 
+const TEMPLATE_TASKS = [
+  { title: 'Location buchen', category: 'Organisation', done: true,  due: '2025-12-01', note: '' },
+  { title: 'Caterer anfragen', category: 'Catering',     done: false, due: '2026-01-15', note: '' },
+  { title: 'Einladungen versenden', category: 'Gäste',   done: false, due: '2026-06-01', note: '' },
+  { title: 'Fotografen buchen', category: 'Dienstleister', done: true, due: '2025-11-01', note: '' },
+  { title: 'Ringe aussuchen', category: 'Sonstiges',     done: false, due: '2026-03-01', note: '' },
+];
+
+const TEMPLATE_REGISTRY = [
+  { title: 'Honeymoon-Kasse', description: 'Beitrag zu unserer Hochzeitsreise', amount: 0,   type: 'fund', reserved: false, link: '' },
+  { title: 'Küchenmaschine',  description: 'KitchenAid, Farbe: Creme',          amount: 399, type: 'item', reserved: false, link: '' },
+];
+
 const TEMPLATE_CONFIG = {
   heroTitle: '', heroSubtitle: 'Wir freuen uns, mit euch zu feiern.',
   heroImageUrl: '', heroImagePosition: 'center',
@@ -106,6 +119,16 @@ export async function initializeUser(customWedding = null) {
   // Create timeline
   await supabase.from('timeline').insert(
     TEMPLATE_TIMELINE.map(e => ({ ...e, user_id: userId }))
+  );
+
+  // Create tasks
+  await supabase.from('tasks').insert(
+    TEMPLATE_TASKS.map(t => ({ ...t, user_id: userId }))
+  );
+
+  // Create registry
+  await supabase.from('registry').insert(
+    TEMPLATE_REGISTRY.map(r => ({ ...r, user_id: userId }))
   );
 
   // Create guest page config
@@ -446,6 +469,10 @@ export async function deleteAccount() {
     supabase.from('budget_items').delete().eq('user_id', userId),
     supabase.from('timeline').delete().eq('user_id', userId),
     supabase.from('guest_page_config').delete().eq('user_id', userId),
+    supabase.from('tasks').delete().eq('user_id', userId),
+    supabase.from('registry').delete().eq('user_id', userId),
+    supabase.from('seating').delete().eq('user_id', userId),
+    supabase.from('photos').delete().eq('user_id', userId),
     supabase.from('user_profiles').delete().eq('id', userId),
   ]);
 
@@ -455,4 +482,83 @@ export async function deleteAccount() {
   // Sign out
   await supabase.auth.signOut();
   return { error: null };
+}
+
+// ── Tasks ────────────────────────────────────────────────────────
+export async function getTasks() {
+  if (!hasSupabase()) return { data: loadState('tasks', []), error: null };
+  const userId = await getUserId();
+  const { data, error } = await supabase.from('tasks').select('*').eq('user_id', userId).order('created_at');
+  return { data: data || [], error };
+}
+
+export async function upsertTask(task) {
+  if (!hasSupabase()) {
+    const tasks = loadState('tasks', []);
+    const exists = tasks.find(t => t.id === task.id);
+    saveState('tasks', exists ? tasks.map(t => t.id === task.id ? task : t) : [...tasks, task]);
+    return { error: null };
+  }
+  const userId = await getUserId();
+  const { error } = await supabase.from('tasks').upsert({ ...task, user_id: userId });
+  return { error };
+}
+
+export async function deleteTask(id) {
+  if (!hasSupabase()) {
+    saveState('tasks', loadState('tasks', []).filter(t => t.id !== id));
+    return { error: null };
+  }
+  const { error } = await supabase.from('tasks').delete().eq('id', id);
+  return { error };
+}
+
+// ── Registry ─────────────────────────────────────────────────────
+export async function getRegistry() {
+  if (!hasSupabase()) return { data: loadState('registry', []), error: null };
+  const userId = await getUserId();
+  const { data, error } = await supabase.from('registry').select('*').eq('user_id', userId).order('created_at');
+  return { data: data || [], error };
+}
+
+export async function upsertRegistryItem(item) {
+  if (!hasSupabase()) {
+    const items = loadState('registry', []);
+    const exists = items.find(i => i.id === item.id);
+    saveState('registry', exists ? items.map(i => i.id === item.id ? item : i) : [...items, item]);
+    return { error: null };
+  }
+  const userId = await getUserId();
+  const { error } = await supabase.from('registry').upsert({ ...item, user_id: userId });
+  return { error };
+}
+
+export async function deleteRegistryItem(id) {
+  if (!hasSupabase()) {
+    saveState('registry', loadState('registry', []).filter(i => i.id !== id));
+    return { error: null };
+  }
+  const { error } = await supabase.from('registry').delete().eq('id', id);
+  return { error };
+}
+
+// ── Seating ──────────────────────────────────────────────────────
+export async function getSeating() {
+  if (!hasSupabase()) return { data: loadState('seating', null), error: null };
+  const userId = await getUserId();
+  const { data, error } = await supabase.from('seating').select('*').eq('user_id', userId).limit(1).single();
+  return { data: data?.data || null, error };
+}
+
+export async function saveSeating(seatingData) {
+  if (!hasSupabase()) { saveState('seating', seatingData); return { error: null }; }
+  const userId = await getUserId();
+  const existing = await supabase.from('seating').select('id').eq('user_id', userId).limit(1).single();
+  if (existing.data?.id) {
+    const { error } = await supabase.from('seating').update({ data: seatingData, updated_at: new Date().toISOString() }).eq('id', existing.data.id);
+    return { error };
+  } else {
+    const { error } = await supabase.from('seating').insert({ data: seatingData, user_id: userId });
+    return { error };
+  }
 }
