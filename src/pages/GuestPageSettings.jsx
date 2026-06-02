@@ -1,9 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
-import qrcodegen from 'qrcode-generator';
 import { loadState, saveState, defaultWedding, makeSlug } from '../data/store';
 import { saveGuestPageConfig, syncLocalToSupabase } from '../lib/db';
 import {
-  IconExternalLink, IconCopy, IconCheck, IconQrcode,
+  IconExternalLink, IconCopy, IconCheck,
   IconToggleRight, IconToggleLeft, IconPlus, IconTrash, IconX
 } from '@tabler/icons-react';
 
@@ -41,36 +40,7 @@ const SECTIONS_META = [
 
 
 
-function QRCode({ url, size = 120 }) {
-  const canvasRef = useRef(null);
-  useEffect(() => {
-    if (!canvasRef.current || !url) return;
-    try {
-      let qr;
-      for (let t = 1; t <= 40; t++) {
-        try { qr = qrcodegen(t, 'L'); qr.addData(url); qr.make(); break; } catch(e) { qr = null; }
-      }
-      if (!qr) throw new Error('URL too long');
-      const cells = qr.getModuleCount();
-      const canvas = canvasRef.current;
-      canvas.width = size;
-      canvas.height = size;
-      const ctx = canvas.getContext('2d');
-      const cellSize = size / cells;
-      ctx.fillStyle = '#FFFFFF';
-      ctx.fillRect(0, 0, size, size);
-      ctx.fillStyle = '#3D2B1F';
-      for (let row = 0; row < cells; row++) {
-        for (let col = 0; col < cells; col++) {
-          if (qr.isDark(row, col)) {
-            ctx.fillRect(col * cellSize, row * cellSize, cellSize, cellSize);
-          }
-        }
-      }
-    } catch(e) { console.error('QR error:', e); }
-  }, [url, size]);
-  return <canvas ref={canvasRef} width={size} height={size} style={{ borderRadius: 4 }} />;
-}
+
 
 export default function GuestPageSettings() {
   const wedding = loadState('wedding', defaultWedding);
