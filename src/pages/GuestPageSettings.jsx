@@ -3,9 +3,9 @@ import { loadState, saveState, defaultWedding, makeSlug } from '../data/store';
 import { saveGuestPageConfig, syncLocalToSupabase } from '../lib/db';
 import {
   IconExternalLink, IconCopy, IconCheck,
-  IconToggleRight, IconToggleLeft, IconPlus, IconTrash, IconX, IconQrcode
+  IconToggleRight, IconToggleLeft, IconPlus, IconTrash, IconX
 } from '@tabler/icons-react';
-import { QRCodeSVG } from 'qrcode.react';
+
 
 const defaultConfig = {
   heroTitle: '', heroSubtitle: 'Wir freuen uns, mit euch zu feiern.',
@@ -38,18 +38,6 @@ const SECTIONS_META = [
   { id: 'memories',  label: 'Erinnerungen & Fotos',   sub: 'Foto-Upload' },
 ];
 
-
-function QRSafe({ url, size }) {
-  try {
-    return <QRCodeSVG value={url} size={size} bgColor="#fff" fgColor="#3D2B1F" level="L" />;
-  } catch {
-    return (
-      <div style={{ width: size, height: size, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: 'var(--mocha)', textAlign: 'center', padding: 8 }}>
-        URL zu lang für QR-Code
-      </div>
-    );
-  }
-}
 
 export default function GuestPageSettings() {
   const wedding = loadState('wedding', defaultWedding);
