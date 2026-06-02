@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, Component } from 'react';
 import { loadState, saveState, defaultWedding, makeSlug } from '../data/store';
 import { saveGuestPageConfig, syncLocalToSupabase } from '../lib/db';
 import {
