@@ -41,16 +41,9 @@ const SECTIONS_META = [
 
 
 function QRCode({ url, size = 120 }) {
-  const canvasRef = useRef(null);
-  useEffect(() => {
-    if (!canvasRef.current || !url) return;
-    QRCodeLib.toCanvas(canvasRef.current, url, {
-      width: size, margin: 1,
-      color: { dark: '#3D2B1F', light: '#FFFFFF' },
-      errorCorrectionLevel: 'L',
-    }).catch(() => {});
-  }, [url, size]);
-  return <canvas ref={canvasRef} style={{ borderRadius: 8 }} />;
+  const encoded = encodeURIComponent(url);
+  const src = `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encoded}&color=3D2B1F&bgcolor=FFFFFF&margin=1`;
+  return <img src={src} alt="QR-Code" style={{ borderRadius: 8, width: size, height: size }} />;
 }
 
 export default function GuestPageSettings() {
