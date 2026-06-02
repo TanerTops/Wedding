@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { getMusicWishes, getRegistry, upsertRegistryItem, deleteRegistryItem } from '../lib/db';
+import { supabase, hasSupabase } from '../lib/supabase';
 import { loadState, saveState } from '../data/store';
 
 export function MusicPage() {
@@ -283,13 +284,58 @@ export function RegistryPage() {
 
 export function NotesPage() {
   const [notes, setNotes] = useState(() => loadState('notes', ''));
-  function save() { saveState('notes', notes); alert('Gespeichert! 🌿'); }
+  const [saved, setSaved] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!hasSupabase()) { setLoading(false); return; }
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) { setLoading(false); return; }
+      supabase.from('notes').select('id, content').eq('user_id', user.id).limit(1).single().then(({ data }) => {
+      if (data?.content) {
+        setNotes(data.content);
+        saveState('notes', data.content);
+      }
+        setLoading(false);
+      });
+    });
+  }, []);
+
+  async function save() {
+    saveState('notes', notes);
+    if (hasSupabase()) {
+      const { data } = await supabase.from('notes').select('id').limit(1).single();
+      if (data?.id) {
+        await supabase.from('notes').update({ content: notes, updated_at: new Date().toISOString() }).eq('id', data.id);
+      } else {
+        const { data: { user } } = await supabase.auth.getUser();
+        await supabase.from('notes').insert({ content: notes, user_id: user?.id });
+      }
+    }
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  }
+
   return (
     <>
-      <div className="topbar"><h1>Notizen</h1><button className="btn btn-primary" onClick={save}>Speichern</button></div>
+      <div className="topbar">
+        <div><h1>Notizen</h1><div className="topbar-sub">Ideen, Gedanken, alles rund um eure Hochzeit</div></div>
+        <button className="btn btn-primary" onClick={save}>
+          {saved ? '✓ Gespeichert' : 'Speichern'}
+        </button>
+      </div>
       <div className="page-body">
         <div className="card" style={{ maxWidth: 680 }}>
-          <textarea className="input" rows={22} value={notes} onChange={e => setNotes(e.target.value)} placeholder="Ideen, Gedanken, Notizen rund um die Hochzeitsplanung..." style={{ resize: 'vertical', lineHeight: 1.8, fontFamily: "'DM Sans', sans-serif" }} />
+          {loading ? (
+            <div style={{ textAlign: 'center', padding: 40, color: 'var(--mocha)' }}>Wird geladen...</div>
+          ) : (
+            <textarea
+              className="input" rows={24} value={notes}
+              onChange={e => setNotes(e.target.value)}
+              placeholder="Ideen, Gedanken, Notizen rund um die Hochzeitsplanung..."
+              style={{ resize: 'vertical', lineHeight: 1.8, fontFamily: "'DM Sans', sans-serif" }}
+            />
+          )}
         </div>
       </div>
     </>
