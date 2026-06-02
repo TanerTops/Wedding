@@ -76,15 +76,7 @@ export default function Sidebar({ onLogout }) {
           <IconLogout size={14} stroke={1.5}/> Ausloggen
         </button>
       )}
-      {onLogout && (
-        <button onClick={onLogout}
-          style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', margin: '0 8px 8px', borderRadius: 10, border: 'none', background: 'none', cursor: 'pointer', color: 'var(--mocha)', fontSize: 13, fontFamily: "'DM Sans',sans-serif", width: 'calc(100% - 16px)', transition: 'background .15s' }}
-          onMouseEnter={e => e.currentTarget.style.background = 'var(--sand)'}
-          onMouseLeave={e => e.currentTarget.style.background = 'none'}>
-          <IconLogout size={15} stroke={1.5} />
-          Abmelden
-        </button>
-      )}
+
       <div className="sidebar-footer">with love ♡</div>
     </aside>
   );
