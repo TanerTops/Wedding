@@ -205,6 +205,23 @@ export async function submitRSVP(rsvpData) {
     message: rsvpData.message,
     submitted_at: new Date().toISOString(),
   });
+
+  // Auto-update guest status based on invite code
+  if (!error && rsvpData.inviteCode) {
+    // Find guest by invite_code and update their status + menu
+    const { data: guests } = await supabase
+      .from('guests')
+      .select('id')
+      .eq('invite_code', rsvpData.inviteCode.toUpperCase());
+    
+    if (guests && guests.length > 0) {
+      await supabase.from('guests').update({
+        status: rsvpData.attending === 'yes' ? 'confirmed' : 'declined',
+        menu: rsvpData.menu || '',
+      }).eq('invite_code', rsvpData.inviteCode.toUpperCase());
+    }
+  }
+
   return { error };
 }
 
