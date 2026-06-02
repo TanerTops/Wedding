@@ -180,7 +180,7 @@ export default function GuestPage() {
               {wedding?.venue}
             </div>
           </div>
-          {days > 0 && config?.sections?.[rsvp] !== false && (
+          {days > 0 && config?.sections?.['rsvp'] !== false && (
             <button className="btn btn-primary" style={{ fontSize: 15, padding: '11px 28px', background: config?.heroImageUrl ? 'rgba(255,255,255,0.2)' : 'var(--brown)', backdropFilter: config?.heroImageUrl ? 'blur(8px)' : 'none', border: config?.heroImageUrl ? '1px solid rgba(255,255,255,0.4)' : 'none' }} onClick={() => scrollTo('rsvp')}>
               Jetzt zusagen <IconHeart size={15} stroke={1.5} />
             </button>
@@ -198,7 +198,7 @@ export default function GuestPage() {
       </section>
 
       {/* RSVP */}
-      {config?.sections?.[rsvp] !== false && (
+      {config?.sections?.['rsvp'] !== false && (
         <section id="rsvp" style={{ background: '#fff' }}>
           <div className="guest-section">
             <SectionHeader title="Werdet ihr dabei sein?" sub="Wir würden uns riesig freuen!" />
@@ -302,7 +302,7 @@ export default function GuestPage() {
       )}
 
       {/* TIMELINE */}
-      {config?.sections?.[timeline] !== false && (
+      {config?.sections?.['timeline'] !== false && (
         <section id="timeline" style={{ background: 'var(--cream)' }}>
           <div className="guest-section">
             <SectionHeader title="Tagesablauf" sub="Ein Tag voller schöner Momente" />
@@ -509,7 +509,7 @@ export default function GuestPage() {
       )}
 
       {/* DRESSCODE */}
-      {config?.sections?.[dresscode] !== false && (
+      {config?.sections?.['dresscode'] !== false && (
         <section id="dresscode" style={{ background: 'var(--warm)' }}>
           <div className="guest-section">
             <SectionHeader title="Dresscode" sub="Damit wir zusammen wunderschöne Erinnerungen schaffen" />
@@ -571,7 +571,7 @@ export default function GuestPage() {
       )}
 
       {/* REGISTRY */}
-      {config?.sections?.[registry] !== false && (
+      {config?.sections?.['registry'] !== false && (
         <section id="registry" style={{ background: 'var(--cream)' }}>
           <div className="guest-section">
             <SectionHeader title="Geschenkeliste" sub="Eure Anwesenheit ist das schönste Geschenk." />
@@ -598,7 +598,7 @@ export default function GuestPage() {
 
 
       {/* MEMORIES — guest photo upload */}
-      {config?.sections?.[memories] !== false && (
+      {config?.sections?.['memories'] !== false && (
         <section id="memories" style={{ background: 'var(--warm)' }}>
           <div className="guest-section">
             <SectionHeader title="Eure Erinnerungen" sub="Teilt eure schönsten Fotos vom großen Tag mit uns!" />
