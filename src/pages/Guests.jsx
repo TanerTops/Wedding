@@ -50,33 +50,69 @@ export default function Guests() {
 
   function del(id) { if (confirm('Gast löschen?')) saveGuests(guests.filter(g => g.id !== id)); }
 
-  // Import RSVP as guest
+  // Parse companions string → array of names
+  function parseCompanions(str) {
+    if (!str) return [];
+    return str.split(',').map(s => s.trim()).filter(Boolean);
+  }
+
+  // Import RSVP as guest + companions as separate guests
   function importRSVP(rsvp) {
-    const newId = Math.max(0, ...guests.map(g => g.id)) + 1;
-    const newGuest = {
-      id: newId,
+    let updated = [...guests];
+    let nextId = Math.max(0, ...updated.map(g => g.id)) + 1;
+    const status = rsvp.attending === 'yes' ? 'confirmed' : 'declined';
+
+    // Main guest
+    updated.push({
+      id: nextId++,
       name: rsvp.name,
       email: rsvp.email || '',
       group: 'Freunde',
-      status: rsvp.attending === 'yes' ? 'confirmed' : 'declined',
+      status,
       menu: rsvp.menu || '',
       note: rsvp.message || '',
-    };
-    saveGuests([...guests, newGuest]);
+    });
+
+    // Companions
+    parseCompanions(rsvp.companions).forEach(name => {
+      updated.push({
+        id: nextId++,
+        name,
+        email: '',
+        group: 'Freunde',
+        status,
+        menu: '',
+        note: `Begleitperson von ${rsvp.name}`,
+      });
+    });
+
+    saveGuests(updated);
   }
 
   function importAllRSVPs() {
     let updated = [...guests];
-    let nextId = Math.max(0, ...guests.map(g => g.id)) + 1;
+    let nextId = Math.max(0, ...updated.map(g => g.id)) + 1;
     newRsvps.forEach(rsvp => {
+      const status = rsvp.attending === 'yes' ? 'confirmed' : 'declined';
       updated.push({
         id: nextId++,
         name: rsvp.name,
         email: rsvp.email || '',
         group: 'Freunde',
-        status: rsvp.attending === 'yes' ? 'confirmed' : 'declined',
+        status,
         menu: rsvp.menu || '',
         note: rsvp.message || '',
+      });
+      parseCompanions(rsvp.companions).forEach(name => {
+        updated.push({
+          id: nextId++,
+          name,
+          email: '',
+          group: 'Freunde',
+          status,
+          menu: '',
+          note: `Begleitperson von ${rsvp.name}`,
+        });
       });
     });
     saveGuests(updated);
@@ -243,6 +279,7 @@ export default function Guests() {
                             <div style={{ fontSize: 12, color: 'var(--mocha)', display: 'flex', gap: 12, flexWrap: 'wrap' }}>
                               {rsvp.email && <span>✉ {rsvp.email}</span>}
                               {rsvp.menu && <span>🍽 {rsvp.menu}</span>}
+                              {rsvp.companions && <span>👥 +{rsvp.companions.split(',').filter(Boolean).length} Begleitperson{rsvp.companions.split(',').filter(Boolean).length !== 1 ? 'en' : ''}: {rsvp.companions}</span>}
                               {rsvp.submitted_at && <span>🕐 {fmtDate(rsvp.submitted_at)}</span>}
                             </div>
                             {rsvp.message && (
