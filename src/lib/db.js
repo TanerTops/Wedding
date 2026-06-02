@@ -244,3 +244,64 @@ export async function getMusicWishes() {
   const { data, error } = await supabase.from('music_wishes').select('*').order('submitted_at', { ascending: false });
   return { data: data || [], error };
 }
+
+// ── Guest Page Config ────────────────────────────────────────────
+export async function getGuestPageData() {
+  if (!hasSupabase()) {
+    return {
+      data: {
+        wedding:          loadState('wedding', null),
+        config:           loadState('guestPageConfig', {}),
+        timeline:         loadState('timeline', []),
+        registry:         loadState('registry', []),
+        photos:           loadState('memories', []).filter(p => p.approved),
+        memoryCategories: loadState('memoryCategories', []),
+        guests:           loadState('guests', []),
+      },
+      error: null
+    };
+  }
+
+  // Load all data in parallel
+  const [wedding, config, timeline, registry, photos, cats, guests] = await Promise.all([
+    supabase.from('weddings').select('*').limit(1).single(),
+    supabase.from('guest_page_config').select('config').limit(1).single(),
+    supabase.from('timeline').select('*').order('time'),
+    supabase.from('registry').select('*'),
+    supabase.from('photos').select('*').eq('approved', true).order('created_at', { ascending: false }),
+    supabase.from('memory_categories').select('*'),
+    supabase.from('guests').select('id, name, invite_code, menu, status'),
+  ]);
+
+  return {
+    data: {
+      wedding:          wedding.data,
+      config:           config.data?.config || {},
+      timeline:         timeline.data || [],
+      registry:         registry.data || [],
+      photos:           photos.data || [],
+      memoryCategories: cats.data || [],
+      guests:           guests.data || [],
+    },
+    error: wedding.error || config.error,
+  };
+}
+
+export async function saveGuestPageConfig(config) {
+  if (!hasSupabase()) {
+    loadState('guestPageConfig', {});
+    saveState('guestPageConfig', config);
+    return { error: null };
+  }
+  // Upsert — update the single config row
+  const existing = await supabase.from('guest_page_config').select('id').limit(1).single();
+  if (existing.data?.id) {
+    const { error } = await supabase.from('guest_page_config')
+      .update({ config, updated_at: new Date().toISOString() })
+      .eq('id', existing.data.id);
+    return { error };
+  } else {
+    const { error } = await supabase.from('guest_page_config').insert({ config });
+    return { error };
+  }
+}
