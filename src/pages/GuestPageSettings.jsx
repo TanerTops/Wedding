@@ -38,6 +38,19 @@ const SECTIONS_META = [
   { id: 'memories',  label: 'Erinnerungen & Fotos',   sub: 'Foto-Upload' },
 ];
 
+
+function QRSafe({ url, size }) {
+  try {
+    return <QRCodeSVG value={url} size={size} bgColor="#fff" fgColor="#3D2B1F" level="L" />;
+  } catch {
+    return (
+      <div style={{ width: size, height: size, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: 'var(--mocha)', textAlign: 'center', padding: 8 }}>
+        URL zu lang für QR-Code
+      </div>
+    );
+  }
+}
+
 export default function GuestPageSettings() {
   const wedding = loadState('wedding', defaultWedding);
   const [config, setConfig] = useState(() => loadState('guestPageConfig', defaultConfig));
