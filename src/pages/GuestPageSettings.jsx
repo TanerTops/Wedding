@@ -1,4 +1,4 @@
-import { useState, Component } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { loadState, saveState, defaultWedding, makeSlug } from '../data/store';
 import { saveGuestPageConfig, syncLocalToSupabase } from '../lib/db';
 import {
@@ -40,25 +40,17 @@ const SECTIONS_META = [
 
 
 
-class QRErrorBoundary extends Component {
-  constructor(props) { super(props); this.state = { error: false }; }
-  static getDerivedStateFromError() { return { error: true }; }
-  render() {
-    if (this.state.error) return (
-      <div style={{ width: 120, height: 120, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: 'var(--mocha)', textAlign: 'center', padding: 8, border: '1px dashed var(--sand)', borderRadius: 8 }}>
-        Kurze Domain für QR-Code nötig
-      </div>
-    );
-    return this.props.children;
-  }
-}
-
 function QRCode({ url, size = 120 }) {
-  return (
-    <QRErrorBoundary>
-      <QRCodeSVG value={url} size={size} bgColor="#fff" fgColor="#3D2B1F" level="L" />
-    </QRErrorBoundary>
-  );
+  const canvasRef = useRef(null);
+  useEffect(() => {
+    if (!canvasRef.current || !url) return;
+    QRCodeLib.toCanvas(canvasRef.current, url, {
+      width: size, margin: 1,
+      color: { dark: '#3D2B1F', light: '#FFFFFF' },
+      errorCorrectionLevel: 'L',
+    }).catch(() => {});
+  }, [url, size]);
+  return <canvas ref={canvasRef} style={{ borderRadius: 8 }} />;
 }
 
 export default function GuestPageSettings() {
