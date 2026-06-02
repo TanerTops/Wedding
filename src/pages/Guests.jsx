@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { IconPlus, IconTrash, IconEdit, IconX, IconSearch, IconCheck, IconBell, IconKey, IconCopy } from '@tabler/icons-react';
 import { loadState, saveState, defaultGuests, makeInviteCode, makeSlug } from '../data/store';
-import { getRSVPs, upsertGuest, deleteGuest as dbDeleteGuest } from '../lib/db';
+import { getRSVPs, upsertGuest, deleteGuest as dbDeleteGuest, getGuests } from '../lib/db';
 
 const GROUPS = ['Familie Braut', 'Familie Bräutigam', 'Freunde', 'Arbeit', 'Dienstleister', 'Sonstige'];
 const MENUS = ['', 'Fleisch', 'Fisch', 'Vegetarisch', 'Vegan', 'Kinder'];
@@ -27,13 +27,11 @@ export default function Guests() {
       setRsvpsLoading(false);
     });
     // Load guests from Supabase (replace localStorage)
-    import('../lib/db').then(({ getGuests }) => {
-      getGuests().then(({ data }) => {
-        if (data !== null && data !== undefined) {
-          setGuests(data);
-          saveState('guests', data);
-        }
-      });
+    getGuests().then(({ data }) => {
+      if (data !== null && data !== undefined) {
+        setGuests(data);
+        saveState('guests', data);
+      }
     });
   }, []);
 
