@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { loadState, saveState, defaultWedding, makeSlug } from '../data/store';
-import { saveGuestPageConfig } from '../lib/db';
+import { saveGuestPageConfig, syncLocalToSupabase } from '../lib/db';
 import {
   IconExternalLink, IconCopy, IconCheck,
   IconToggleRight, IconToggleLeft, IconPlus, IconTrash, IconX
@@ -41,6 +41,7 @@ export default function GuestPageSettings() {
   const wedding = loadState('wedding', defaultWedding);
   const [config, setConfig] = useState(() => loadState('guestPageConfig', defaultConfig));
   const [saved, setSaved] = useState(false);
+  const [syncing, setSyncing] = useState(false);
   const [copied, setCopied] = useState(false);
   const [activeTab, setActiveTab] = useState('sections');
 
@@ -102,6 +103,14 @@ export default function GuestPageSettings() {
           <a href={guestUrl} target="_blank" rel="noopener" className="btn btn-secondary btn-sm">
             <IconExternalLink size={14} stroke={1.5} /> Vorschau
           </a>
+          <button className="btn btn-secondary btn-sm" onClick={async () => {
+            setSyncing(true);
+            await syncLocalToSupabase();
+            setSyncing(false);
+            alert('Alle Daten wurden mit Supabase synchronisiert ✓');
+          }} disabled={syncing}>
+            {syncing ? '...' : '↑ Sync'}
+          </button>
           <button className="btn btn-primary btn-sm" onClick={saveConfig}>
             {saved ? <><IconCheck size={14} stroke={2} /> Gespeichert</> : 'Speichern'}
           </button>
