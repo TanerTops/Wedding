@@ -43,41 +43,67 @@ const SECTION_NAV = [
 
 export default function GuestPage() {
   const { slug } = useParams();
+
+  // ── UI state ────────────────────────────────────────────────────
   const [active, setActive] = useState('');
   const [rsvpStep, setRsvpStep] = useState(1);
-  const [rsvpData, setRsvpData] = useState({ name: '', email: '', attending: '', menu: '', plusOne: false, message: '' });
+  const [rsvpData, setRsvpData] = useState({ name: '', email: '', attending: '', menu: '', plusOne: false, message: '', companions: '' });
   const [rsvpDone, setRsvpDone] = useState(false);
   const [songs, setSongs] = useState([{ title: '', artist: '' }]);
   const [songSent, setSongSent] = useState(false);
   const [uploadName, setUploadName] = useState('');
-  const [scheduleSubmitted, setScheduleSubmitted] = useState(false);
-  const [inviteCode, setInviteCode] = useState('');
-  const [codeVerified, setCodeVerified] = useState(false);
-  const [codeError, setCodeError] = useState('');
-  const [scheduleForm, setScheduleForm] = useState({ name: '', slotId: '', type: '', description: '', duration: '' });
   const [uploads, setUploads] = useState([]);
   const [uploadDone, setUploadDone] = useState(false);
+  const [scheduleSubmitted, setScheduleSubmitted] = useState(false);
+  const [scheduleForm, setScheduleForm] = useState({ name: '', slotId: '', type: '', description: '', duration: '' });
+  const [inviteCode, setInviteCode] = useState('');
+  const [codeError, setCodeError] = useState('');
+
+  // ── Data loading ─────────────────────────────────────────────────
+  const [pageData, setPageData] = useState(null);
+  const [dataLoading, setDataLoading] = useState(true);
 
   useEffect(() => {
+    getGuestPageData().then(({ data }) => {
+      if (data) setPageData(data);
+      setDataLoading(false);
+    });
+  }, []);
+
+  // ── Derived data (safe with fallbacks) ───────────────────────────
+  const wedding  = pageData?.wedding  || loadState('wedding', defaultWedding);
+  const timeline = pageData?.timeline || loadState('timeline', defaultTimeline);
+  const config   = pageData?.config   || loadState('guestPageConfig', defaultConfig);
+  const registry = pageData?.registry || loadState('registry', [
+    { id: 1, title: 'Honeymoon-Kasse',     desc: 'Beitrag zu unserer Hochzeitsreise', amount: 0,   type: 'fund' },
+    { id: 2, title: 'Küchenmaschine',      desc: 'KitchenAid, Farbe: Creme',          amount: 399, type: 'item' },
+    { id: 3, title: 'Abendessen zu zweit', desc: 'Ein schöner Restaurant-Abend',      amount: 120, type: 'item' },
+  ]);
+  const guestList = pageData?.guests || loadState('guests', []);
+
+  const heroTitle    = config?.heroTitle || `${wedding?.bride || ''} & ${wedding?.groom || ''}`;
+  const days         = Math.ceil((new Date(wedding?.date || Date.now()) - new Date()) / 86400000);
+  const deadline     = new Date(new Date(wedding?.date || Date.now()).getTime() - ((config?.rsvpDeadlineOffset || 30) * 86400000));
+  const activeSections = SECTION_NAV.filter(s => (config?.sections || {})[s.id] !== false);
+
+  // ── Scroll observer ──────────────────────────────────────────────
+  useEffect(() => {
+    if (dataLoading) return;
     const observer = new IntersectionObserver(
       entries => entries.forEach(e => { if (e.isIntersecting) setActive(e.target.id); }),
       { threshold: 0.3, rootMargin: '-60px 0px 0px 0px' }
     );
     activeSections.forEach(s => { const el = document.getElementById(s.id); if (el) observer.observe(el); });
     return () => observer.disconnect();
-  }, []);
+  }, [dataLoading]);
 
   function scrollTo(id) { document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' }); }
 
   function verifyCode() {
     const code = inviteCode.trim().toUpperCase();
     if (!code) { setCodeError('Bitte Code eingeben.'); return; }
-    const match = guestList.find(g => {
-      const gCode = (g.inviteCode || '').toUpperCase();
-      return gCode === code;
-    });
+    const match = guestList.find(g => (g.inviteCode || g.invite_code || '').toUpperCase() === code);
     if (match) {
-      setCodeVerified(true);
       setCodeError('');
       setRsvpData(d => ({ ...d, name: match.name, menu: match.menu || '' }));
     } else {
@@ -88,10 +114,8 @@ export default function GuestPage() {
   async function handleFinalSubmit() {
     const code = inviteCode.trim().toUpperCase();
     if (!code) { setCodeError('Bitte Code eingeben.'); return; }
-    // Verify code
-    const match = guestList.find(g => (g.inviteCode || '').toUpperCase() === code);
+    const match = guestList.find(g => (g.inviteCode || g.invite_code || '').toUpperCase() === code);
     if (!match) { setCodeError('Code nicht gefunden. Bitte prüfe deine Einladung.'); return; }
-    // Submit
     const { error } = await submitRSVP({
       ...rsvpData,
       plus_one: !!(rsvpData.companions?.trim()),
@@ -101,63 +125,78 @@ export default function GuestPage() {
     else setCodeError('Fehler beim Absenden. Bitte nochmal versuchen.');
   }
 
+  // ── Loading screen ───────────────────────────────────────────────
+  if (dataLoading) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(160deg, #FDF8F0 0%, #F0E8D8 50%, #EAE0D0 100%)' }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 36, fontStyle: 'italic', color: 'var(--espresso)', marginBottom: 8 }}>
+            Vince
+          </div>
+          <div style={{ fontSize: 13, color: 'var(--mocha)' }}>Wird geladen...</div>
+        </div>
+      </div>
+    );
+  }
+
+
   return (
     <div style={{ minHeight: '100vh', background: 'var(--cream)', fontFamily: "'DM Sans', sans-serif" }}>
 
       {/* NAV */}
       <GuestNav
-        bride={wedding.bride} groom={wedding.groom}
+        bride={wedding?.bride} groom={wedding?.groom}
         sections={activeSections} active={active} onNav={scrollTo}
       />
 
       {/* HERO */}
-      <section id="hero" style={{ minHeight: '100vh', paddingTop: 56, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden', background: config.heroImageUrl ? `linear-gradient(rgba(0,0,0,0.28),rgba(0,0,0,0.18)), url(${config.heroImageUrl}) ${config.heroImagePosition}/cover no-repeat` : 'linear-gradient(160deg,#FDF8F0 0%,#F0E8D8 50%,#EAE0D0 100%)' }}>
-        {!config.heroImageUrl && <>
+      <section id="hero" style={{ minHeight: '100vh', paddingTop: 56, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden', background: config?.heroImageUrl ? `linear-gradient(rgba(0,0,0,0.28),rgba(0,0,0,0.18)), url(${config?.heroImageUrl}) ${config?.heroImagePosition}/cover no-repeat` : 'linear-gradient(160deg,#FDF8F0 0%,#F0E8D8 50%,#EAE0D0 100%)' }}>
+        {!config?.heroImageUrl && <>
           <div style={{ position: 'absolute', width: 500, height: 500, top: -120, right: -100, borderRadius: '50%', background: 'radial-gradient(circle,rgba(196,149,106,0.18) 0%,transparent 70%)', pointerEvents: 'none' }} />
           <div style={{ position: 'absolute', width: 380, height: 380, bottom: -80, left: -80, borderRadius: '50%', background: 'radial-gradient(circle,rgba(168,181,160,0.18) 0%,transparent 70%)', pointerEvents: 'none' }} />
         </>}
         <div style={{ position: 'relative', zIndex: 1, textAlign: 'center', maxWidth: 620, padding: '0 24px' }}>
-          <div style={{ fontSize: 11, letterSpacing: 3, textTransform: 'uppercase', marginBottom: 20, color: config.heroImageUrl ? 'rgba(255,255,255,0.8)' : 'var(--mocha)' }}>
+          <div style={{ fontSize: 11, letterSpacing: 3, textTransform: 'uppercase', marginBottom: 20, color: config?.heroImageUrl ? 'rgba(255,255,255,0.8)' : 'var(--mocha)' }}>
             Ihr seid herzlich eingeladen
           </div>
-          <h1 style={{ fontFamily: "'Cormorant Garamond',serif", fontWeight: 300, fontStyle: 'italic', lineHeight: 1.05, marginBottom: 20, letterSpacing: 1, color: config.heroImageUrl ? '#fff' : 'var(--espresso)', fontSize: 'clamp(48px,8vw,80px)' }}>
+          <h1 style={{ fontFamily: "'Cormorant Garamond',serif", fontWeight: 300, fontStyle: 'italic', lineHeight: 1.05, marginBottom: 20, letterSpacing: 1, color: config?.heroImageUrl ? '#fff' : 'var(--espresso)', fontSize: 'clamp(48px,8vw,80px)' }}>
             {heroTitle}
           </h1>
-          <div style={{ width: 60, height: 1, background: config.heroImageUrl ? 'rgba(255,255,255,0.5)' : 'linear-gradient(90deg,transparent,var(--mocha),transparent)', margin: '0 auto 20px' }} />
-          {config.heroSubtitle && (
-            <p style={{ fontSize: 15, lineHeight: 1.7, marginBottom: 24, color: config.heroImageUrl ? 'rgba(255,255,255,0.88)' : 'var(--mocha)' }}>
-              {config.heroSubtitle}
+          <div style={{ width: 60, height: 1, background: config?.heroImageUrl ? 'rgba(255,255,255,0.5)' : 'linear-gradient(90deg,transparent,var(--mocha),transparent)', margin: '0 auto 20px' }} />
+          {config?.heroSubtitle && (
+            <p style={{ fontSize: 15, lineHeight: 1.7, marginBottom: 24, color: config?.heroImageUrl ? 'rgba(255,255,255,0.88)' : 'var(--mocha)' }}>
+              {config?.heroSubtitle}
             </p>
           )}
           <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap', marginBottom: 16 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '8px 18px', borderRadius: 30, fontSize: 14, fontWeight: 500, background: config.heroImageUrl ? 'rgba(255,255,255,0.15)' : 'rgba(196,149,106,0.12)', border: '1px solid ' + (config.heroImageUrl ? 'rgba(255,255,255,0.3)' : 'rgba(196,149,106,0.4)'), color: config.heroImageUrl ? '#fff' : 'var(--terra)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '8px 18px', borderRadius: 30, fontSize: 14, fontWeight: 500, background: config?.heroImageUrl ? 'rgba(255,255,255,0.15)' : 'rgba(196,149,106,0.12)', border: '1px solid ' + (config?.heroImageUrl ? 'rgba(255,255,255,0.3)' : 'rgba(196,149,106,0.4)'), color: config?.heroImageUrl ? '#fff' : 'var(--terra)' }}>
               <IconCalendar size={15} stroke={1.5} />
-              {new Date(wedding.date).toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+              {new Date(wedding?.date || Date.now()).toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '8px 18px', borderRadius: 30, fontSize: 14, background: config.heroImageUrl ? 'rgba(255,255,255,0.12)' : 'var(--warm)', border: '1px solid ' + (config.heroImageUrl ? 'rgba(255,255,255,0.2)' : 'var(--sand)'), color: config.heroImageUrl ? 'rgba(255,255,255,0.85)' : 'var(--brown)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '8px 18px', borderRadius: 30, fontSize: 14, background: config?.heroImageUrl ? 'rgba(255,255,255,0.12)' : 'var(--warm)', border: '1px solid ' + (config?.heroImageUrl ? 'rgba(255,255,255,0.2)' : 'var(--sand)'), color: config?.heroImageUrl ? 'rgba(255,255,255,0.85)' : 'var(--brown)' }}>
               <IconMapPin size={15} stroke={1.5} />
-              {wedding.venue}
+              {wedding?.venue}
             </div>
           </div>
-          {days > 0 && config.sections.rsvp !== false && (
-            <button className="btn btn-primary" style={{ fontSize: 15, padding: '11px 28px', background: config.heroImageUrl ? 'rgba(255,255,255,0.2)' : 'var(--brown)', backdropFilter: config.heroImageUrl ? 'blur(8px)' : 'none', border: config.heroImageUrl ? '1px solid rgba(255,255,255,0.4)' : 'none' }} onClick={() => scrollTo('rsvp')}>
+          {days > 0 && config?.sections?.[rsvp] !== false && (
+            <button className="btn btn-primary" style={{ fontSize: 15, padding: '11px 28px', background: config?.heroImageUrl ? 'rgba(255,255,255,0.2)' : 'var(--brown)', backdropFilter: config?.heroImageUrl ? 'blur(8px)' : 'none', border: config?.heroImageUrl ? '1px solid rgba(255,255,255,0.4)' : 'none' }} onClick={() => scrollTo('rsvp')}>
               Jetzt zusagen <IconHeart size={15} stroke={1.5} />
             </button>
           )}
           {days > 0 && (
-            <div style={{ marginTop: 14, fontSize: 12, color: config.heroImageUrl ? 'rgba(255,255,255,0.6)' : 'var(--mocha)' }}>
+            <div style={{ marginTop: 14, fontSize: 12, color: config?.heroImageUrl ? 'rgba(255,255,255,0.6)' : 'var(--mocha)' }}>
               Bitte antworte bis {deadline.toLocaleDateString('de-DE', { day: 'numeric', month: 'long', year: 'numeric' })}
             </div>
           )}
         </div>
         <div style={{ position: 'absolute', bottom: 28, left: '50%', transform: 'translateX(-50%)', animation: 'vbounce 2s infinite', opacity: 0.5 }}>
-          <IconChevronDown size={24} stroke={1.5} style={{ color: config.heroImageUrl ? '#fff' : 'var(--mocha)' }} />
+          <IconChevronDown size={24} stroke={1.5} style={{ color: config?.heroImageUrl ? '#fff' : 'var(--mocha)' }} />
         </div>
         <style>{`@keyframes vbounce{0%,100%{transform:translateX(-50%) translateY(0)}50%{transform:translateX(-50%) translateY(7px)}}`}</style>
       </section>
 
       {/* RSVP */}
-      {config.sections.rsvp !== false && (
+      {config?.sections?.[rsvp] !== false && (
         <section id="rsvp" style={{ background: '#fff' }}>
           <div className="guest-section">
             <SectionHeader title="Werdet ihr dabei sein?" sub="Wir würden uns riesig freuen!" />
@@ -261,7 +300,7 @@ export default function GuestPage() {
       )}
 
       {/* TIMELINE */}
-      {config.sections.timeline !== false && (
+      {config?.sections?.[timeline] !== false && (
         <section id="timeline" style={{ background: 'var(--cream)' }}>
           <div className="guest-section">
             <SectionHeader title="Tagesablauf" sub="Ein Tag voller schöner Momente" />
@@ -327,8 +366,8 @@ export default function GuestPage() {
         <section id="schedule" style={{ background: '#fff' }}>
           <div className="guest-section">
             <SectionHeader
-              title={config.scheduleTitle || 'Programmwünsche'}
-              sub={config.scheduleSubtitle || 'Habt ihr eine Rede, einen Auftritt oder eine Überraschung geplant? Meldet euch hier!'}
+              title={config?.scheduleTitle || 'Programmwünsche'}
+              sub={config?.scheduleSubtitle || 'Habt ihr eine Rede, einen Auftritt oder eine Überraschung geplant? Meldet euch hier!'}
             />
 
             {scheduleSubmitted ? (
@@ -340,9 +379,9 @@ export default function GuestPage() {
             ) : (
               <div style={{ maxWidth: 520, margin: '0 auto' }}>
                 {/* Slot cards */}
-                {(config.scheduleSlots || []).length > 0 && (
+                {(config?.scheduleSlots || []).length > 0 && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 28 }}>
-                    {(config.scheduleSlots || []).map(slot => (
+                    {(config?.scheduleSlots || []).map(slot => (
                       <div key={slot.id}
                         onClick={() => setScheduleForm(f => ({ ...f, slotId: slot.id === f.slotId ? '' : slot.id }))}
                         style={{
@@ -372,7 +411,7 @@ export default function GuestPage() {
                     <label className="form-label">Euer Name *</label>
                     <input className="input" placeholder="Vollständiger Name" value={scheduleForm.name} onChange={e => setScheduleForm(f => ({ ...f, name: e.target.value }))} />
                   </div>
-                  {(!config.scheduleSlots || config.scheduleSlots.length === 0) && (
+                  {(!config?.scheduleSlots || config?.scheduleSlots.length === 0) && (
                     <div className="form-group">
                       <label className="form-label">Art des Programmpunkts</label>
                       <input className="input" placeholder="z.B. Rede, Spiel, Auftritt" value={scheduleForm.type} onChange={e => setScheduleForm(f => ({ ...f, type: e.target.value }))} />
@@ -391,7 +430,7 @@ export default function GuestPage() {
                     style={{ width: '100%', justifyContent: 'center', marginTop: 4 }}
                     onClick={async () => {
                       if (!scheduleForm.name.trim()) return;
-                      const slot = (config.scheduleSlots||[]).find(s => s.id === scheduleForm.slotId);
+                      const slot = (config?.scheduleSlots||[]).find(s => s.id === scheduleForm.slotId);
                       await submitScheduleRequest({
                         name: scheduleForm.name,
                         slot_id: scheduleForm.slotId || '',
@@ -417,7 +456,7 @@ export default function GuestPage() {
       )}
 
       {/* LOCATION */}
-      {config.sections.location !== false && (
+      {config?.sections?.[location] !== false && (
         <section id="location" style={{ background: '#fff' }}>
           <div className="guest-section">
             <SectionHeader title="Location & Anreise" sub="Wir freuen uns, euch hier willkommen zu heißen" />
@@ -425,14 +464,14 @@ export default function GuestPage() {
               <div style={{ height: 200, background: 'linear-gradient(135deg,#F2D9B8 0%,#E8D5C0 50%,#D4C4B0 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <div style={{ textAlign: 'center' }}>
                   <div style={{ fontSize: 44, marginBottom: 8 }}>🏰</div>
-                  <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 22, color: 'var(--espresso)' }}>{wedding.venue}</div>
+                  <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 22, color: 'var(--espresso)' }}>{wedding?.venue}</div>
                 </div>
               </div>
               <div style={{ padding: 24 }}>
                 <div className="grid-2" style={{ marginBottom: 20 }}>
                   <div>
                     <div className="section-title">Adresse</div>
-                    <div style={{ fontSize: 14, color: 'var(--espresso)', lineHeight: 1.8 }}>{wedding.venue}</div>
+                    <div style={{ fontSize: 14, color: 'var(--espresso)', lineHeight: 1.8 }}>{wedding?.venue}</div>
                     <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(wedding.venue)}`} target="_blank" rel="noopener" className="btn btn-secondary btn-sm" style={{ marginTop: 10, display: 'inline-flex' }}>
                       <IconMapPin size={13} stroke={1.5} /> Google Maps
                     </a>
@@ -449,18 +488,18 @@ export default function GuestPage() {
       )}
 
       {/* DRESSCODE */}
-      {config.sections.dresscode !== false && (
+      {config?.sections?.[dresscode] !== false && (
         <section id="dresscode" style={{ background: 'var(--warm)' }}>
           <div className="guest-section">
             <SectionHeader title="Dresscode" sub="Damit wir zusammen wunderschöne Erinnerungen schaffen" />
             <div className="card" style={{ maxWidth: 500, margin: '0 auto', textAlign: 'center', padding: '36px 32px' }}>
-              <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 28, color: 'var(--espresso)', marginBottom: 10, fontStyle: 'italic' }}>{config.dresscodeStyle}</div>
-              <p style={{ fontSize: 14, color: 'var(--mocha)', lineHeight: 1.8, maxWidth: 380, margin: '0 auto 28px' }}>{config.dresscodeText}</p>
+              <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 28, color: 'var(--espresso)', marginBottom: 10, fontStyle: 'italic' }}>{config?.dresscodeStyle}</div>
+              <p style={{ fontSize: 14, color: 'var(--mocha)', lineHeight: 1.8, maxWidth: 380, margin: '0 auto 28px' }}>{config?.dresscodeText}</p>
               <div className="section-title" style={{ textAlign: 'center', marginBottom: 16 }}>Empfohlene Farben</div>
               <div style={{ display: 'flex', gap: 16, justifyContent: 'center', flexWrap: 'wrap' }}>
                 {['Terrakotta','Sand','Salbei','Beige','Lavendel'].map((name, i) => (
                   <div key={name} style={{ textAlign: 'center' }}>
-                    <div style={{ width: 44, height: 44, borderRadius: '50%', background: (config.dresscodeColors||[])[i]||'#DDD3C0', border: '2px solid var(--sand)', margin: '0 auto 6px' }} />
+                    <div style={{ width: 44, height: 44, borderRadius: '50%', background: (config?.dresscodeColors||[])[i]||'#DDD3C0', border: '2px solid var(--sand)', margin: '0 auto 6px' }} />
                     <div style={{ fontSize: 11, color: 'var(--mocha)' }}>{name}</div>
                   </div>
                 ))}
@@ -471,7 +510,7 @@ export default function GuestPage() {
       )}
 
       {/* MUSIC */}
-      {config.sections.music !== false && (
+      {config?.sections?.[music] !== false && (
         <section id="music" style={{ background: '#fff' }}>
           <div className="guest-section">
             <SectionHeader title="Musikwünsche" sub="Welche Songs bringen euch auf die Tanzfläche?" />
@@ -509,7 +548,7 @@ export default function GuestPage() {
       )}
 
       {/* REGISTRY */}
-      {config.sections.registry !== false && (
+      {config?.sections?.[registry] !== false && (
         <section id="registry" style={{ background: 'var(--cream)' }}>
           <div className="guest-section">
             <SectionHeader title="Geschenkeliste" sub="Eure Anwesenheit ist das schönste Geschenk." />
@@ -536,7 +575,7 @@ export default function GuestPage() {
 
 
       {/* MEMORIES — guest photo upload */}
-      {config.sections.memories !== false && (
+      {config?.sections?.[memories] !== false && (
         <section id="memories" style={{ background: 'var(--warm)' }}>
           <div className="guest-section">
             <SectionHeader title="Eure Erinnerungen" sub="Teilt eure schönsten Fotos vom großen Tag mit uns!" />
@@ -602,8 +641,8 @@ export default function GuestPage() {
 
       {/* FOOTER */}
       <footer style={{ background: 'var(--warm)', borderTop: '1px solid var(--sand)', padding: '36px 24px', textAlign: 'center' }}>
-        <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 24, fontStyle: 'italic', color: 'var(--brown)', marginBottom: 6 }}>{wedding.bride} & {wedding.groom}</div>
-        <div style={{ fontSize: 13, color: 'var(--mocha)' }}>{new Date(wedding.date).toLocaleDateString('de-DE', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
+        <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 24, fontStyle: 'italic', color: 'var(--brown)', marginBottom: 6 }}>{wedding?.bride} & {wedding?.groom}</div>
+        <div style={{ fontSize: 13, color: 'var(--mocha)' }}>{new Date(wedding?.date || Date.now()).toLocaleDateString('de-DE', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
         <div style={{ fontSize: 12, color: 'var(--taupe)', marginTop: 12, fontFamily: "'Cormorant Garamond',serif", fontStyle: 'italic' }}>mit Liebe geplant ♡</div>
       </footer>
     </div>
