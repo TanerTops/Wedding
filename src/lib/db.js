@@ -91,6 +91,7 @@ export async function initializeUser(customWedding = null) {
   })();
   if (pendingWedding) { localStorage.removeItem('vince_pending_wedding'); }
   const weddingInput = customWedding || pendingWedding;
+  console.log('[Vince] weddingInput:', weddingInput);
 
   // Use custom wedding data if provided, otherwise use template
   const wedding = weddingInput ? {
@@ -101,9 +102,11 @@ export async function initializeUser(customWedding = null) {
     budget: TEMPLATE_WEDDING.budget,
     notes: '',
   } : TEMPLATE_WEDDING;
+  console.log('[Vince] final wedding:', wedding);
 
-  // Create wedding
+  // Create wedding (delete any existing first to avoid duplicates)
   const year = new Date(wedding.date).getFullYear();
+  await supabase.from('weddings').delete().eq('user_id', userId);
   await supabase.from('weddings').insert({ ...wedding, user_id: userId });
 
   // Create guests with invite codes
@@ -190,7 +193,14 @@ export async function upsertGuest(guest) {
     return { error: null };
   }
   const userId = await getUserId();
-  const { error } = await supabase.from('guests').upsert({ ...guest, user_id: userId });
+  // Remove 'group' alias - Supabase column is 'group_name'
+  const { group, inviteCode, ...rest } = guest;
+  const { error } = await supabase.from('guests').upsert({ 
+    ...rest, 
+    group_name: group || guest.group_name || 'Freunde',
+    invite_code: inviteCode || guest.invite_code || '',
+    user_id: userId 
+  });
   return { error };
 }
 
