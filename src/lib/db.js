@@ -137,6 +137,19 @@ export async function initializeUser(customWedding = null) {
   // Mark as initialized
   await supabase.from('user_profiles').upsert({ id: userId, initialized: true });
 
+  // Auto-sync local data to Supabase (in case user had prior localStorage data)
+  const localTimeline = loadState('timeline', []);
+  if (localTimeline.length > 0) {
+    const { data: existingTl } = await supabase.from('timeline').select('id').eq('user_id', userId).limit(1);
+    if (!existingTl || existingTl.length === 0) {
+      await supabase.from('timeline').insert(localTimeline.map(e => ({
+        time: e.time, end_time: e.endTime || e.end_time || '',
+        title: e.title, type: e.type || 'other', loc: e.loc || '',
+        description: e.desc || e.description || '',
+        guests: e.guests || false, vendor: e.vendor || false, user_id: userId,
+      })));
+    }
+  }
   console.log('[Vince] Initialization complete');
 }
 
