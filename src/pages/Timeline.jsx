@@ -81,7 +81,7 @@ export default function Timeline() {
   }
   function del(id) { if (confirm('Termin löschen?')) removeEvent(id); }
 
-  function exportText() {
+  function exportPDF() {
     const lines = sorted.map(e => `${fmt(e.time)} – ${e.endTime ? fmt(e.endTime) : ''} | ${e.title}${e.loc ? ` @ ${e.loc}` : ''}${e.desc ? `\n  ${e.desc}` : ''}`);
     const blob = new Blob([lines.join('\n\n')], { type: 'text/plain' });
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
