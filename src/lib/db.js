@@ -57,12 +57,13 @@ export async function submitRSVP(rsvpData) {
     return { data: rsvpData, error: null };
   }
   const { data, error } = await supabase.from('rsvp_responses').insert({
-    name:       rsvpData.name,
-    email:      rsvpData.email,
-    attending:  rsvpData.attending,
-    menu:       rsvpData.menu,
-    plus_one:   rsvpData.plusOne,
-    message:    rsvpData.message,
+    name:        rsvpData.name,
+    email:       rsvpData.email,
+    attending:   rsvpData.attending,
+    menu:        rsvpData.menu,
+    plus_one:    rsvpData.plus_one || false,
+    companions:  rsvpData.companions || '',
+    message:     rsvpData.message,
     submitted_at: new Date().toISOString(),
   }).select().single();
   return { data, error };
