@@ -263,27 +263,43 @@ export async function getGuestPageData() {
   }
 
   // Load all data in parallel
-  const [wedding, config, timeline, registry, photos, cats, guests] = await Promise.all([
+  const [wedding, config, timeline, registry, photos, guests] = await Promise.all([
     supabase.from('weddings').select('*').limit(1).single(),
     supabase.from('guest_page_config').select('config').limit(1).single(),
     supabase.from('timeline').select('*').order('time'),
     supabase.from('registry').select('*'),
     supabase.from('photos').select('*').eq('approved', true).order('created_at', { ascending: false }),
-    supabase.from('memory_categories').select('*'),
     supabase.from('guests').select('id, name, invite_code, menu, status'),
   ]);
 
+  // For timeline + registry: if Supabase is empty, fall back to localStorage
+  // (they may not be synced to Supabase yet)
+  const timelineData = (timeline.data && timeline.data.length > 0)
+    ? timeline.data
+    : loadState('timeline', []);
+
+  const registryData = (registry.data && registry.data.length > 0)
+    ? registry.data
+    : loadState('registry', []);
+
+  // Merge guest_page_config: Supabase config merged with localStorage fallback
+  const localConfig = loadState('guestPageConfig', {});
+  const supabaseConfig = config.data?.config || {};
+  const mergedConfig = Object.keys(supabaseConfig).length > 0
+    ? supabaseConfig
+    : localConfig;
+
   return {
     data: {
-      wedding:          wedding.data,
-      config:           config.data?.config || {},
-      timeline:         timeline.data || [],
-      registry:         registry.data || [],
+      wedding:          wedding.data || loadState('wedding', null),
+      config:           mergedConfig,
+      timeline:         timelineData,
+      registry:         registryData,
       photos:           photos.data || [],
-      memoryCategories: cats.data || [],
+      memoryCategories: loadState('memoryCategories', []),
       guests:           guests.data || [],
     },
-    error: wedding.error || config.error,
+    error: null,
   };
 }
 
@@ -304,4 +320,46 @@ export async function saveGuestPageConfig(config) {
     const { error } = await supabase.from('guest_page_config').insert({ config });
     return { error };
   }
+}
+
+// ── Sync helpers (push localStorage data to Supabase) ────────────
+
+// Call this once to push all local data to Supabase
+export async function syncLocalToSupabase() {
+  if (!hasSupabase()) return;
+
+  // Sync wedding
+  const wedding = loadState('wedding', null);
+  if (wedding) {
+    const existing = await supabase.from('weddings').select('id').limit(1).single();
+    if (existing.data?.id) {
+      await supabase.from('weddings').update(wedding).eq('id', existing.data.id);
+    } else {
+      await supabase.from('weddings').insert(wedding);
+    }
+  }
+
+  // Sync guest page config
+  const config = loadState('guestPageConfig', null);
+  if (config) await saveGuestPageConfig(config);
+
+  // Sync timeline events (upsert each)
+  const timeline = loadState('timeline', []);
+  if (timeline.length > 0) {
+    // Delete existing and re-insert
+    await supabase.from('timeline').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+    const mapped = timeline.map(e => ({
+      time: e.time,
+      end_time: e.endTime || e.end_time || '',
+      title: e.title,
+      type: e.type || 'other',
+      loc: e.loc || '',
+      description: e.desc || e.description || '',
+      guests: e.guests || false,
+      vendor: e.vendor || false,
+    }));
+    await supabase.from('timeline').insert(mapped);
+  }
+
+  console.log('[Vince] Sync complete');
 }
