@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Plus, Trash2, X, Check } from 'lucide-react';
 import { loadState, saveState, defaultTasks } from '../data/store';
 
@@ -7,11 +7,32 @@ const emptyTask = { title: '', category: 'Sonstiges', priority: 'medium', dueDat
 
 export default function Tasks() {
   const [tasks, setTasks] = useState(() => loadState('tasks', defaultTasks));
+
+  useEffect(() => {
+    getTasks().then(({ data }) => {
+      if (data && data.length > 0) {
+        setTasks(data);
+        saveState('tasks', data);
+      }
+    });
+  }, []);
   const [modal, setModal] = useState(false);
   const [form, setForm] = useState(emptyTask);
   const [filter, setFilter] = useState('all');
 
   function save(updated) { setTasks(updated); saveState('tasks', updated); }
+  async function saveTask(task) {
+    const updated = tasks.find(t => t.id === task.id)
+      ? tasks.map(t => t.id === task.id ? task : t)
+      : [...tasks, task];
+    setTasks(updated); saveState('tasks', updated);
+    await upsertTask(task);
+  }
+  async function removeTask(id) {
+    const updated = tasks.filter(t => t.id !== id);
+    setTasks(updated); saveState('tasks', updated);
+    await deleteTask(id);
+  }
   function toggle(id) { save(tasks.map(t => t.id === id ? { ...t, done: !t.done } : t)); }
   function deleteTask(id) { save(tasks.filter(t => t.id !== id)); }
   function addTask() {
