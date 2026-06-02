@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { loadState, saveState, defaultWedding, makeSlug } from '../data/store';
+import { saveGuestPageConfig } from '../lib/db';
 import {
   IconExternalLink, IconCopy, IconCheck,
   IconToggleRight, IconToggleLeft, IconPlus, IconTrash, IconX
@@ -59,8 +60,9 @@ export default function GuestPageSettings() {
   function update(key, val) { setConfig(c => ({ ...c, [key]: val })); }
   function toggleSection(id) { setConfig(c => ({ ...c, sections: { ...c.sections, [id]: !c.sections[id] } })); }
 
-  function saveConfig() {
+  async function saveConfig() {
     saveState('guestPageConfig', config);
+    await saveGuestPageConfig(config);
     setSaved(true); setTimeout(() => setSaved(false), 2000);
   }
   function copyLink() {
