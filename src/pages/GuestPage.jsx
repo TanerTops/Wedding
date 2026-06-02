@@ -291,7 +291,7 @@ export default function GuestPage() {
                       <button className="btn btn-secondary" onClick={() => setRsvpStep(2)}>← Zurück</button>
                       <button className="btn btn-primary" style={{ flex: 1, justifyContent: 'center' }} onClick={() => {
                         if (config?.requireCode !== false) setRsvpStep(4);
-                        else handleSubmit();
+                        else handleFinalSubmit();
                       }}>
                         {config?.requireCode !== false ? <><span>Weiter</span> <IconArrowRight size={15} stroke={2} /></> : 'Anmeldung absenden ✓'}
                       </button>
