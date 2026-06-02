@@ -58,17 +58,6 @@ export default function GuestPage() {
   const [uploads, setUploads] = useState([]);
   const [uploadDone, setUploadDone] = useState(false);
 
-  // Load data: URL hash takes priority (shared link), fallback to localStorage, fallback to defaults
-  const hashData = loadFromHash();
-  const wedding  = hashData?.wedding  || loadState('wedding',          defaultWedding);
-  const guestList = hashData?.guests || loadState('guests', []);
-  const timeline = hashData?.timeline || loadState('timeline',         defaultTimeline);
-  const config   = hashData?.config   || loadState('guestPageConfig',  defaultConfig);
-  const registry = hashData?.registry || loadState('registry', [
-    { id: 1, title: 'Honeymoon-Kasse',      desc: 'Beitrag zu unserer Hochzeitsreise', amount: 0,   type: 'fund' },
-    { id: 2, title: 'Küchenmaschine',       desc: 'KitchenAid, Farbe: Creme',          amount: 399, type: 'item' },
-    { id: 3, title: 'Abendessen zu zweit',  desc: 'Ein schöner Restaurant-Abend',      amount: 120, type: 'item' },
-  ]);
 
   const heroTitle = config.heroTitle || `${wedding.bride} & ${wedding.groom}`;
   const days = Math.ceil((new Date(wedding.date) - new Date()) / 86400000);
