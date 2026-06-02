@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { IconPlus, IconTrash, IconEdit, IconX, IconSearch, IconCheck, IconBell, IconKey, IconCopy } from '@tabler/icons-react';
 import { loadState, saveState, defaultGuests, makeInviteCode } from '../data/store';
-import { getRSVPs } from '../lib/db';
+import { getRSVPs, upsertGuest, deleteGuest as dbDeleteGuest } from '../lib/db';
 
 const GROUPS = ['Familie Braut', 'Familie Bräutigam', 'Freunde', 'Arbeit', 'Dienstleister', 'Sonstige'];
 const MENUS = ['', 'Fleisch', 'Fisch', 'Vegetarisch', 'Vegan', 'Kinder'];
@@ -10,7 +10,7 @@ const ini = n => n.split(' ').map(x => x[0]).slice(0, 2).join('').toUpperCase();
 const avc = id => AV[id % AV.length];
 
 export default function Guests() {
-  const [guests, setGuests] = useState(() => loadState('guests', defaultGuests));
+  const [guests, setGuests] = useState([]);
   const [rsvps, setRsvps] = useState([]);
   const [rsvpsLoading, setRsvpsLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -26,6 +26,15 @@ export default function Guests() {
       setRsvps(data || []);
       setRsvpsLoading(false);
     });
+    // Load guests from Supabase (replace localStorage)
+    import('../lib/db').then(({ getGuests }) => {
+      getGuests().then(({ data }) => {
+        if (data !== null && data !== undefined) {
+          setGuests(data);
+          saveState('guests', data);
+        }
+      });
+    });
   }, []);
 
   const newRsvps = rsvps.filter(r => {
@@ -38,17 +47,25 @@ export default function Guests() {
   function openAdd() { setForm({ name: '', email: '', group: 'Freunde', status: 'pending', menu: '', note: '' }); setModal('add'); }
   function openEdit(g) { setForm({ ...g }); setModal(g.id); }
 
-  function handleSave() {
+  async function handleSave() {
     if (!form.name?.trim()) return;
     if (modal === 'add') {
-      saveGuests([...guests, { ...form, id: Math.max(0, ...guests.map(g => g.id)) + 1 }]);
+      const newGuest = { ...form, id: crypto.randomUUID() };
+      saveGuests([...guests, newGuest]);
+      await upsertGuest({ ...newGuest, group_name: newGuest.group });
     } else {
-      saveGuests(guests.map(g => g.id === modal ? { ...form, id: g.id } : g));
+      const updated = { ...form, id: modal };
+      saveGuests(guests.map(g => g.id === modal ? updated : g));
+      await upsertGuest({ ...updated, group_name: updated.group });
     }
     setModal(null);
   }
 
-  function del(id) { if (confirm('Gast löschen?')) saveGuests(guests.filter(g => g.id !== id)); }
+  async function del(id) {
+    if (!confirm('Gast löschen?')) return;
+    saveGuests(guests.filter(g => g.id !== id));
+    await dbDeleteGuest(id);
+  }
 
   // Parse companions string → array of names
   function parseCompanions(str) {
@@ -57,65 +74,49 @@ export default function Guests() {
   }
 
   // Import RSVP as guest + companions as separate guests
-  function importRSVP(rsvp) {
-    let updated = [...guests];
-    let nextId = Math.max(0, ...updated.map(g => g.id)) + 1;
+  async function importRSVP(rsvp) {
     const status = rsvp.attending === 'yes' ? 'confirmed' : 'declined';
+    const newGuests = [];
 
-    // Main guest
-    updated.push({
-      id: nextId++,
-      name: rsvp.name,
-      email: rsvp.email || '',
-      group: 'Freunde',
-      status,
-      menu: rsvp.menu || '',
-      note: rsvp.message || '',
+    newGuests.push({
+      id: crypto.randomUUID(),
+      name: rsvp.name, email: rsvp.email || '',
+      group: 'Freunde', group_name: 'Freunde',
+      status, menu: rsvp.menu || '', note: rsvp.message || '',
     });
 
-    // Companions
     parseCompanions(rsvp.companions).forEach(name => {
-      updated.push({
-        id: nextId++,
-        name,
-        email: '',
-        group: 'Freunde',
-        status,
-        menu: '',
-        note: `Begleitperson von ${rsvp.name}`,
+      newGuests.push({
+        id: crypto.randomUUID(),
+        name, email: '', group: 'Freunde', group_name: 'Freunde',
+        status, menu: '', note: `Begleitperson von ${rsvp.name}`,
       });
     });
 
-    saveGuests(updated);
+    saveGuests([...guests, ...newGuests]);
+    await Promise.all(newGuests.map(g => upsertGuest(g)));
   }
 
-  function importAllRSVPs() {
-    let updated = [...guests];
-    let nextId = Math.max(0, ...updated.map(g => g.id)) + 1;
+  async function importAllRSVPs() {
+    const newGuests = [];
     newRsvps.forEach(rsvp => {
       const status = rsvp.attending === 'yes' ? 'confirmed' : 'declined';
-      updated.push({
-        id: nextId++,
-        name: rsvp.name,
-        email: rsvp.email || '',
-        group: 'Freunde',
-        status,
-        menu: rsvp.menu || '',
-        note: rsvp.message || '',
+      newGuests.push({
+        id: crypto.randomUUID(),
+        name: rsvp.name, email: rsvp.email || '',
+        group: 'Freunde', group_name: 'Freunde',
+        status, menu: rsvp.menu || '', note: rsvp.message || '',
       });
       parseCompanions(rsvp.companions).forEach(name => {
-        updated.push({
-          id: nextId++,
-          name,
-          email: '',
-          group: 'Freunde',
-          status,
-          menu: '',
-          note: `Begleitperson von ${rsvp.name}`,
+        newGuests.push({
+          id: crypto.randomUUID(),
+          name, email: '', group: 'Freunde', group_name: 'Freunde',
+          status, menu: '', note: `Begleitperson von ${rsvp.name}`,
         });
       });
     });
-    saveGuests(updated);
+    saveGuests([...guests, ...newGuests]);
+    await Promise.all(newGuests.map(g => upsertGuest(g)));
   }
 
   const filtered = guests.filter(g => {
