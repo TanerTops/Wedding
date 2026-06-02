@@ -1,11 +1,15 @@
 import { useState } from 'react';
 import { loadState, saveState, defaultWedding } from '../data/store';
 import { saveWedding, deleteAccount } from '../lib/db';
+import { supabase } from '../lib/supabase';
 
 export default function Settings() {
   const [wedding, setWedding] = useState(() => loadState('wedding', defaultWedding));
   const [saved, setSaved] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [coAdminEmail, setCoAdminEmail] = useState('');
+  const [coAdminSending, setCoAdminSending] = useState(false);
+  const [coAdminMsg, setCoAdminMsg] = useState('');
   const [confirmDelete, setConfirmDelete] = useState('');
 
   async function handleSave() {
@@ -13,6 +17,24 @@ export default function Settings() {
     await saveWedding(wedding);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
+  }
+
+  async function inviteCoAdmin() {
+    if (!coAdminEmail.trim()) return;
+    setCoAdminSending(true);
+    // Use Supabase magic link / invite
+    const { error } = await supabase.auth.signInWithOtp({ 
+      email: coAdminEmail,
+      options: { emailRedirectTo: window.location.origin }
+    });
+    if (error) {
+      setCoAdminMsg('Fehler: ' + error.message);
+    } else {
+      setCoAdminMsg(`✓ Einladungs-Link wurde an ${coAdminEmail} gesendet`);
+      setCoAdminEmail('');
+    }
+    setCoAdminSending(false);
+    setTimeout(() => setCoAdminMsg(''), 4000);
   }
 
   async function handleDeleteAccount() {
@@ -60,6 +82,24 @@ export default function Settings() {
           <div className="form-group">
             <label className="form-label">Budget (€)</label>
             <input className="input" type="number" value={wedding.budget || ''} onChange={e => setWedding(w => ({ ...w, budget: parseInt(e.target.value) || 0 }))} />
+          </div>
+        </div>
+
+        {/* Co-Admin */}
+        <div className="card" style={{ marginBottom: 20 }}>
+          <div className="section-title" style={{ marginBottom: 4 }}>Mitplaner einladen</div>
+          <p style={{ fontSize: 13, color: 'var(--mocha)', marginBottom: 16, lineHeight: 1.6 }}>
+            Lade eine zweite Person ein (z.B. Trauzeugin) — sie bekommt einen Login-Link per Email und kann dann gemeinsam mit euch planen.
+          </p>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <input className="input" style={{ flex: 1 }} type="email" placeholder="email@beispiel.de" value={coAdminEmail} onChange={e => setCoAdminEmail(e.target.value)} onKeyDown={e => e.key === 'Enter' && inviteCoAdmin()} />
+            <button className="btn btn-primary" onClick={inviteCoAdmin} disabled={coAdminSending}>
+              {coAdminSending ? '...' : 'Einladen'}
+            </button>
+          </div>
+          {coAdminMsg && <div style={{ fontSize: 13, color: coAdminMsg.startsWith('✓') ? 'var(--sage)' : '#E57373', marginTop: 8 }}>{coAdminMsg}</div>}
+          <div style={{ fontSize: 11, color: 'var(--mocha)', marginTop: 8 }}>
+            ℹ️ Die eingeladene Person muss sich mit der gleichen Email registrieren um Zugang zu erhalten.
           </div>
         </div>
 
