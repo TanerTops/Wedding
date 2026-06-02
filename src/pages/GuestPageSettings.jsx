@@ -143,38 +143,22 @@ export default function GuestPageSettings() {
           </div>
         </div>
 
-        {/* QR Code */}
+        {/* Share Link */}
         <div className="card" style={{ marginBottom: 18 }}>
-          <div className="section-title" style={{ marginBottom: 12 }}>QR-Code für Einladungen</div>
-          <div style={{ display: 'flex', gap: 20, alignItems: 'center', flexWrap: 'wrap' }}>
-            <div style={{ background: '#fff', padding: 12, borderRadius: 12, border: '1px solid var(--sand)' }}>
-              <QRCode url={window.location.origin + guestUrl} size={120} />
-            </div>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 13, color: 'var(--espresso)', fontWeight: 500, marginBottom: 6 }}>
-                Auf die Einladungskarte drucken
-              </div>
-              <div style={{ fontSize: 12, color: 'var(--mocha)', lineHeight: 1.6, marginBottom: 12 }}>
-                Gäste scannen den QR-Code und gelangen direkt zur Hochzeitsseite — inklusive RSVP, Tagesablauf und mehr.
-              </div>
-              <button className="btn btn-secondary btn-sm" onClick={() => {
-                const canvas = document.querySelector('#qr-download-canvas');
-                if (!canvas) return;
-                const a = document.createElement('a');
-                a.href = canvas.toDataURL('image/png');
-                a.download = 'einladung-qrcode.png';
-                a.click();
-              }}>
-                <IconQrcode size={13} stroke={1.5} /> QR-Code herunterladen
-              </button>
-              <div style={{ display: 'none' }}>
-                <QRCode url={window.location.origin + guestUrl} size={800} />
-                <canvas id="qr-download-canvas" style={{ display: 'none' }} />
-              </div>
-            </div>
-            <div className="qr-download" style={{ display: 'none' }}>
-              <QRCode url={window.location.origin + guestUrl} size={400} />
-            </div>
+          <div className="section-title" style={{ marginBottom: 12 }}>Link für Einladungen</div>
+          <div style={{ fontSize: 12, color: 'var(--mocha)', lineHeight: 1.6, marginBottom: 10 }}>
+            Teile diesen Link per Email oder auf der Einladungskarte.
+          </div>
+          <div style={{ fontSize: 13, color: 'var(--espresso)', background: 'var(--warm)', padding: '10px 14px', borderRadius: 8, marginBottom: 12, wordBreak: 'break-all', border: '1px solid var(--sand)' }}>
+            {window.location.origin + guestUrl}
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button className="btn btn-primary btn-sm" onClick={() => navigator.clipboard.writeText(window.location.origin + guestUrl)}>
+              <IconCopy size={13} stroke={1.5} /> Link kopieren
+            </button>
+            <a href={window.location.origin + guestUrl} target="_blank" rel="noopener" className="btn btn-secondary btn-sm">
+              <IconExternalLink size={13} stroke={1.5} /> Öffnen
+            </a>
           </div>
         </div>
 
