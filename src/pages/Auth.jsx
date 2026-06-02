@@ -1,12 +1,15 @@
 import { useState } from 'react';
+import { initializeUser } from '../lib/db';
 import { supabase } from '../lib/supabase';
 
 export default function Auth({ onAuth }) {
-  const [mode, setMode] = useState('login'); // 'login' | 'register' | 'wedding'
+  const [mode, setMode] = useState('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [weddingData, setWeddingData] = useState({ bride: '', groom: '', date: '', venue: '' });
-  const [pendingSession, setPendingSession] = useState(null);
+  const [bride, setBride] = useState('');
+  const [groom, setGroom] = useState('');
+  const [date, setDate] = useState('');
+  const [venue, setVenue] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -29,13 +32,22 @@ export default function Auth({ onAuth }) {
     setError('');
     if (!email || !password) { setError('Bitte Email und Passwort eingeben.'); return; }
     if (password.length < 6) { setError('Passwort muss mindestens 6 Zeichen haben.'); return; }
+    if (!bride || !groom || !date) { setError('Bitte alle Pflichtfelder ausfüllen.'); return; }
     setLoading(true);
     try {
       const { data, error } = await supabase.auth.signUp({ email, password });
       if (error) throw error;
-      // Move to wedding details step
-      setPendingSession(data.session);
-      setMode('wedding');
+
+      // Initialize with wedding data immediately
+      if (data.session) {
+        await initializeUser({ bride, groom, date, venue });
+        onAuth(data.session);
+      } else {
+        // Email confirmation required — store data in localStorage for after confirm
+        localStorage.setItem('vince_pending_wedding', JSON.stringify({ bride, groom, date, venue }));
+        setError('Bitte bestätige deine Email und logge dich dann ein.');
+        setMode('login');
+      }
     } catch (err) {
       if (err.message.includes('already registered')) {
         setError('Diese Email ist bereits registriert.'); setMode('login');
@@ -43,21 +55,7 @@ export default function Auth({ onAuth }) {
     } finally { setLoading(false); }
   }
 
-  async function handleWeddingSetup(e) {
-    e.preventDefault();
-    if (!weddingData.bride || !weddingData.groom || !weddingData.date) {
-      setError('Bitte Braut, Bräutigam und Datum eingeben.'); return;
-    }
-    setLoading(true);
-    try {
-      // Import initializeUser and call with custom wedding data
-      const { initializeUser } = await import('../lib/db');
-      await initializeUser(weddingData);
-      onAuth(pendingSession);
-    } catch (err) {
-      setError(err.message);
-    } finally { setLoading(false); }
-  }
+  const inputStyle = { marginBottom: 0 };
 
   return (
     <div style={{
@@ -69,9 +67,8 @@ export default function Auth({ onAuth }) {
       <div style={{ position: 'fixed', width: 500, height: 500, top: -120, right: -100, borderRadius: '50%', background: 'radial-gradient(circle, rgba(196,149,106,0.15) 0%, transparent 70%)', pointerEvents: 'none' }} />
       <div style={{ position: 'fixed', width: 400, height: 400, bottom: -80, left: -80, borderRadius: '50%', background: 'radial-gradient(circle, rgba(168,181,160,0.15) 0%, transparent 70%)', pointerEvents: 'none' }} />
 
-      <div style={{ width: '100%', maxWidth: 440, position: 'relative', zIndex: 1 }}>
-        {/* Logo */}
-        <div style={{ textAlign: 'center', marginBottom: 32 }}>
+      <div style={{ width: '100%', maxWidth: 460, position: 'relative', zIndex: 1 }}>
+        <div style={{ textAlign: 'center', marginBottom: 28 }}>
           <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 44, fontStyle: 'italic', color: 'var(--espresso)', lineHeight: 1 }}>Vince</div>
           <div style={{ fontSize: 13, color: 'var(--mocha)', marginTop: 6, letterSpacing: 1 }}>Hochzeitsplaner</div>
         </div>
@@ -110,19 +107,47 @@ export default function Auth({ onAuth }) {
           {mode === 'register' && (
             <>
               <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 26, color: 'var(--espresso)', marginBottom: 4, fontWeight: 400 }}>Account erstellen</h2>
-              <p style={{ fontSize: 13, color: 'var(--mocha)', marginBottom: 24 }}>Erstelle deinen kostenlosen Account.</p>
+              <p style={{ fontSize: 13, color: 'var(--mocha)', marginBottom: 20 }}>Erstelle deinen kostenlosen Account.</p>
               <form onSubmit={handleRegister}>
+                {/* Account */}
+                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--mocha)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>Account</div>
                 <div className="form-group">
-                  <label className="form-label">Email</label>
+                  <label className="form-label">Email *</label>
                   <input className="input" type="email" placeholder="deine@email.de" value={email} onChange={e => setEmail(e.target.value)} autoComplete="email" disabled={loading} />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Passwort</label>
+                  <label className="form-label">Passwort *</label>
                   <input className="input" type="password" placeholder="Mindestens 6 Zeichen" value={password} onChange={e => setPassword(e.target.value)} autoComplete="new-password" disabled={loading} />
                 </div>
+
+                {/* Divider */}
+                <div style={{ borderTop: '1px solid var(--sand)', margin: '20px 0 16px' }} />
+                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--mocha)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>Eure Hochzeit</div>
+
+                <div className="grid-2">
+                  <div className="form-group">
+                    <label className="form-label">Braut *</label>
+                    <input className="input" placeholder="z.B. Sarah" value={bride} onChange={e => setBride(e.target.value)} disabled={loading} />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Bräutigam *</label>
+                    <input className="input" placeholder="z.B. Tobias" value={groom} onChange={e => setGroom(e.target.value)} disabled={loading} />
+                  </div>
+                </div>
+                <div className="grid-2">
+                  <div className="form-group">
+                    <label className="form-label">Datum *</label>
+                    <input className="input" type="date" value={date} onChange={e => setDate(e.target.value)} disabled={loading} />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Location</label>
+                    <input className="input" placeholder="z.B. Schloss Berg" value={venue} onChange={e => setVenue(e.target.value)} disabled={loading} />
+                  </div>
+                </div>
+
                 {error && <div style={{ background: '#FEE2E2', border: '1px solid #FECACA', borderRadius: 10, padding: '10px 14px', fontSize: 13, color: '#991B1B', marginBottom: 16 }}>{error}</div>}
                 <button type="submit" className="btn btn-primary" style={{ width: '100%', justifyContent: 'center', padding: '12px', fontSize: 15, marginTop: 4 }} disabled={loading}>
-                  {loading ? 'Bitte warten...' : 'Weiter →'}
+                  {loading ? 'Wird eingerichtet...' : 'Loslegen 🌸'}
                 </button>
               </form>
               <div style={{ textAlign: 'center', marginTop: 20, fontSize: 13, color: 'var(--mocha)' }}>
@@ -133,43 +158,7 @@ export default function Auth({ onAuth }) {
               </div>
             </>
           )}
-
-          {/* ── WEDDING DETAILS ── */}
-          {mode === 'wedding' && (
-            <>
-              <div style={{ textAlign: 'center', marginBottom: 20 }}>
-                <div style={{ fontSize: 32, marginBottom: 8 }}>💍</div>
-                <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 26, color: 'var(--espresso)', fontWeight: 400, marginBottom: 4 }}>Eure Hochzeit</h2>
-                <p style={{ fontSize: 13, color: 'var(--mocha)' }}>Diese Daten könnt ihr später jederzeit ändern.</p>
-              </div>
-              <form onSubmit={handleWeddingSetup}>
-                <div className="grid-2">
-                  <div className="form-group">
-                    <label className="form-label">Name Braut *</label>
-                    <input className="input" placeholder="z.B. Sarah" value={weddingData.bride} onChange={e => setWeddingData(d => ({ ...d, bride: e.target.value }))} autoFocus />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Name Bräutigam *</label>
-                    <input className="input" placeholder="z.B. Tobias" value={weddingData.groom} onChange={e => setWeddingData(d => ({ ...d, groom: e.target.value }))} />
-                  </div>
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Hochzeitsdatum *</label>
-                  <input className="input" type="date" value={weddingData.date} onChange={e => setWeddingData(d => ({ ...d, date: e.target.value }))} />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Location / Venue</label>
-                  <input className="input" placeholder="z.B. Schloss Waldenburg" value={weddingData.venue} onChange={e => setWeddingData(d => ({ ...d, venue: e.target.value }))} />
-                </div>
-                {error && <div style={{ background: '#FEE2E2', border: '1px solid #FECACA', borderRadius: 10, padding: '10px 14px', fontSize: 13, color: '#991B1B', marginBottom: 16 }}>{error}</div>}
-                <button type="submit" className="btn btn-primary" style={{ width: '100%', justifyContent: 'center', padding: '12px', fontSize: 15, marginTop: 4 }} disabled={loading}>
-                  {loading ? 'Wird eingerichtet...' : 'Loslegen 🌸'}
-                </button>
-              </form>
-            </>
-          )}
         </div>
-
         <div style={{ textAlign: 'center', marginTop: 20, fontSize: 11, color: 'var(--taupe)' }}>mit Liebe gebaut ♡</div>
       </div>
     </div>
