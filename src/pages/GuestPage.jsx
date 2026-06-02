@@ -618,8 +618,10 @@ export default function GuestPage() {
                     setUploadDone('uploading');
                     let success = true;
                     for (const file of uploads) {
-                      const { error } = await uploadPhoto(file, uploadName || 'Gast', 'guest');
-                      if (error) { success = false; console.error('Upload error:', error); }
+                      console.log('Uploading:', file.name, file.size);
+                      const { data, error } = await uploadPhoto(file, uploadName || 'Gast', 'guest');
+                      console.log('Upload result:', { data, error: error ? JSON.stringify(error) : null });
+                      if (error) { success = false; }
                     }
                     setUploadDone(success ? true : 'error');
                   }}
