@@ -7,14 +7,14 @@ const CATEGORIES = ['Dienstleister', 'Catering', 'Gäste', 'Floristik', 'Musik',
 const emptyTask = { title: '', category: 'Sonstiges', priority: 'medium', due: '', done: false };
 
 export default function Tasks() {
-  const [tasks, setTasks] = useState(() => loadState('tasks', defaultTasks));
+  const [tasks, setTasks] = useState([]);
   const [modal, setModal] = useState(false);
   const [form, setForm] = useState(emptyTask);
   const [filter, setFilter] = useState('all');
 
   useEffect(() => {
     getTasks().then(({ data }) => {
-      if (data && data.length > 0) {
+      if (data !== null && data !== undefined) {
         setTasks(data);
         saveState('tasks', data);
       }
