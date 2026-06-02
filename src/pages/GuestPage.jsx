@@ -295,6 +295,33 @@ export default function GuestPage() {
                     </div>
                   </div>
                 )}
+
+                {rsvpStep === 4 && (
+                  <div>
+                    <div style={{ textAlign: 'center', marginBottom: 20 }}>
+                      <div style={{ fontSize: 32, marginBottom: 8 }}>🔐</div>
+                      <h4 style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 20, color: 'var(--espresso)', marginBottom: 6 }}>Einladungscode eingeben</h4>
+                      <div style={{ fontSize: 13, color: 'var(--mocha)' }}>Den Code findest du auf deiner Einladungskarte</div>
+                    </div>
+                    <div className="form-group">
+                      <input
+                        className="input"
+                        placeholder="z.B. MUELLER2026"
+                        value={inviteCode}
+                        onChange={e => setInviteCode(e.target.value.toUpperCase())}
+                        onKeyDown={e => e.key === 'Enter' && verifyCode()}
+                        style={{ textAlign: 'center', letterSpacing: 2, fontSize: 16, fontWeight: 600 }}
+                      />
+                      {codeError && <div style={{ fontSize: 12, color: '#E57373', marginTop: 6, textAlign: 'center' }}>{codeError}</div>}
+                    </div>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <button className="btn btn-secondary" onClick={() => setRsvpStep(3)}>← Zurück</button>
+                      <button className="btn btn-primary" style={{ flex: 1, justifyContent: 'center' }} onClick={handleSubmit}>
+                        Anmeldung absenden ✓
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
