@@ -1,180 +1,88 @@
-import { useState, useEffect } from 'react';
-import { Plus, Trash2, X, Check } from 'lucide-react';
-import { loadState, saveState, defaultTasks } from '../data/store';
+import { useState } from 'react';
+import { loadState, saveState, defaultWedding } from '../data/store';
+import { saveWedding, deleteAccount } from '../lib/db';
 
-const CATEGORIES = ['Dienstleister', 'Catering', 'Gäste', 'Floristik', 'Musik', 'Outfit', 'Sonstiges'];
-const emptyTask = { title: '', category: 'Sonstiges', priority: 'medium', dueDate: '', done: false };
+export default function Settings() {
+  const [wedding, setWedding] = useState(() => loadState('wedding', defaultWedding));
+  const [saved, setSaved] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState('');
 
-export default function Tasks() {
-  const [tasks, setTasks] = useState(() => loadState('tasks', defaultTasks));
-
-  useEffect(() => {
-    getTasks().then(({ data }) => {
-      if (data && data.length > 0) {
-        setTasks(data);
-        saveState('tasks', data);
-      }
-    });
-  }, []);
-  const [modal, setModal] = useState(false);
-  const [form, setForm] = useState(emptyTask);
-  const [filter, setFilter] = useState('all');
-
-  function save(updated) { setTasks(updated); saveState('tasks', updated); }
-  async function saveTask(task) {
-    const updated = tasks.find(t => t.id === task.id)
-      ? tasks.map(t => t.id === task.id ? task : t)
-      : [...tasks, task];
-    setTasks(updated); saveState('tasks', updated);
-    await upsertTask(task);
-  }
-  async function removeTask(id) {
-    const updated = tasks.filter(t => t.id !== id);
-    setTasks(updated); saveState('tasks', updated);
-    await deleteTask(id);
-  }
-  function toggle(id) { save(tasks.map(t => t.id === id ? { ...t, done: !t.done } : t)); }
-  function deleteTask(id) { save(tasks.filter(t => t.id !== id)); }
-  function addTask() {
-    if (!form.title.trim()) return;
-    const newId = Math.max(0, ...tasks.map(t => t.id)) + 1;
-    save([...tasks, { ...form, id: newId }]);
-    setModal(false);
+  async function handleSave() {
+    saveState('wedding', wedding);
+    await saveWedding(wedding);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
   }
 
-  const filtered = tasks.filter(t =>
-    filter === 'all' ? true : filter === 'open' ? !t.done : t.done
-  ).sort((a, b) => {
-    if (a.done !== b.done) return a.done ? 1 : -1;
-    const pOrder = { high: 0, medium: 1, low: 2 };
-    return pOrder[a.priority] - pOrder[b.priority];
-  });
-
-  const done = tasks.filter(t => t.done).length;
-  const pct = tasks.length ? Math.round((done / tasks.length) * 100) : 0;
-
-  const byCategory = CATEGORIES.map(cat => ({
-    cat, tasks: filtered.filter(t => t.category === cat)
-  })).filter(c => c.tasks.length > 0);
+  async function handleDeleteAccount() {
+    if (confirmDelete !== 'LÖSCHEN') return;
+    if (!confirm('Wirklich alles löschen? Das kann nicht rückgängig gemacht werden.')) return;
+    setDeleting(true);
+    const { error } = await deleteAccount();
+    if (error) { alert('Fehler: ' + error.message); setDeleting(false); }
+    else window.location.reload();
+  }
 
   return (
-    <div>
+    <>
       <div className="topbar">
-        <div>
-          <h1>Aufgaben</h1>
-          <p style={{ color: 'var(--taupe)', fontSize: 13, marginTop: 2 }}>{done} von {tasks.length} erledigt · {pct}%</p>
-        </div>
-        <button className="btn btn-primary" onClick={() => { setForm(emptyTask); setModal(true); }}>
-          <Plus size={15} /> Neue Aufgabe
+        <div><h1>Einstellungen</h1><div className="topbar-sub">Hochzeitsdaten & Account</div></div>
+        <button className="btn btn-primary" onClick={handleSave}>
+          {saved ? '✓ Gespeichert' : 'Speichern'}
         </button>
       </div>
 
       <div className="page-body">
-        {/* Progress */}
+        {/* Wedding data */}
         <div className="card" style={{ marginBottom: 20 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8, fontSize: 13 }}>
-            <span style={{ fontWeight: 600 }}>Gesamtfortschritt</span>
-            <span style={{ color: 'var(--taupe)' }}>{done} / {tasks.length} Aufgaben</span>
+          <div className="section-title" style={{ marginBottom: 16 }}>Hochzeitsdaten</div>
+          <div className="grid-2">
+            <div className="form-group">
+              <label className="form-label">Braut</label>
+              <input className="input" value={wedding.bride || ''} onChange={e => setWedding(w => ({ ...w, bride: e.target.value }))} />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Bräutigam</label>
+              <input className="input" value={wedding.groom || ''} onChange={e => setWedding(w => ({ ...w, groom: e.target.value }))} />
+            </div>
           </div>
-          <div className="progress-bar" style={{ height: 10 }}>
-            <div className="progress-bar-fill" style={{ width: `${pct}%`, background: 'var(--green)' }} />
+          <div className="grid-2">
+            <div className="form-group">
+              <label className="form-label">Datum</label>
+              <input className="input" type="date" value={wedding.date || ''} onChange={e => setWedding(w => ({ ...w, date: e.target.value }))} />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Location</label>
+              <input className="input" placeholder="z.B. Schloss Waldenburg" value={wedding.venue || ''} onChange={e => setWedding(w => ({ ...w, venue: e.target.value }))} />
+            </div>
+          </div>
+          <div className="form-group">
+            <label className="form-label">Budget (€)</label>
+            <input className="input" type="number" value={wedding.budget || ''} onChange={e => setWedding(w => ({ ...w, budget: parseInt(e.target.value) || 0 }))} />
           </div>
         </div>
 
-        <div className="tabs">
-          {[['all', 'Alle'], ['open', 'Offen'], ['done', 'Erledigt']].map(([v, l]) => (
-            <button key={v} className={`tab ${filter === v ? 'active' : ''}`} onClick={() => setFilter(v)}>{l}</button>
-          ))}
+        {/* Danger zone */}
+        <div className="card" style={{ border: '1px solid #FECACA' }}>
+          <div className="section-title" style={{ marginBottom: 4, color: '#991B1B' }}>⚠️ Gefahrenzone</div>
+          <p style={{ fontSize: 13, color: 'var(--mocha)', marginBottom: 16, lineHeight: 1.6 }}>
+            Account und alle Daten unwiderruflich löschen — Gäste, Budget, Zeitplan, Fotos, alles.
+          </p>
+          <div className="form-group">
+            <label className="form-label">Tippe <strong>LÖSCHEN</strong> zur Bestätigung</label>
+            <input className="input" placeholder="LÖSCHEN" value={confirmDelete} onChange={e => setConfirmDelete(e.target.value)} style={{ borderColor: confirmDelete === 'LÖSCHEN' ? '#EF4444' : undefined }} />
+          </div>
+          <button
+            className="btn"
+            style={{ background: confirmDelete === 'LÖSCHEN' ? '#EF4444' : '#FEE2E2', color: confirmDelete === 'LÖSCHEN' ? '#fff' : '#991B1B', border: 'none', padding: '10px 20px', borderRadius: 10, cursor: confirmDelete === 'LÖSCHEN' ? 'pointer' : 'not-allowed', fontFamily: "'DM Sans',sans-serif", fontWeight: 600, fontSize: 13 }}
+            onClick={handleDeleteAccount}
+            disabled={confirmDelete !== 'LÖSCHEN' || deleting}
+          >
+            {deleting ? 'Wird gelöscht...' : 'Account endgültig löschen'}
+          </button>
         </div>
-
-        {byCategory.map(({ cat, tasks: catTasks }) => (
-          <div key={cat} style={{ marginBottom: 20 }}>
-            <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--taupe)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 8 }}>
-              {cat} · {catTasks.filter(t => !t.done).length} offen
-            </div>
-            <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-              {catTasks.map((task, i) => (
-                <div key={task.id} style={{
-                  display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px',
-                  borderBottom: i < catTasks.length - 1 ? '1px solid var(--warm-white)' : 'none',
-                  background: task.done ? 'var(--warm-white)' : 'white',
-                  transition: 'background 0.15s'
-                }}>
-                  <button
-                    onClick={() => toggle(task.id)}
-                    style={{
-                      width: 22, height: 22, borderRadius: '50%',
-                      border: `2px solid ${task.done ? 'var(--green)' : 'var(--sand)'}`,
-                      background: task.done ? 'var(--green)' : 'white',
-                      cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      flexShrink: 0, transition: 'all 0.15s'
-                    }}
-                  >
-                    {task.done && <Check size={12} color="white" strokeWidth={3} />}
-                  </button>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 13.5, fontWeight: 500, color: task.done ? 'var(--taupe)' : 'var(--dark)', textDecoration: task.done ? 'line-through' : 'none' }}>
-                      {task.title}
-                    </div>
-                    {task.dueDate && (
-                      <div style={{ fontSize: 11, color: 'var(--taupe)', marginTop: 1 }}>
-                        📅 {new Date(task.dueDate).toLocaleDateString('de-DE')}
-                      </div>
-                    )}
-                  </div>
-                  <span className={`badge badge-${task.priority}`}>{task.priority === 'high' ? 'Hoch' : task.priority === 'medium' ? 'Mittel' : 'Niedrig'}</span>
-                  <button className="btn-icon" style={{ padding: 5 }} onClick={() => deleteTask(task.id)}><Trash2 size={13} /></button>
-                </div>
-              ))}
-            </div>
-          </div>
-        ))}
-
-        {filtered.length === 0 && (
-          <div className="card empty-state">
-            <p>{filter === 'done' ? 'Noch keine erledigten Aufgaben' : '🎉 Alle Aufgaben erledigt!'}</p>
-          </div>
-        )}
       </div>
-
-      {modal && (
-        <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setModal(false)}>
-          <div className="modal">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-              <h3>Neue Aufgabe</h3>
-              <button className="btn-icon" onClick={() => setModal(false)}><X size={16} /></button>
-            </div>
-            <div className="form-group">
-              <label>Aufgabe *</label>
-              <input className="input" placeholder="Was muss erledigt werden?" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} />
-            </div>
-            <div className="grid-2">
-              <div className="form-group">
-                <label>Kategorie</label>
-                <select className="input" value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))}>
-                  {CATEGORIES.map(c => <option key={c}>{c}</option>)}
-                </select>
-              </div>
-              <div className="form-group">
-                <label>Priorität</label>
-                <select className="input" value={form.priority} onChange={e => setForm(f => ({ ...f, priority: e.target.value }))}>
-                  <option value="high">Hoch</option>
-                  <option value="medium">Mittel</option>
-                  <option value="low">Niedrig</option>
-                </select>
-              </div>
-            </div>
-            <div className="form-group">
-              <label>Fälligkeitsdatum</label>
-              <input className="input" type="date" value={form.dueDate} onChange={e => setForm(f => ({ ...f, dueDate: e.target.value }))} />
-            </div>
-            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-              <button className="btn btn-secondary" onClick={() => setModal(false)}>Abbrechen</button>
-              <button className="btn btn-primary" onClick={addTask}>Hinzufügen</button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
+    </>
   );
 }
