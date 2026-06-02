@@ -4,7 +4,7 @@ import {
   IconUsers, IconTool, IconClock, IconMapPin, IconFilter
 } from '@tabler/icons-react';
 import { loadState, saveState, defaultTimeline } from '../data/store';
-import { getTimeline, upsertTimelineEvent, deleteTimelineEvent, getScheduleRequests } from '../lib/db';
+import { getTimeline, upsertTimelineEvent, deleteTimelineEvent, getScheduleRequests, getGuests, getSeating } from '../lib/db';
 
 const TYPES = [
   { id: 'ceremony',     label: 'Trauung',         color: '#C4956A', bg: '#FDF5E8', emoji: '💒' },
@@ -107,11 +107,13 @@ export default function Timeline() {
   }
 
   const [scheduleRequests, setScheduleRequests] = useState([]);
+  const [allGuests, setAllGuests] = useState([]);
+  const [seatingData, setSeatingData] = useState(null);
 
   useEffect(() => {
-    getScheduleRequests().then(({ data }) => {
-      if (data) setScheduleRequests(data);
-    });
+    getScheduleRequests().then(({ data }) => { if (data) setScheduleRequests(data); });
+    getGuests().then(({ data }) => { if (data) setAllGuests(data.filter(g => g.status === 'confirmed')); });
+    getSeating().then(({ data }) => { if (data) setSeatingData(data); });
   }, []);
 
   const guestRequests = scheduleRequests;
@@ -124,8 +126,8 @@ export default function Timeline() {
           <div className="topbar-sub">Plant jeden Moment eures besonderen Tages</div>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
-          <button className="btn btn-secondary btn-sm" onClick={exportText}>
-            <IconDownload size={14} stroke={1.5} /> Export
+          <button className="btn btn-secondary btn-sm" onClick={exportPDF}>
+            <IconDownload size={14} stroke={1.5} /> PDF
           </button>
           <button className="btn btn-primary" onClick={openAdd}>
             <IconPlus size={15} stroke={2} /> Termin
@@ -262,7 +264,7 @@ export default function Timeline() {
                             )}
                             {ev.guests && (
                               <span style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 11, color: 'var(--sage)', background: '#F0F5EE', padding: '2px 8px', borderRadius: 20, border: '1px solid var(--sage)44', fontWeight: 500 }}>
-                                <IconUsers size={11} stroke={1.5} /> Gäste
+                                <IconUsers size={11} stroke={1.5} /> {allGuests.length > 0 ? `${allGuests.length} Gäste` : 'Gäste'}
                               </span>
                             )}
                             {ev.vendor && (
