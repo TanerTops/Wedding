@@ -50,11 +50,13 @@ export default function Guests() {
     if (modal === 'add') {
       const newGuest = { ...form, id: crypto.randomUUID() };
       saveGuests([...guests, newGuest]);
-      await upsertGuest({ ...newGuest, group_name: newGuest.group });
+      const { error } = await upsertGuest({ ...newGuest, group_name: newGuest.group });
+      if (error) console.error('Gast speichern fehlgeschlagen:', error);
     } else {
       const updated = { ...form, id: modal };
       saveGuests(guests.map(g => g.id === modal ? updated : g));
-      await upsertGuest({ ...updated, group_name: updated.group });
+      const { error } = await upsertGuest({ ...updated, group_name: updated.group });
+      if (error) console.error('Gast speichern fehlgeschlagen:', error);
     }
     setModal(null);
   }
