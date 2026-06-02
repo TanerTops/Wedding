@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { IconPlus, IconTrash, IconX, IconRotateClockwise } from '@tabler/icons-react';
 import { loadState, saveState, defaultSeating, defaultGuests } from '../data/store';
+import { getGuests, saveSeating, getSeating } from '../lib/db';
 
 const AV_COLORS = ['#C4956A','#A8B5A0','#C4B5A5','#8B9E7A','#B8A9C9','#C9A884','#9B8EA0','#B5A88A'];
 const ini = n => n.split(' ').map(x => x[0]).slice(0,2).join('').toUpperCase();
@@ -237,7 +238,7 @@ export default function Seating() {
       }))
     };
   });
-  const [guests] = useState(() => loadState('guests', defaultGuests));
+  const [guests, setGuests] = useState(() => loadState('guests', defaultGuests).filter(g => g.status === 'confirmed'));
   const [panel, setPanel] = useState(null);
   const [editTable, setEditTable] = useState(null);
   const [draggingTable, setDraggingTable] = useState(null);
