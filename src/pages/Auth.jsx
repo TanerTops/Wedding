@@ -159,7 +159,13 @@ export default function Auth({ onAuth }) {
             </>
           )}
         </div>
-        <div style={{ textAlign: 'center', marginTop: 20, fontSize: 11, color: 'var(--taupe)' }}>mit Liebe gebaut ♡</div>
+        <div style={{ textAlign: 'center', marginTop: 20, fontSize: 11, color: 'var(--taupe)' }}>
+          mit Liebe gebaut ♡
+          <div style={{ marginTop: 6, display: 'flex', gap: 12, justifyContent: 'center' }}>
+            <a href="/impressum" style={{ color: 'var(--taupe)', textDecoration: 'none' }}>Impressum</a>
+            <a href="/datenschutz" style={{ color: 'var(--taupe)', textDecoration: 'none' }}>Datenschutz</a>
+          </div>
+        </div>
       </div>
     </div>
   );
