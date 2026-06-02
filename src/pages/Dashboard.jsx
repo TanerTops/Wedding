@@ -228,19 +228,19 @@ export default function Dashboard() {
           <div className="card-warm">
             <div className="section-title">Letzte Aktivitäten</div>
             {[
-              ...data.recentRsvps.map(r => ({
+              ...(data.recentRsvps || []).map(r => ({
                 icon: r.attending === 'yes' ? '✅' : '❌',
                 text: `${r.name} hat ${r.attending === 'yes' ? 'zugesagt' : 'abgesagt'}`,
                 time: r.submitted_at,
                 to: '/guests',
               })),
-              ...data.recentPhotos.map(p => ({
+              ...(data.recentPhotos || []).map(p => ({
                 icon: '📸',
                 text: `Foto von ${p.uploader || 'Gast'} hochgeladen`,
                 time: p.created_at,
                 to: '/memories',
               })),
-              ...data.recentWishes.map(w => ({
+              ...(data.recentWishes || []).map(w => ({
                 icon: '🎵',
                 text: `Musikwunsch von ${w.sender_name || 'Gast'}`,
                 time: w.submitted_at,
@@ -260,7 +260,7 @@ export default function Dashboard() {
                 </div>
               </Link>
             ))}
-            {data.recentRsvps.length === 0 && data.recentPhotos.length === 0 && data.recentWishes.length === 0 && (
+            {(data.recentRsvps || []).length === 0 && (data.recentPhotos || []).length === 0 && (data.recentWishes || []).length === 0 && (
               <div style={{ fontSize: 13, color: 'var(--mocha)', textAlign: 'center', padding: '16px 0' }}>
                 Noch keine Aktivitäten
               </div>
