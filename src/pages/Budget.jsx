@@ -62,18 +62,31 @@ export default function Budget() {
   // ── CRUD ────────────────────────────────────────────────────────
   function openAdd() { setForm({ cat: cats[0]?.name||'', amount:'', paid:false, due:'', vendor:'', desc:'' }); setModal('add'); }
   function openEdit(item) { setForm({...item, amount:String(item.amount)}); setModal(item.id); }
-  function handleSave() {
+  async function handleSave() {
     const amount = parseFloat(form.amount)||0;
     if (!form.desc?.trim() || !amount) return;
     if (modal==='add') {
-      saveItems([...items, { ...form, id:Math.max(0,...items.map(i=>i.id))+1, amount }]);
+      const newItem = { ...form, id: crypto.randomUUID(), amount };
+      saveItems([...items, newItem]);
+      await upsertBudgetItem(newItem);
     } else {
-      saveItems(items.map(i => i.id===modal ? {...form,id:i.id,amount} : i));
+      const updated = { ...form, id: modal, amount };
+      saveItems(items.map(i => i.id===modal ? updated : i));
+      await upsertBudgetItem(updated);
     }
     setModal(null);
   }
-  function del(id) { if(confirm('Ausgabe löschen?')) saveItems(items.filter(i=>i.id!==id)); }
-  function togglePaid(id) { saveItems(items.map(i=>i.id===id?{...i,paid:!i.paid}:i)); }
+  async function del(id) {
+    if (!confirm('Ausgabe löschen?')) return;
+    saveItems(items.filter(i => i.id !== id));
+    await deleteBudgetItem(id);
+  }
+  async function togglePaid(id) {
+    const updated = items.map(i => i.id===id ? {...i, paid:!i.paid} : i);
+    saveItems(updated);
+    const item = updated.find(i => i.id === id);
+    await upsertBudgetItem(item);
+  }
   function addCat() {
     if(!newCat.name.trim()) return;
     saveCats([...cats,{id:Math.max(0,...cats.map(c=>c.id))+1,...newCat,budget:parseFloat(newCat.budget)||0}]);
