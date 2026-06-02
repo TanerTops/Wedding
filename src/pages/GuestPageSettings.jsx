@@ -40,7 +40,7 @@ const SECTIONS_META = [
 
 
 
-class QRErrorBoundary extends Component {
+class QRErrorBoundary extends React.Component {
   constructor(props) { super(props); this.state = { error: false }; }
   static getDerivedStateFromError() { return { error: true }; }
   render() {
