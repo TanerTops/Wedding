@@ -1,6 +1,7 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { IconPhoto, IconUpload, IconTrash, IconEye, IconEyeOff, IconX, IconPlus, IconTag, IconEdit } from '@tabler/icons-react';
 import { loadState, saveState } from '../data/store';
+import { getPhotos, updatePhoto, deletePhoto as dbDeletePhoto, uploadPhoto } from '../lib/db';
 
 const DEFAULT_CATEGORIES = [
   { id: 'getting-ready', label: 'Getting Ready', emoji: '💄', color: '#C4956A' },
@@ -25,6 +26,17 @@ const DEMO_PHOTOS = [
 
 export default function Memories() {
   const [photos, setPhotos] = useState(() => loadState('memories', DEMO_PHOTOS));
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    getPhotos().then(({ data }) => {
+      if (data && data.length > 0) {
+        setPhotos(data);
+        saveState('memories', data);
+      }
+      setLoading(false);
+    });
+  }, []);
   const [categories, setCategories] = useState(() => loadState('memoryCategories', DEFAULT_CATEGORIES));
   const [activeTab, setActiveTab] = useState('all');      // 'all' | categoryId | 'pending' | 'guest'
   const [viewMode, setViewMode] = useState('grid');       // 'grid' | 'category'
@@ -38,9 +50,24 @@ export default function Memories() {
   function savePhotos(p) { setPhotos(p); saveState('memories', p); }
   function saveCats(c) { setCategories(c); saveState('memoryCategories', c); }
 
-  function toggleApproved(id) { savePhotos(photos.map(p => p.id === id ? { ...p, approved: !p.approved } : p)); }
-  function deletePhoto(id) { if (!confirm('Foto löschen?')) return; savePhotos(photos.filter(p => p.id !== id)); }
-  function setCategory(photoId, catId) { savePhotos(photos.map(p => p.id === photoId ? { ...p, category: catId } : p)); setEditingPhoto(null); }
+  async function toggleApproved(id) {
+    const photo = photos.find(p => p.id === id);
+    if (!photo) return;
+    const newApproved = !photo.approved;
+    savePhotos(photos.map(p => p.id === id ? { ...p, approved: newApproved } : p));
+    await updatePhoto(id, { approved: newApproved });
+  }
+  async function deletePhoto(id) {
+    if (!confirm('Foto löschen?')) return;
+    const photo = photos.find(p => p.id === id);
+    savePhotos(photos.filter(p => p.id !== id));
+    await dbDeletePhoto(id, photo?.storage_path);
+  }
+  async function setCategory(photoId, catId) {
+    savePhotos(photos.map(p => p.id === photoId ? { ...p, category: catId } : p));
+    await updatePhoto(photoId, { category: catId });
+    setEditingPhoto(null);
+  }
 
   function addCategory() {
     if (!newCat.label.trim()) return;
@@ -56,25 +83,23 @@ export default function Memories() {
     saveCats(categories.filter(c => c.id !== id));
   }
 
-  function handleFileUpload(e) {
+  async function handleFileUpload(e) {
     const files = Array.from(e.target.files);
     if (!files.length) return;
     setUploading(true);
-    setTimeout(() => {
-      const newPhotos = files.map((file, i) => ({
-        id: Math.max(0, ...photos.map(p => p.id)) + i + 1,
-        url: URL.createObjectURL(file),
-        thumb: URL.createObjectURL(file),
-        name: file.name.replace(/\.[^.]+$/, ''),
-        uploader: 'Du',
-        uploadedBy: 'admin',
-        approved: true,
-        date: new Date().toISOString().slice(0, 10),
-        category: activeTab !== 'all' && activeTab !== 'pending' && activeTab !== 'guest' ? activeTab : 'other',
-      }));
-      savePhotos([...photos, ...newPhotos]);
-      setUploading(false);
-    }, 800);
+    const category = activeTab !== 'all' && activeTab !== 'pending' && activeTab !== 'guest' ? activeTab : 'other';
+    for (const file of files) {
+      const { data, error } = await uploadPhoto(file, 'Admin', 'admin');
+      if (data) {
+        const photo = { ...data, category, approved: true };
+        await updatePhoto(data.id, { category, approved: true });
+        setPhotos(prev => [photo, ...prev]);
+      }
+    }
+    setUploading(false);
+    // Reload from DB
+    const { data } = await getPhotos();
+    if (data) { setPhotos(data); saveState('memories', data); }
   }
 
   // Filter photos based on active tab
@@ -114,6 +139,13 @@ export default function Memories() {
       </div>
 
       <div className="page-body">
+        {loading && (
+          <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--mocha)' }}>
+            <div style={{ fontSize: 24, marginBottom: 8 }}>📷</div>
+            <p>Fotos werden geladen...</p>
+          </div>
+        )}
+        {!loading && <>
         {/* Stats */}
         <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(4,1fr)', marginBottom: 16 }}>
           {[
@@ -225,6 +257,7 @@ export default function Memories() {
             )}
           </>
         )}
+        </>}
       </div>
 
       {/* Lightbox */}
