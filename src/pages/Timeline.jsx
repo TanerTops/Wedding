@@ -4,7 +4,7 @@ import {
   IconUsers, IconTool, IconClock, IconMapPin, IconFilter
 } from '@tabler/icons-react';
 import { loadState, saveState, defaultTimeline } from '../data/store';
-import { upsertTimelineEvent, deleteTimelineEvent } from '../lib/db';
+import { getTimeline, upsertTimelineEvent, deleteTimelineEvent } from '../lib/db';
 
 const TYPES = [
   { id: 'ceremony',     label: 'Trauung',         color: '#C4956A', bg: '#FDF5E8', emoji: '💒' },
@@ -31,14 +31,12 @@ export default function Timeline() {
   const [events, setEvents] = useState(() => loadState('timeline', defaultTimeline));
 
   useEffect(() => {
-    import('../lib/db').then(({ getTimeline }) => {
-      getTimeline().then(({ data }) => {
-        if (data && data.length > 0) {
-          const mapped = data.map(e => ({ ...e, endTime: e.end_time || e.endTime, desc: e.description || e.desc }));
-          setEvents(mapped);
-          saveState('timeline', mapped);
-        }
-      });
+    getTimeline().then(({ data }) => {
+      if (data && data.length > 0) {
+        const mapped = data.map(e => ({ ...e, endTime: e.end_time || e.endTime, desc: e.description || e.desc }));
+        setEvents(mapped);
+        saveState('timeline', mapped);
+      }
     });
   }, []);
   const [tab, setTab] = useState('editor');
