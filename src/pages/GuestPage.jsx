@@ -113,11 +113,26 @@ export default function GuestPage() {
     if (match) {
       setCodeVerified(true);
       setCodeError('');
-      // Pre-fill name if we know it
       setRsvpData(d => ({ ...d, name: match.name, menu: match.menu || '' }));
     } else {
       setCodeError('Code nicht gefunden. Bitte prüfe deine Einladung.');
     }
+  }
+
+  async function handleFinalSubmit() {
+    const code = inviteCode.trim().toUpperCase();
+    if (!code) { setCodeError('Bitte Code eingeben.'); return; }
+    // Verify code
+    const match = guestList.find(g => (g.inviteCode || '').toUpperCase() === code);
+    if (!match) { setCodeError('Code nicht gefunden. Bitte prüfe deine Einladung.'); return; }
+    // Submit
+    const { error } = await submitRSVP({
+      ...rsvpData,
+      plus_one: !!(rsvpData.companions?.trim()),
+      companions: rsvpData.companions || '',
+    });
+    if (!error) setRsvpDone(true);
+    else setCodeError('Fehler beim Absenden. Bitte nochmal versuchen.');
   }
 
   return (
@@ -180,38 +195,7 @@ export default function GuestPage() {
         <section id="rsvp" style={{ background: '#fff' }}>
           <div className="guest-section">
             <SectionHeader title="Werdet ihr dabei sein?" sub="Wir würden uns riesig freuen!" />
-            {/* Code verification gate */}
-            {!codeVerified && config.sections?.rsvp !== false && (
-              <div style={{ maxWidth: 420, margin: '0 auto' }}>
-                <div className="card" style={{ padding: 28, textAlign: 'center' }}>
-                  <div style={{ fontSize: 32, marginBottom: 12 }}>🔑</div>
-                  <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 22, color: 'var(--espresso)', marginBottom: 8 }}>
-                    Einladungscode eingeben
-                  </div>
-                  <p style={{ fontSize: 13, color: 'var(--mocha)', marginBottom: 20, lineHeight: 1.6 }}>
-                    Ihr findet euren persönlichen Code auf eurer Einladungskarte.
-                  </p>
-                  <div className="form-group" style={{ textAlign: 'left' }}>
-                    <input
-                      className="input"
-                      placeholder="z.B. MUELLER2026"
-                      value={inviteCode}
-                      onChange={e => { setInviteCode(e.target.value.toUpperCase()); setCodeError(''); }}
-                      onKeyDown={e => e.key === 'Enter' && verifyCode()}
-                      style={{ textAlign: 'center', fontSize: 18, fontWeight: 700, letterSpacing: 2 }}
-                    />
-                  </div>
-                  {codeError && (
-                    <div style={{ fontSize: 13, color: '#E57373', marginBottom: 12 }}>{codeError}</div>
-                  )}
-                  <button className="btn btn-primary" style={{ width: '100%', justifyContent: 'center', padding: '12px' }} onClick={verifyCode}>
-                    Code bestätigen →
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {codeVerified && rsvpDone ? (
+            {rsvpDone ? (
               <div style={{ textAlign: 'center', padding: '48px 0' }}>
                 <div style={{ width: 64, height: 64, borderRadius: '50%', background: '#E8F5E9', border: '2px solid #C8E6C9', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
                   <IconCheck size={28} stroke={2} style={{ color: '#388E3C' }} />
@@ -227,15 +211,15 @@ export default function GuestPage() {
               <div className="rsvp-form" style={{ maxWidth: 520, margin: '0 auto' }}>
                 {/* Steps */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 24 }}>
-                  {[1,2,3].map((s, i) => (
-                    <div key={s} style={{ display: 'flex', alignItems: 'center', gap: 8, flex: i < 2 ? 1 : 'none' }}>
-                      <div style={{ width: 28, height: 28, borderRadius: '50%', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 600, background: rsvpStep > s ? 'var(--sage)' : rsvpStep === s ? 'var(--brown)' : 'var(--sand)', color: rsvpStep >= s ? '#fff' : 'var(--mocha)' }}>
-                        {rsvpStep > s ? <IconCheck size={14} stroke={2.5} /> : s}
+                  {[1,2,3,4].map((s, i) => (
+                    <div key={s} style={{ display: 'flex', alignItems: 'center', gap: 8, flex: i < 3 ? 1 : 'none' }}>
+                      <div style={{ width: 26, height: 26, borderRadius: '50%', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 600, background: rsvpStep > s ? 'var(--sage)' : rsvpStep === s ? 'var(--brown)' : 'var(--sand)', color: rsvpStep >= s ? '#fff' : 'var(--mocha)' }}>
+                        {rsvpStep > s ? <IconCheck size={12} stroke={2.5} /> : s}
                       </div>
-                      <span style={{ fontSize: 12, color: rsvpStep === s ? 'var(--brown)' : 'var(--mocha)', fontWeight: rsvpStep === s ? 500 : 400 }}>
-                        {s === 1 ? 'Teilnahme' : s === 2 ? 'Details' : 'Bestätigung'}
+                      <span style={{ fontSize: 11, color: rsvpStep === s ? 'var(--brown)' : 'var(--mocha)', fontWeight: rsvpStep === s ? 500 : 400 }}>
+                        {s === 1 ? 'Teilnahme' : s === 2 ? 'Details' : s === 3 ? 'Bestätigung' : 'Code'}
                       </span>
-                      {i < 2 && <div style={{ flex: 1, height: 1, background: rsvpStep > s ? 'var(--sage)' : 'var(--sand)' }} />}
+                      {i < 3 && <div style={{ flex: 1, height: 1, background: rsvpStep > s ? 'var(--sage)' : 'var(--sand)' }} />}
                     </div>
                   ))}
                 </div>
@@ -298,10 +282,9 @@ export default function GuestPage() {
                     ))}
                     <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
                       <button className="btn btn-secondary" onClick={() => setRsvpStep(2)}>← Zurück</button>
-                      <button className="btn btn-primary" style={{ flex: 1, justifyContent: 'center' }} onClick={async () => {
-                const { error } = await submitRSVP({ ...rsvpData, plus_one: !!(rsvpData.companions?.trim()), companions: rsvpData.companions || '' });
-                if (!error) setRsvpDone(true);
-              }}>Absenden 🌸</button>
+                      <button className="btn btn-primary" style={{ flex: 1, justifyContent: 'center' }} onClick={() => setRsvpStep(4)}>
+                        Weiter <IconArrowRight size={15} stroke={2} />
+                      </button>
                     </div>
                   </div>
                 )}
