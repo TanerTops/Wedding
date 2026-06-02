@@ -4,7 +4,7 @@ import {
   IconUsers, IconTool, IconClock, IconMapPin, IconFilter
 } from '@tabler/icons-react';
 import { loadState, saveState, defaultTimeline } from '../data/store';
-import { getTimeline, upsertTimelineEvent, deleteTimelineEvent } from '../lib/db';
+import { getTimeline, upsertTimelineEvent, deleteTimelineEvent, getScheduleRequests } from '../lib/db';
 
 const TYPES = [
   { id: 'ceremony',     label: 'Trauung',         color: '#C4956A', bg: '#FDF5E8', emoji: '💒' },
@@ -106,11 +106,15 @@ export default function Timeline() {
     return rows;
   }
 
-  // Guest requests (demo)
-  const guestRequests = [
-    { id:1, name:'Max Müller', type:'Rede', desc:'Möchte eine kurze Rede halten (~5 Min)', time:'Nach dem Dinner', status:'pending' },
-    { id:2, name:'Familie Schneider', type:'Spiel', desc:'Haben ein lustiges Kennenlernspiel vorbereitet', time:'Abends', status:'pending' },
-  ];
+  const [scheduleRequests, setScheduleRequests] = useState([]);
+
+  useEffect(() => {
+    getScheduleRequests().then(({ data }) => {
+      if (data) setScheduleRequests(data);
+    });
+  }, []);
+
+  const guestRequests = scheduleRequests;
 
   return (
     <>
@@ -322,14 +326,17 @@ export default function Timeline() {
                           {req.type} · gewünschter Zeitpunkt: <strong>{req.time}</strong>
                         </div>
                       </div>
-                      <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--terra)', background: '#FDF5E8', padding: '3px 10px', borderRadius: 20, border: '1px solid var(--terra)44' }}>
-                        Ausstehend
-                      </span>
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+                        <span style={{ fontSize: 11, fontWeight: 600, color: req.status === 'approved' ? 'var(--sage)' : 'var(--terra)', background: req.status === 'approved' ? '#F0F5EE' : '#FDF5E8', padding: '3px 10px', borderRadius: 20 }}>
+                          {req.status === 'approved' ? '✓ Übernommen' : 'Ausstehend'}
+                        </span>
+                        {req.submitted_at && <span style={{ fontSize: 10, color: 'var(--mocha)' }}>{new Date(req.submitted_at).toLocaleDateString('de-DE')}</span>}
+                      </div>
                     </div>
-                    <div style={{ fontSize: 13, color: 'var(--mocha)', margin: '8px 0 10px', lineHeight: 1.5 }}>{req.desc}</div>
+                    <div style={{ fontSize: 13, color: 'var(--mocha)', margin: '8px 0 10px', lineHeight: 1.5 }}>{req.description || req.desc}</div>
                     <div style={{ display: 'flex', gap: 8 }}>
                       <button className="btn btn-primary btn-sm" onClick={() => {
-                        setForm({ time: '19:30', endTime: '20:00', title: `${req.type}: ${req.name}`, type: 'speech', loc: 'Festsaal', desc: req.desc, guests: true, vendor: false });
+                        setForm({ time: '19:30', endTime: '20:00', title: `${req.slot_label || req.type || 'Programmpunkt'}: ${req.name}`, type: 'speech', loc: 'Festsaal', desc: req.description || req.desc || '', guests: true, vendor: false });
                         setModal('add');
                         setTab('editor');
                       }}>
