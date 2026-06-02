@@ -150,10 +150,10 @@ export default function GuestPageSettings() {
             Teile diesen Link per Email oder auf der Einladungskarte.
           </div>
           <div style={{ fontSize: 13, color: 'var(--espresso)', background: 'var(--warm)', padding: '10px 14px', borderRadius: 8, marginBottom: 12, wordBreak: 'break-all', border: '1px solid var(--sand)' }}>
-            {window.location.origin + guestUrl}
+            {`${window.location.origin}/guest/${makeSlug(wedding)}`}
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
-            <button className="btn btn-primary btn-sm" onClick={() => navigator.clipboard.writeText(window.location.origin + guestUrl)}>
+            <button className="btn btn-primary btn-sm" onClick={() => navigator.clipboard.writeText(`${window.location.origin}/guest/${makeSlug(wedding)}`)}>
               <IconCopy size={13} stroke={1.5} /> Link kopieren
             </button>
             <a href={window.location.origin + guestUrl} target="_blank" rel="noopener" className="btn btn-secondary btn-sm">
