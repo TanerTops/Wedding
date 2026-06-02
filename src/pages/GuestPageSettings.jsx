@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import qrcodegen from 'qrcode-generator';
 import { loadState, saveState, defaultWedding, makeSlug } from '../data/store';
 import { saveGuestPageConfig, syncLocalToSupabase } from '../lib/db';
 import {
@@ -44,10 +45,12 @@ function QRCode({ url, size = 120 }) {
   const canvasRef = useRef(null);
   useEffect(() => {
     if (!canvasRef.current || !url) return;
-    import('qrcode-generator').then(mod => {
-      const qr = (mod.default || mod)(0, 'L');
-      qr.addData(url);
-      qr.make();
+    try {
+      let qr;
+      for (let t = 1; t <= 40; t++) {
+        try { qr = qrcodegen(t, 'L'); qr.addData(url); qr.make(); break; } catch(e) { qr = null; }
+      }
+      if (!qr) throw new Error('URL too long');
       const cells = qr.getModuleCount();
       const canvas = canvasRef.current;
       canvas.width = size;
@@ -64,9 +67,9 @@ function QRCode({ url, size = 120 }) {
           }
         }
       }
-    });
+    } catch(e) { console.error('QR error:', e); }
   }, [url, size]);
-  return <canvas ref={canvasRef} style={{ borderRadius: 4 }} />;
+  return <canvas ref={canvasRef} width={size} height={size} style={{ borderRadius: 4 }} />;
 }
 
 export default function GuestPageSettings() {
