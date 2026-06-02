@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { IconPlus, IconTrash, IconX, IconUsers, IconCheck, IconClock, IconMapPin, IconCamera } from '@tabler/icons-react';
 import { loadState, saveState, defaultGuests } from '../data/store';
+import { getGuests } from '../lib/db';
 
 const DEFAULT_GROUPS = [
   { id:1, name:'Brautpaar', desc:'Romantische Paarfotos', location:'Schlossgarten', priority:'high', duration:0, done:false, guests:[], note:'Goldene Stunde nutzen' },
@@ -14,7 +15,13 @@ const DEFAULT_GROUPS = [
 
 export default function Photos() {
   const [groups, setGroups] = useState(() => loadState('photoGroups', DEFAULT_GROUPS));
-  const [guests] = useState(() => loadState('guests', defaultGuests));
+  const [guests, setGuests] = useState(() => loadState('guests', defaultGuests));
+
+  useEffect(() => {
+    getGuests().then(({ data }) => {
+      if (data && data.length > 0) setGuests(data);
+    });
+  }, []);
   const [modal, setModal] = useState(null); // null | 'addGroup' | groupId
   const [form, setForm] = useState({});
   const [editGroup, setEditGroup] = useState(null);
