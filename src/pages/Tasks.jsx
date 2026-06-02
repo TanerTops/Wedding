@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Plus, Trash2, X, Check } from 'lucide-react';
 import { loadState, saveState, defaultTasks } from '../data/store';
+import { getTasks, upsertTask, deleteTask } from '../lib/db';
 
 const CATEGORIES = ['Dienstleister', 'Catering', 'Gäste', 'Floristik', 'Musik', 'Outfit', 'Sonstiges'];
 const emptyTask = { title: '', category: 'Sonstiges', priority: 'medium', dueDate: '', done: false };
