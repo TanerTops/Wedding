@@ -144,7 +144,7 @@ export default function GuestPageSettings() {
           <div className="section-title" style={{ marginBottom: 12 }}>QR-Code für Einladungen</div>
           <div style={{ display: 'flex', gap: 20, alignItems: 'center', flexWrap: 'wrap' }}>
             <div style={{ background: '#fff', padding: 12, borderRadius: 12, border: '1px solid var(--sand)' }}>
-              <QRCodeSVG value={guestUrl} size={120} bgColor="#fff" fgColor="#3D2B1F" />
+              <QRCodeSVG value={window.location.origin + guestUrl} size={120} bgColor="#fff" fgColor="#3D2B1F" level="L" />
             </div>
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 13, color: 'var(--espresso)', fontWeight: 500, marginBottom: 6 }}>
@@ -166,7 +166,7 @@ export default function GuestPageSettings() {
               </button>
             </div>
             <div className="qr-download" style={{ display: 'none' }}>
-              <QRCodeSVG value={guestUrl} size={400} bgColor="#fff" fgColor="#3D2B1F" />
+              <QRCodeSVG value={window.location.origin + guestUrl} size={400} bgColor="#fff" fgColor="#3D2B1F" level="L" />
             </div>
           </div>
         </div>
