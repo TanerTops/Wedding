@@ -39,6 +39,28 @@ const SECTIONS_META = [
 ];
 
 
+
+class QRErrorBoundary extends Component {
+  constructor(props) { super(props); this.state = { error: false }; }
+  static getDerivedStateFromError() { return { error: true }; }
+  render() {
+    if (this.state.error) return (
+      <div style={{ width: 120, height: 120, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: 'var(--mocha)', textAlign: 'center', padding: 8, border: '1px dashed var(--sand)', borderRadius: 8 }}>
+        Kurze Domain für QR-Code nötig
+      </div>
+    );
+    return this.props.children;
+  }
+}
+
+function QRCode({ url, size = 120 }) {
+  return (
+    <QRErrorBoundary>
+      <QRCodeSVG value={url} size={size} bgColor="#fff" fgColor="#3D2B1F" level="L" />
+    </QRErrorBoundary>
+  );
+}
+
 export default function GuestPageSettings() {
   const wedding = loadState('wedding', defaultWedding);
   const [config, setConfig] = useState(() => loadState('guestPageConfig', defaultConfig));
