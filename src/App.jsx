@@ -7,6 +7,7 @@ import {
 } from '@tabler/icons-react';
 import { useState, useEffect } from 'react';
 import { supabase } from './lib/supabase';
+import { initializeUser } from './lib/db';
 import Sidebar from './components/Sidebar';
 import Auth from './pages/Auth';
 import Dashboard from './pages/Dashboard';
@@ -98,8 +99,14 @@ export default function App() {
   useEffect(() => {
     // Get initial session
     if (supabase) {
-      supabase.auth.getSession().then(({ data: { session } }) => setSession(session));
-      const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => setSession(session));
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        setSession(session);
+        if (session) initializeUser();
+      });
+      const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+      if (session) initializeUser(); // Set up template data for new users
+    });
       return () => subscription.unsubscribe();
     } else {
       setSession(null); // No supabase = no auth required
