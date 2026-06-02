@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   IconPlus, IconTrash, IconEdit, IconX, IconDownload,
   IconUsers, IconTool, IconClock, IconMapPin, IconFilter
 } from '@tabler/icons-react';
 import { loadState, saveState, defaultTimeline } from '../data/store';
+import { upsertTimelineEvent, deleteTimelineEvent } from '../lib/db';
 
 const TYPES = [
   { id: 'ceremony',     label: 'Trauung',         color: '#C4956A', bg: '#FDF5E8', emoji: '💒' },
@@ -28,12 +29,35 @@ const fmt = t => { try { const [h,m]=t.split(':'); const d=new Date(2000,0,1,+h,
 
 export default function Timeline() {
   const [events, setEvents] = useState(() => loadState('timeline', defaultTimeline));
+
+  useEffect(() => {
+    import('../lib/db').then(({ getTimeline }) => {
+      getTimeline().then(({ data }) => {
+        if (data && data.length > 0) {
+          const mapped = data.map(e => ({ ...e, endTime: e.end_time || e.endTime, desc: e.description || e.desc }));
+          setEvents(mapped);
+          saveState('timeline', mapped);
+        }
+      });
+    });
+  }, []);
   const [tab, setTab] = useState('editor');
   const [activeFilter, setActiveFilter] = useState('all');
   const [modal, setModal] = useState(null);
   const [form, setForm] = useState({});
 
   function save(e) { setEvents(e); saveState('timeline', e); }
+  async function saveEvent(event) {
+    const updated = events.find(e => e.id === event.id)
+      ? events.map(e => e.id === event.id ? event : e)
+      : [...events, event];
+    save(updated);
+    await upsertTimelineEvent(event);
+  }
+  async function removeEvent(id) {
+    save(events.filter(e => e.id !== id));
+    await deleteTimelineEvent(id);
+  }
 
   const sorted = [...events].sort((a,b) => toMin(a.time) - toMin(b.time));
 
@@ -51,14 +75,13 @@ export default function Timeline() {
   function openEdit(ev) { setForm({ ...ev }); setModal(ev.id); }
   function handleSave() {
     if (!form.title?.trim()) return;
-    if (modal === 'add') {
-      save([...events, { ...form, id: Math.max(0, ...events.map(e => e.id)) + 1 }]);
-    } else {
-      save(events.map(e => e.id === modal ? { ...form, id: e.id } : e));
-    }
+    const event = modal === 'add'
+      ? { ...form, id: Math.max(0, ...events.map(e => e.id)) + 1 }
+      : { ...form, id: modal };
+    saveEvent(event);
     setModal(null);
   }
-  function del(id) { if (confirm('Termin löschen?')) save(events.filter(e => e.id !== id)); }
+  function del(id) { if (confirm('Termin löschen?')) removeEvent(id); }
 
   function exportText() {
     const lines = sorted.map(e => `${fmt(e.time)} – ${e.endTime ? fmt(e.endTime) : ''} | ${e.title}${e.loc ? ` @ ${e.loc}` : ''}${e.desc ? `\n  ${e.desc}` : ''}`);
