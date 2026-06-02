@@ -459,27 +459,30 @@ export async function syncLocalToSupabase() {
 // ── Account deletion ─────────────────────────────────────────────
 export async function deleteAccount() {
   if (!hasSupabase()) return { error: new Error('Supabase not configured') };
-  const userId = await getUserId();
-  if (!userId) return { error: new Error('Not logged in') };
 
-  // Delete all user data
-  await Promise.all([
-    supabase.from('weddings').delete().eq('user_id', userId),
-    supabase.from('guests').delete().eq('user_id', userId),
-    supabase.from('budget_items').delete().eq('user_id', userId),
-    supabase.from('timeline').delete().eq('user_id', userId),
-    supabase.from('guest_page_config').delete().eq('user_id', userId),
-    supabase.from('tasks').delete().eq('user_id', userId),
-    supabase.from('registry').delete().eq('user_id', userId),
-    supabase.from('seating').delete().eq('user_id', userId),
-    supabase.from('photos').delete().eq('user_id', userId),
-    supabase.from('user_profiles').delete().eq('id', userId),
-  ]);
+  // Get current session for auth token
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) return { error: new Error('Not logged in') };
+
+  // Call Edge Function which deletes data + auth user via service role
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+  const res = await fetch(`${supabaseUrl}/functions/v1/delete-account`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${session.access_token}`,
+      'Content-Type': 'application/json',
+    },
+  });
+
+  const result = await res.json();
+  if (!res.ok || result.error) {
+    return { error: new Error(result.error || 'Deletion failed') };
+  }
 
   // Clear localStorage
   Object.keys(localStorage).filter(k => k.startsWith('vince_')).forEach(k => localStorage.removeItem(k));
 
-  // Sign out
+  // Sign out locally
   await supabase.auth.signOut();
   return { error: null };
 }
