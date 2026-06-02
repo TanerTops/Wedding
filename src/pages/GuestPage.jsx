@@ -319,7 +319,7 @@ export default function GuestPage() {
                     </div>
                     <div style={{ display: 'flex', gap: 8 }}>
                       <button className="btn btn-secondary" onClick={() => setRsvpStep(3)}>← Zurück</button>
-                      <button className="btn btn-primary" style={{ flex: 1, justifyContent: 'center' }} onClick={handleSubmit}>
+                      <button className="btn btn-primary" style={{ flex: 1, justifyContent: 'center' }} onClick={handleFinalSubmit}>
                         Anmeldung absenden ✓
                       </button>
                     </div>
