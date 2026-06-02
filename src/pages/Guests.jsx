@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { IconPlus, IconTrash, IconEdit, IconX, IconSearch, IconCheck, IconBell, IconKey, IconCopy } from '@tabler/icons-react';
-import { loadState, saveState, defaultGuests, makeInviteCode } from '../data/store';
+import { loadState, saveState, defaultGuests, makeInviteCode, makeSlug } from '../data/store';
 import { getRSVPs, upsertGuest, deleteGuest as dbDeleteGuest } from '../lib/db';
 
 const GROUPS = ['Familie Braut', 'Familie Bräutigam', 'Freunde', 'Arbeit', 'Dienstleister', 'Sonstige'];
@@ -365,11 +365,20 @@ export default function Guests() {
                       </td>
                       <td><span className={`badge badge-${g.status}`}>{g.status === 'confirmed' ? 'Zugesagt' : 'Ausstehend'}</span></td>
                       <td>
+                        <div style={{ display: 'flex', gap: 6 }}>
                         <button className="btn btn-secondary btn-sm" onClick={() => {
                           navigator.clipboard.writeText(code);
                         }}>
                           <IconCopy size={12} stroke={1.5} /> Kopieren
                         </button>
+                        {g.email && (
+                          <a className="btn btn-secondary btn-sm"
+                            href={`mailto:${g.email}?subject=Einladung zur Hochzeit&body=Liebe/r ${g.name},%0A%0AWir freuen uns, dich zu unserer Hochzeit einladen zu dürfen!%0A%0ABitte melde dich unter folgendem Link an: ${encodeURIComponent(window.location.origin + '/guest/' + makeSlug(loadState('wedding', {})))}%0A%0ADein persönlicher Einladungscode: ${code}%0A%0AHerzliche Grüße`}
+                          >
+                            ✉️
+                          </a>
+                        )}
+                      </div>
                       </td>
                     </tr>
                   );
