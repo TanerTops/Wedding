@@ -84,7 +84,7 @@ export default function Dashboard() {
         <div>
           <h1>{wedding.bride} & {wedding.groom}</h1>
           <div className="topbar-sub">
-            {loading ? 'Wird geladen...' : days > 0 ? `Noch ${days} Tage bis zu eurem großen Tag 🌸` : '🎉 Heute!'}
+            {wedding.venue || 'Hochzeitsplanung'}
           </div>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
@@ -141,22 +141,6 @@ export default function Dashboard() {
           <StatCard label="Aufgaben"   value={taskPct + '%'} sub={`${doneTasks}/${tasks.length} erledigt`} accent="var(--gold)" />
         </div>
 
-        {/* Notifications */}
-        {notifications.length > 0 && (
-          <div className="card" style={{ marginBottom: 16, padding: '12px 16px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8, fontSize: 12, fontWeight: 700, color: 'var(--mocha)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-              <IconBell size={13} stroke={1.5} /> Hinweise
-            </div>
-            {notifications.map((n, i) => (
-              <Link key={i} to={n.to} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 0', borderBottom: i < notifications.length - 1 ? '1px solid var(--sand)' : 'none', textDecoration: 'none' }}>
-                <span style={{ fontSize: 16 }}>{n.icon}</span>
-                <span style={{ fontSize: 13, color: n.color, fontWeight: 500 }}>{n.text}</span>
-                <IconArrowRight size={12} stroke={2} style={{ marginLeft: 'auto', color: 'var(--mocha)' }} />
-              </Link>
-            ))}
-          </div>
-        )}
-
         <div className="grid-2" style={{ marginBottom: 16 }}>
           {/* Progress */}
           <div className="card">
@@ -200,6 +184,22 @@ export default function Dashboard() {
             ))}
           </div>
         </div>
+
+        {/* Notifications */}
+        {notifications.length > 0 && (
+          <div className="card" style={{ marginBottom: 16, padding: '12px 16px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8, fontSize: 12, fontWeight: 700, color: 'var(--mocha)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              <IconBell size={13} stroke={1.5} /> Hinweise
+            </div>
+            {notifications.map((n, i) => (
+              <Link key={i} to={n.to} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 0', borderBottom: i < notifications.length - 1 ? '1px solid var(--sand)' : 'none', textDecoration: 'none' }}>
+                <span style={{ fontSize: 16 }}>{n.icon}</span>
+                <span style={{ fontSize: 13, color: n.color, fontWeight: 500 }}>{n.text}</span>
+                <IconArrowRight size={12} stroke={2} style={{ marginLeft: 'auto', color: 'var(--mocha)' }} />
+              </Link>
+            ))}
+          </div>
+        )}
 
         <div className="grid-2">
           {/* Quick actions */}
