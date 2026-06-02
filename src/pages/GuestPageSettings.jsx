@@ -158,6 +158,20 @@ export default function GuestPageSettings() {
         {activeTab === 'sections' && (
           <div className="card">
             <div className="section-title" style={{ marginBottom: 14 }}>Bereiche ein-/ausblenden</div>
+            {/* Require invite code toggle */}
+            <div onClick={() => setConfig(c => ({ ...c, requireCode: !c.requireCode }))}
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', borderRadius: 12, cursor: 'pointer', background: 'var(--warm)', border: '1px solid var(--sand)', marginBottom: 12 }}>
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--espresso)' }}>Einladungscode erforderlich</div>
+                <div style={{ fontSize: 12, color: 'var(--mocha)', marginTop: 2 }}>
+                  {config.requireCode ? 'Gäste können nur mit Code zusagen' : 'Jeder kann ohne Code zusagen'}
+                </div>
+              </div>
+              <div style={{ width: 44, height: 24, borderRadius: 12, background: config.requireCode ? 'var(--sage)' : 'var(--sand)', position: 'relative', transition: 'background .2s', flexShrink: 0 }}>
+                <div style={{ position: 'absolute', top: 2, left: config.requireCode ? 22 : 2, width: 20, height: 20, borderRadius: '50%', background: '#fff', transition: 'left .2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }} />
+              </div>
+            </div>
+
             <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               {SECTIONS_META.map(s => {
                 const on = config.sections?.[s.id] !== false;
