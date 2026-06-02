@@ -122,7 +122,10 @@ export default function App() {
   if (session === undefined) {
     return (
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(160deg, #FDF8F0 0%, #F0E8D8 50%, #EAE0D0 100%)' }}>
-        <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 32, fontStyle: 'italic', color: 'var(--espresso)' }}>Vince</div>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 32, fontStyle: 'italic', color: 'var(--espresso)', marginBottom: 8 }}>Vince</div>
+          <div style={{ fontSize: 12, color: 'var(--mocha)' }}>Wird geladen...</div>
+        </div>
       </div>
     );
   }
@@ -146,6 +149,25 @@ export default function App() {
 }
 
 function AdminLayout({ onLogout }) {
+  const [error, setError] = useState(null);
+
+  if (error) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--cream)', fontFamily: "'DM Sans',sans-serif" }}>
+        <div style={{ textAlign: 'center', maxWidth: 400, padding: 32 }}>
+          <div style={{ fontSize: 48, marginBottom: 16 }}>⚠️</div>
+          <h2 style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 28, color: 'var(--espresso)', marginBottom: 8 }}>Verbindungsfehler</h2>
+          <p style={{ fontSize: 14, color: 'var(--mocha)', lineHeight: 1.6, marginBottom: 20 }}>
+            Die Verbindung zum Server konnte nicht hergestellt werden. Bitte prüfe deine Internetverbindung und versuche es erneut.
+          </p>
+          <button className="btn btn-primary" onClick={() => { setError(null); window.location.reload(); }}>
+            Neu laden
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="app-layout">
       <Sidebar onLogout={onLogout} />
