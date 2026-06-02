@@ -224,7 +224,7 @@ export default function GuestPage() {
                         {rsvpStep > s ? <IconCheck size={12} stroke={2.5} /> : s}
                       </div>
                       <span style={{ fontSize: 11, color: rsvpStep === s ? 'var(--brown)' : 'var(--mocha)', fontWeight: rsvpStep === s ? 500 : 400 }}>
-                        {s === 1 ? 'Teilnahme' : s === 2 ? 'Details' : s === 3 ? 'Bestätigung' : 'Code'}
+                        {s === 1 ? 'Teilnahme' : s === 2 ? 'Details' : 'Bestätigung'}
                       </span>
                       {i < 3 && <div style={{ flex: 1, height: 1, background: rsvpStep > s ? 'var(--sage)' : 'var(--sand)' }} />}
                     </div>
@@ -289,42 +289,13 @@ export default function GuestPage() {
                     ))}
                     <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
                       <button className="btn btn-secondary" onClick={() => setRsvpStep(2)}>← Zurück</button>
-                      <button className="btn btn-primary" style={{ flex: 1, justifyContent: 'center' }} onClick={() => {
-                        if (config?.requireCode !== false) setRsvpStep(4);
-                        else handleFinalSubmit();
-                      }}>
-                        {config?.requireCode !== false ? <><span>Weiter</span> <IconArrowRight size={15} stroke={2} /></> : 'Anmeldung absenden ✓'}
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {rsvpStep === 4 && (
-                  <div>
-                    <div style={{ textAlign: 'center', marginBottom: 20 }}>
-                      <div style={{ fontSize: 32, marginBottom: 8 }}>🔐</div>
-                      <h4 style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 20, color: 'var(--espresso)', marginBottom: 6 }}>Einladungscode eingeben</h4>
-                      <div style={{ fontSize: 13, color: 'var(--mocha)' }}>Den Code findest du auf deiner Einladungskarte</div>
-                    </div>
-                    <div className="form-group">
-                      <input
-                        className="input"
-                        placeholder="z.B. MUELLER2026"
-                        value={inviteCode}
-                        onChange={e => setInviteCode(e.target.value.toUpperCase())}
-                        onKeyDown={e => e.key === 'Enter' && verifyCode()}
-                        style={{ textAlign: 'center', letterSpacing: 2, fontSize: 16, fontWeight: 600 }}
-                      />
-                      {codeError && <div style={{ fontSize: 12, color: '#E57373', marginTop: 6, textAlign: 'center' }}>{codeError}</div>}
-                    </div>
-                    <div style={{ display: 'flex', gap: 8 }}>
-                      <button className="btn btn-secondary" onClick={() => setRsvpStep(3)}>← Zurück</button>
                       <button className="btn btn-primary" style={{ flex: 1, justifyContent: 'center' }} onClick={handleFinalSubmit}>
                         Anmeldung absenden ✓
                       </button>
                     </div>
                   </div>
                 )}
+
               </div>
             )}
           </div>
