@@ -28,11 +28,11 @@ const fmt = t => { try { const [h,m]=t.split(':'); const d=new Date(2000,0,1,+h,
 
 
 export default function Timeline() {
-  const [events, setEvents] = useState(() => loadState('timeline', defaultTimeline));
+  const [events, setEvents] = useState([]);
 
   useEffect(() => {
     getTimeline().then(({ data }) => {
-      if (data && data.length > 0) {
+      if (data !== null && data !== undefined) {
         const mapped = data.map(e => ({ ...e, endTime: e.end_time || e.endTime, desc: e.description || e.desc }));
         setEvents(mapped);
         saveState('timeline', mapped);
