@@ -25,7 +25,7 @@ const DEMO_PHOTOS = [
 ];
 
 export default function Memories() {
-  const [photos, setPhotos] = useState(() => loadState('memories', DEMO_PHOTOS));
+  const [photos, setPhotos] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
