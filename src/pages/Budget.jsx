@@ -22,7 +22,7 @@ const CAT_COLORS = ['#C4956A','#A8B5A0','#C9A884','#B8A9C9','#C4B5A5','#8B9E7A',
 
 export default function Budget() {
   const [wedding]   = useState(() => loadState('wedding', defaultWedding));
-  const [items, setItems]   = useState(() => loadState('budgetItems', defaultBudgetItems));
+  const [items, setItems]   = useState([]);
   const [cats, setCats]     = useState(() => loadState('budgetCategories', DEFAULT_CATS));
   const [tab, setTab]       = useState('overview');
   const [modal, setModal]   = useState(null);
