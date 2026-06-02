@@ -9,6 +9,7 @@ export function MusicPage() {
     { id: 2, title: 'Perfect', artist: 'Ed Sheeran', type: 'Hintergrundmusik', addedBy: 'Brautpaar' },
   ]));
   const [wishes, setWishes] = useState([]);
+  const [importedWishes, setImportedWishes] = useState(() => loadState('importedWishes', []));
   const [tab, setTab] = useState('playlist');
   const [modal, setModal] = useState(false);
   const [form, setForm] = useState({ title: '', artist: '', type: 'Party', addedBy: 'Brautpaar' });
@@ -40,6 +41,10 @@ export function MusicPage() {
       }
     });
     saveSongs(updated);
+    // Mark wish as imported
+    const updated2 = [...importedWishes, wish.id];
+    setImportedWishes(updated2);
+    saveState('importedWishes', updated2);
   }
 
   const fmtDate = d => { try { return new Date(d).toLocaleDateString('de-DE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }); } catch { return ''; }};
@@ -55,7 +60,7 @@ export function MusicPage() {
           <button className={`tab${tab==='playlist'?' active':''}`} onClick={() => setTab('playlist')}>Playlist</button>
           <button className={`tab${tab==='wishes'?' active':''}`} onClick={() => setTab('wishes')}>
             Gästewünsche
-            {wishes.length > 0 && <span style={{ marginLeft: 6, background: 'var(--terra)', color: '#fff', borderRadius: 20, padding: '1px 7px', fontSize: 10, fontWeight: 700 }}>{wishes.length}</span>}
+            {wishes.filter(w => !importedWishes.includes(w.id)).length > 0 && <span style={{ marginLeft: 6, background: 'var(--terra)', color: '#fff', borderRadius: 20, padding: '1px 7px', fontSize: 10, fontWeight: 700 }}>{wishes.filter(w => !importedWishes.includes(w.id)).length}</span>}
           </button>
         </div>
 
@@ -109,8 +114,13 @@ export function MusicPage() {
                         🕐 {fmtDate(wish.submitted_at)} · {songList.length} Song{songList.length !== 1 ? 's' : ''}
                       </div>
                     </div>
-                    <button className="btn btn-primary btn-sm" onClick={() => importWish(wish)}>
-                      + In Playlist übernehmen
+                    <button 
+                      className={`btn btn-sm ${importedWishes.includes(wish.id) ? 'btn-secondary' : 'btn-primary'}`}
+                      onClick={() => !importedWishes.includes(wish.id) && importWish(wish)}
+                      disabled={importedWishes.includes(wish.id)}
+                      style={{ opacity: importedWishes.includes(wish.id) ? 0.6 : 1, cursor: importedWishes.includes(wish.id) ? 'default' : 'pointer' }}
+                    >
+                      {importedWishes.includes(wish.id) ? '✓ Hinzugefügt' : '+ In Playlist übernehmen'}
                     </button>
                   </div>
                   {songList.map((s, i) => (
