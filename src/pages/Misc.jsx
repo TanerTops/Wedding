@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { getMusicWishes } from '../lib/db';
+import { getMusicWishes, getRegistry, upsertRegistryItem, deleteRegistryItem } from '../lib/db';
 import { loadState, saveState } from '../data/store';
 
 export function MusicPage() {
@@ -174,38 +174,82 @@ export function VenuePage() {
 }
 
 export function RegistryPage() {
-  const [items, setItems] = useState(() => loadState('registry', [
-    { id: 1, title: 'Honeymoon-Kasse', desc: 'Beitrag zu unserer Hochzeitsreise', amount: 0, reserved: false, type: 'fund' },
-    { id: 2, title: 'Küchenmaschine', desc: 'KitchenAid, Farbe: Creme', amount: 399, reserved: true, type: 'item' },
-    { id: 3, title: 'Abendessen zu zweit', desc: 'Ein schöner Restaurant-Abend', amount: 120, reserved: false, type: 'item' },
-  ]));
+  const [items, setItems] = useState(() => loadState('registry', []));
   const [modal, setModal] = useState(false);
-  const [form, setForm] = useState({ title: '', desc: '', amount: '', type: 'item' });
-  function save(u) { setItems(u); saveState('registry', u); }
-  function add() {
+  const [form, setForm] = useState({ title: '', description: '', amount: '', type: 'item', link: '' });
+
+  useEffect(() => {
+    getRegistry().then(({ data }) => {
+      if (data && data.length > 0) {
+        setItems(data);
+        saveState('registry', data);
+      }
+    });
+  }, []);
+
+  async function add() {
     if (!form.title.trim()) return;
-    save([...items, { ...form, id: Math.max(0, ...items.map(i => i.id)) + 1, amount: parseFloat(form.amount) || 0, reserved: false }]);
-    setModal(false); setForm({ title: '', desc: '', amount: '', type: 'item' });
+    const item = { ...form, amount: parseFloat(form.amount) || 0, reserved: false, id: crypto.randomUUID() };
+    setItems(prev => [...prev, item]);
+    saveState('registry', [...items, item]);
+    await upsertRegistryItem(item);
+    setModal(false);
+    setForm({ title: '', description: '', amount: '', type: 'item', link: '' });
   }
+
+  async function toggleReserved(id) {
+    const item = items.find(i => i.id === id);
+    if (!item) return;
+    const updated = items.map(i => i.id === id ? { ...i, reserved: !i.reserved } : i);
+    setItems(updated);
+    saveState('registry', updated);
+    await upsertRegistryItem({ ...item, reserved: !item.reserved });
+  }
+
+  async function remove(id) {
+    const updated = items.filter(i => i.id !== id);
+    setItems(updated);
+    saveState('registry', updated);
+    await deleteRegistryItem(id);
+  }
+
+  const reserved = items.filter(i => i.reserved).length;
+  const total = items.reduce((s, i) => s + (i.amount || 0), 0);
+
   return (
     <>
-      <div className="topbar"><h1>Geschenke</h1><button className="btn btn-primary" onClick={() => setModal(true)}>+ Geschenk</button></div>
+      <div className="topbar">
+        <div>
+          <h1>Geschenkeliste</h1>
+          <div className="topbar-sub">{items.length} Wünsche · {reserved} reserviert · {total.toLocaleString('de-DE')} € Gesamtwert</div>
+        </div>
+        <button className="btn btn-primary" onClick={() => setModal(true)}>+ Wunsch</button>
+      </div>
       <div className="page-body">
+        {items.length === 0 && (
+          <div className="card" style={{ textAlign: 'center', padding: 40 }}>
+            <div style={{ fontSize: 36, marginBottom: 10 }}>🎁</div>
+            <p style={{ color: 'var(--mocha)' }}>Noch keine Wünsche — füge deinen ersten hinzu!</p>
+          </div>
+        )}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {items.map(item => (
-            <div key={item.id} className="card" style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-              <div style={{ width: 48, height: 48, background: item.reserved ? '#E8F5E9' : 'var(--warm)', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>
+            <div key={item.id} className="card" style={{ display: 'flex', alignItems: 'center', gap: 14, opacity: item.reserved ? 0.7 : 1 }}>
+              <div style={{ width: 46, height: 46, background: item.reserved ? '#E8F5E9' : 'var(--warm)', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0 }}>
                 {item.type === 'fund' ? '✈️' : '🎁'}
               </div>
-              <div style={{ flex: 1 }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontWeight: 600, fontSize: 14, textDecoration: item.reserved ? 'line-through' : 'none', color: item.reserved ? 'var(--mocha)' : 'var(--espresso)' }}>{item.title}</div>
-                <div style={{ fontSize: 12, color: 'var(--mocha)' }}>{item.desc}</div>
+                <div style={{ fontSize: 12, color: 'var(--mocha)', marginTop: 1 }}>{item.description || item.desc}</div>
+                {item.link && <a href={item.link} target="_blank" rel="noopener" style={{ fontSize: 11, color: 'var(--terra)' }}>🔗 Link</a>}
               </div>
-              {item.amount > 0 && <div style={{ fontWeight: 600 }}>{item.amount.toLocaleString('de-DE')} €</div>}
-              <button className={`btn btn-sm ${item.reserved ? 'btn-secondary' : 'btn-primary'}`} onClick={() => save(items.map(i => i.id === item.id ? { ...i, reserved: !i.reserved } : i))}>
-                {item.reserved ? 'Freigeben' : 'Reservieren'}
-              </button>
-              <button className="btn-icon" onClick={() => save(items.filter(i => i.id !== item.id))}>✕</button>
+              {item.amount > 0 && <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--espresso)', flexShrink: 0 }}>{item.amount.toLocaleString('de-DE')} €</div>}
+              <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                <button className={`btn btn-sm ${item.reserved ? 'btn-secondary' : 'btn-primary'}`} onClick={() => toggleReserved(item.id)}>
+                  {item.reserved ? '↩ Freigeben' : '✓ Reservieren'}
+                </button>
+                <button className="btn-icon" style={{ background: '#FEE2E2', color: '#991B1B', padding: '5px 7px' }} onClick={() => remove(item.id)}>✕</button>
+              </div>
             </div>
           ))}
         </div>
@@ -213,13 +257,19 @@ export function RegistryPage() {
       {modal && (
         <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setModal(false)}>
           <div className="modal">
-            <h3>Geschenk hinzufügen 🎁</h3>
-            <div className="form-group"><label className="form-label">Titel *</label><input className="input" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} /></div>
-            <div className="form-group"><label className="form-label">Beschreibung</label><input className="input" value={form.desc} onChange={e => setForm(f => ({ ...f, desc: e.target.value }))} /></div>
+            <h3>Wunsch hinzufügen 🎁</h3>
+            <div className="form-group"><label className="form-label">Titel *</label><input className="input" placeholder="z.B. Küchenmaschine" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} /></div>
+            <div className="form-group"><label className="form-label">Beschreibung</label><input className="input" placeholder="Details, Farbe, Modell..." value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} /></div>
             <div className="grid-2">
-              <div className="form-group"><label className="form-label">Betrag (€)</label><input className="input" type="number" value={form.amount} onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} /></div>
-              <div className="form-group"><label className="form-label">Typ</label><select className="input" value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value }))}><option value="item">Artikel</option><option value="fund">Kasse</option></select></div>
+              <div className="form-group"><label className="form-label">Betrag (€)</label><input className="input" type="number" placeholder="0" value={form.amount} onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} /></div>
+              <div className="form-group"><label className="form-label">Typ</label>
+                <select className="input" value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value }))}>
+                  <option value="item">Artikel 🎁</option>
+                  <option value="fund">Kasse ✈️</option>
+                </select>
+              </div>
             </div>
+            <div className="form-group"><label className="form-label">Link (optional)</label><input className="input" placeholder="https://..." value={form.link} onChange={e => setForm(f => ({ ...f, link: e.target.value }))} /></div>
             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
               <button className="btn btn-secondary" onClick={() => setModal(false)}>Abbrechen</button>
               <button className="btn btn-primary" onClick={add}>Hinzufügen</button>
