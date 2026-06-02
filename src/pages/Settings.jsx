@@ -1,10 +1,19 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { loadState, saveState, defaultWedding } from '../data/store';
-import { saveWedding, deleteAccount } from '../lib/db';
+import { saveWedding, deleteAccount, syncLocalToSupabase, getWedding } from '../lib/db';
 import { supabase } from '../lib/supabase';
 
 export default function Settings() {
   const [wedding, setWedding] = useState(() => loadState('wedding', defaultWedding));
+
+  useEffect(() => {
+    getWedding().then(({ data }) => {
+      if (data) {
+        setWedding(data);
+        saveState('wedding', data);
+      }
+    });
+  }, []);
   const [saved, setSaved] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [coAdminEmail, setCoAdminEmail] = useState('');
@@ -15,8 +24,12 @@ export default function Settings() {
   async function handleSave() {
     saveState('wedding', wedding);
     await saveWedding(wedding);
+    // Also sync timeline if not yet in Supabase
+    await syncLocalToSupabase();
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
+    // Force page reload so Sidebar reflects new names
+    window.dispatchEvent(new Event('weddingUpdated'));
   }
 
   async function inviteCoAdmin() {
