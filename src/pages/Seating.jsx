@@ -246,6 +246,10 @@ export default function Seating() {
   const [draggingGuest, setDraggingGuest] = useState(null);
   const [hoveredSeat, setHoveredSeat] = useState(null);
   const [selectedTable, setSelectedTable] = useState(null);
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [isPanning, setIsPanning] = useState(false);
+  const [panStart, setPanStart] = useState(null);
   const [newTable, setNewTable] = useState({ name: '', shape: 'round', seats: 8 });
   const svgRef = useRef();
 
@@ -695,7 +699,23 @@ export default function Seating() {
         </div>
 
         {/* CENTRE: SVG canvas */}
-        <div style={{ flex:1, overflow:'hidden', background:'#FBF7F0', position:'relative' }}>
+        <div style={{ flex:1, overflow:'hidden', background:'#FBF7F0', position:'relative' }}
+          onWheel={onCanvasWheel}
+          onMouseDown={onCanvasPanStart}
+          onMouseMove={e => { onSvgMouseMove(e); onCanvasPanMove(e); }}
+          onMouseUp={e => { onSvgMouseUp(e); onCanvasPanEnd(); }}
+          onMouseLeave={e => { onSvgMouseUp(e); onCanvasPanEnd(); }}
+        >
+          {/* Zoom controls */}
+          <div style={{ position:'absolute', top:10, right:10, zIndex:10, display:'flex', flexDirection:'column', gap:4 }}>
+            <button onClick={() => setZoom(z => Math.min(3, z * 1.2))} style={{ width:32, height:32, borderRadius:8, border:'1px solid var(--sand)', background:'#fff', cursor:'pointer', fontSize:18, display:'flex', alignItems:'center', justifyContent:'center', color:'var(--brown)' }}>+</button>
+            <button onClick={() => { setZoom(1); setPan({ x:0, y:0 }); }} style={{ width:32, height:32, borderRadius:8, border:'1px solid var(--sand)', background:'#fff', cursor:'pointer', fontSize:11, display:'flex', alignItems:'center', justifyContent:'center', color:'var(--mocha)' }}>⌂</button>
+            <button onClick={() => setZoom(z => Math.max(0.3, z * 0.8))} style={{ width:32, height:32, borderRadius:8, border:'1px solid var(--sand)', background:'#fff', cursor:'pointer', fontSize:18, display:'flex', alignItems:'center', justifyContent:'center', color:'var(--brown)' }}>−</button>
+          </div>
+          <div style={{ fontSize:11, color:'var(--mocha)', position:'absolute', bottom:8, right:10, zIndex:10 }}>
+            {Math.round(zoom * 100)}%
+          </div>
+
           <svg width="100%" height="100%" style={{ position:'absolute', top:0, left:0, pointerEvents:'none', opacity:0.35 }}>
             <defs>
               <pattern id="dots" width="28" height="28" patternUnits="userSpaceOnUse">
@@ -707,10 +727,7 @@ export default function Seating() {
 
           <svg ref={svgRef}
             viewBox={`0 0 ${CANVAS_W} ${CANVAS_H}`}
-            style={{ width:'100%', height:'100%', cursor: (draggingTable||rotatingTable) ? 'grabbing' : 'default', userSelect:'none' }}
-            onMouseMove={onSvgMouseMove}
-            onMouseUp={onSvgMouseUp}
-            onMouseLeave={onSvgMouseUp}
+            style={{ width:'100%', height:'100%', cursor: isPanning ? 'grabbing' : (draggingTable||rotatingTable) ? 'grabbing' : 'grab', userSelect:'none', transform:`translate(${pan.x}px, ${pan.y}px) scale(${zoom})`, transformOrigin:'center center', transition: isPanning ? 'none' : 'transform 0.1s' }}
             onTouchMove={onSvgTouchMove}
             onTouchEnd={onSvgTouchEnd}
             onClick={e => { if (e.target === svgRef.current) setSelectedTable(null); }}
