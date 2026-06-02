@@ -19,6 +19,7 @@ import Seating from './pages/Seating';
 import Settings from './pages/Settings';
 import GuestPage from './pages/GuestPage';
 import GuestPageSettings from './pages/GuestPageSettings';
+import { Impressum, Datenschutz } from './pages/Legal';
 import Memories from './pages/Memories';
 import Photos from './pages/Photos';
 import { MusicPage, VenuePage, RegistryPage, NotesPage } from './pages/Misc';
@@ -133,8 +134,10 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* Public guest page — always accessible */}
+        {/* Public routes — always accessible */}
         <Route path="/guest/:slug" element={<GuestPage />} />
+        <Route path="/impressum" element={<Impressum />} />
+        <Route path="/datenschutz" element={<Datenschutz />} />
         {/* Auth page — only show if not logged in */}
         <Route path="/login" element={!session && supabase ? <Auth onAuth={setSession} /> : <Navigate to="/" />} />
         {/* Admin — protected */}
