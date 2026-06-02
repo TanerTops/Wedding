@@ -50,6 +50,7 @@ export default function GuestPage() {
   const [rsvpData, setRsvpData] = useState({ name: '', email: '', attending: '', menu: '', plusOne: false, message: '', companions: '' });
   const [rsvpDone, setRsvpDone] = useState(false);
   const [songs, setSongs] = useState([{ title: '', artist: '' }]);
+  const [senderName, setSenderName] = useState('');
   const [songSent, setSongSent] = useState(false);
   const [uploadName, setUploadName] = useState('');
   const [uploads, setUploads] = useState([]);
@@ -510,7 +511,7 @@ export default function GuestPage() {
       )}
 
       {/* MUSIC */}
-      {config?.sections?.[music] !== false && (
+      {config?.sections?.['music'] !== false && (
         <section id="music" style={{ background: '#fff' }}>
           <div className="guest-section">
             <SectionHeader title="Musikwünsche" sub="Welche Songs bringen euch auf die Tanzfläche?" />
@@ -522,7 +523,7 @@ export default function GuestPage() {
               </div>
             ) : (
               <div style={{ maxWidth: 500, margin: '0 auto' }}>
-                <div className="form-group"><label className="form-label">Euer Name</label><input className="input" placeholder="Damit der DJ weiß, von wem der Wunsch kommt" /></div>
+                <div className="form-group"><label className="form-label">Euer Name</label><input className="input" placeholder="Damit der DJ weiß, von wem der Wunsch kommt" value={senderName} onChange={e => setSenderName(e.target.value)} /></div>
                 {songs.map((song, i) => (
                   <div key={i} style={{ background: 'var(--warm)', borderRadius: 12, padding: 14, marginBottom: 10, border: '1px solid var(--sand)' }}>
                     <div style={{ fontSize: 11, color: 'var(--mocha)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 8 }}>Song {i+1}</div>
@@ -535,8 +536,10 @@ export default function GuestPage() {
                     <IconPlus size={13} stroke={2} /> Weiterer Song
                   </button>
                   <button className="btn btn-primary" style={{ flex: 1, justifyContent: 'center' }} onClick={async () => {
-                    await submitMusicWish({ sender_name: '', songs });
-                    setSongSent(true);
+                    const validSongs = songs.filter(s => s.title.trim());
+                    if (!validSongs.length) return;
+                    const { error } = await submitMusicWish({ sender_name: senderName, songs: validSongs });
+                    if (!error) setSongSent(true);
                   }}>
                     Absenden <IconMusic size={14} stroke={1.5} />
                   </button>
