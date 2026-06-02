@@ -3,8 +3,9 @@ import { loadState, saveState, defaultWedding, makeSlug } from '../data/store';
 import { saveGuestPageConfig, syncLocalToSupabase } from '../lib/db';
 import {
   IconExternalLink, IconCopy, IconCheck,
-  IconToggleRight, IconToggleLeft, IconPlus, IconTrash, IconX
+  IconToggleRight, IconToggleLeft, IconPlus, IconTrash, IconX, IconQrcode
 } from '@tabler/icons-react';
+import { QRCodeSVG } from 'qrcode.react';
 
 const defaultConfig = {
   heroTitle: '', heroSubtitle: 'Wir freuen uns, mit euch zu feiern.',
@@ -135,6 +136,38 @@ export default function GuestPageSettings() {
           </div>
           <div style={{ fontSize: 11, color: 'var(--mocha)', marginTop: 8 }}>
             ℹ️ Der Link enthält alle Daten — Gäste sehen die Seite auch auf anderen Geräten korrekt.
+          </div>
+        </div>
+
+        {/* QR Code */}
+        <div className="card" style={{ marginBottom: 18 }}>
+          <div className="section-title" style={{ marginBottom: 12 }}>QR-Code für Einladungen</div>
+          <div style={{ display: 'flex', gap: 20, alignItems: 'center', flexWrap: 'wrap' }}>
+            <div style={{ background: '#fff', padding: 12, borderRadius: 12, border: '1px solid var(--sand)' }}>
+              <QRCodeSVG value={guestUrl} size={120} bgColor="#fff" fgColor="#3D2B1F" />
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 13, color: 'var(--espresso)', fontWeight: 500, marginBottom: 6 }}>
+                Auf die Einladungskarte drucken
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--mocha)', lineHeight: 1.6, marginBottom: 12 }}>
+                Gäste scannen den QR-Code und gelangen direkt zur Hochzeitsseite — inklusive RSVP, Tagesablauf und mehr.
+              </div>
+              <button className="btn btn-secondary btn-sm" onClick={() => {
+                const svg = document.querySelector('.qr-download svg');
+                if (!svg) return;
+                const blob = new Blob([svg.outerHTML], { type: 'image/svg+xml' });
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = 'einladung-qrcode.svg';
+                a.click();
+              }}>
+                <IconQrcode size={13} stroke={1.5} /> QR-Code herunterladen
+              </button>
+            </div>
+            <div className="qr-download" style={{ display: 'none' }}>
+              <QRCodeSVG value={guestUrl} size={400} bgColor="#fff" fgColor="#3D2B1F" />
+            </div>
           </div>
         </div>
 
