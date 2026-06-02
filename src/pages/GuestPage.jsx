@@ -58,12 +58,6 @@ export default function GuestPage() {
   const [uploads, setUploads] = useState([]);
   const [uploadDone, setUploadDone] = useState(false);
 
-
-  const heroTitle = config.heroTitle || `${wedding.bride} & ${wedding.groom}`;
-  const days = Math.ceil((new Date(wedding.date) - new Date()) / 86400000);
-  const deadline = new Date(new Date(wedding.date).getTime() - (config.rsvpDeadlineOffset || 30) * 86400000);
-  const activeSections = SECTION_NAV.filter(s => config.sections[s.id] !== false);
-
   useEffect(() => {
     const observer = new IntersectionObserver(
       entries => entries.forEach(e => { if (e.isIntersecting) setActive(e.target.id); }),
