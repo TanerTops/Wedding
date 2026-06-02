@@ -41,9 +41,23 @@ const SECTIONS_META = [
 
 
 function QRCode({ url, size = 120 }) {
+  const [loaded, setLoaded] = useState(false);
+  const [error, setError] = useState(false);
   const encoded = encodeURIComponent(url);
-  const src = `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encoded}&color=3D2B1F&bgcolor=FFFFFF&margin=1`;
-  return <img src={src} alt="QR-Code" style={{ borderRadius: 8, width: size, height: size }} />;
+  const src = `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encoded}&color=3D2B1F&bgcolor=FFFFFF&margin=1&ecc=L`;
+  return (
+    <div style={{ width: size, height: size, position: 'relative', background: '#fff', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      {!loaded && !error && <div style={{ fontSize: 11, color: 'var(--mocha)' }}>Lädt...</div>}
+      {error && <div style={{ fontSize: 11, color: 'var(--mocha)', textAlign: 'center', padding: 8 }}>Nicht verfügbar</div>}
+      <img
+        src={src}
+        alt="QR-Code"
+        onLoad={() => setLoaded(true)}
+        onError={() => setError(true)}
+        style={{ borderRadius: 8, width: size, height: size, display: loaded ? 'block' : 'none', position: 'absolute', top: 0, left: 0 }}
+      />
+    </div>
+  );
 }
 
 export default function GuestPageSettings() {
@@ -161,17 +175,15 @@ export default function GuestPageSettings() {
               <div style={{ fontSize: 12, color: 'var(--mocha)', lineHeight: 1.6, marginBottom: 12 }}>
                 Gäste scannen den QR-Code und gelangen direkt zur Hochzeitsseite — inklusive RSVP, Tagesablauf und mehr.
               </div>
-              <button className="btn btn-secondary btn-sm" onClick={() => {
-                const svg = document.querySelector('.qr-download svg');
-                if (!svg) return;
-                const blob = new Blob([svg.outerHTML], { type: 'image/svg+xml' });
-                const a = document.createElement('a');
-                a.href = URL.createObjectURL(blob);
-                a.download = 'einladung-qrcode.svg';
-                a.click();
-              }}>
+              <a
+                href={`https://api.qrserver.com/v1/create-qr-code/?size=800x800&data=${encodeURIComponent(window.location.origin + guestUrl)}&color=3D2B1F&bgcolor=FFFFFF&margin=2&ecc=L`}
+                download="einladung-qrcode.png"
+                target="_blank"
+                rel="noopener"
+                className="btn btn-secondary btn-sm"
+              >
                 <IconQrcode size={13} stroke={1.5} /> QR-Code herunterladen
-              </button>
+              </a>
             </div>
             <div className="qr-download" style={{ display: 'none' }}>
               <QRCode url={window.location.origin + guestUrl} size={400} />
