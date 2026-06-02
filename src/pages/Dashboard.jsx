@@ -5,7 +5,7 @@ import {
   IconArrowRight, IconExternalLink, IconPlus, IconBell
 } from '@tabler/icons-react';
 import { loadState, defaultWedding, makeSlug } from '../data/store';
-import { getWedding, getGuests, getBudgetItems, getTasks, getRSVPs, getPhotos } from '../lib/db';
+import { getWedding, getGuests, getBudgetItems, getTasks, getRSVPs, getPhotos, getMusicWishes } from '../lib/db';
 
 export default function Dashboard() {
   const [data, setData] = useState({
@@ -15,6 +15,9 @@ export default function Dashboard() {
     tasks:       loadState('tasks', []),
     rsvps:       [],
     pendingPhotos: 0,
+    recentRsvps:  [],
+    recentPhotos: [],
+    recentWishes: [],
   });
   const [loading, setLoading] = useState(true);
 
@@ -26,7 +29,8 @@ export default function Dashboard() {
       getTasks(),
       getRSVPs(),
       getPhotos(),
-    ]).then(([w, g, b, t, r, p]) => {
+      getMusicWishes(),
+    ]).then(([w, g, b, t, r, p, m]) => {
       setData({
         wedding:      w.data || loadState('wedding', defaultWedding),
         guests:       g.data || [],
@@ -148,25 +152,70 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Quick actions */}
-        <div className="card-warm">
-          <div className="section-title">Schnellaktionen</div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
+        <div className="grid-2">
+          {/* Quick actions */}
+          <div className="card-warm">
+            <div className="section-title">Schnellaktionen</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+              {[
+                { to: '/guests',  Icon: IconUsers,         l: 'Gäste' },
+                { to: '/budget',  Icon: IconWallet,         l: 'Budget' },
+                { to: '/tasks',   Icon: IconCheckbox,       l: 'Aufgaben' },
+                { to: '/seating', Icon: IconLayoutColumns,  l: 'Sitzordnung' },
+              ].map(({ to, Icon, l }) => (
+                <Link key={to} to={to} style={{ textDecoration: 'none' }}>
+                  <div style={{ padding: 12, background: 'var(--cream)', border: '1px solid var(--sand)', borderRadius: 12, cursor: 'pointer', transition: 'all .15s', textAlign: 'center' }}
+                    onMouseEnter={e => e.currentTarget.style.background = 'var(--sand)'}
+                    onMouseLeave={e => e.currentTarget.style.background = 'var(--cream)'}>
+                    <Icon size={20} stroke={1.5} style={{ color: 'var(--terra)', marginBottom: 4 }} />
+                    <div style={{ fontSize: 12.5, fontWeight: 500, color: 'var(--brown)' }}>{l}</div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+
+          {/* Recent activity */}
+          <div className="card-warm">
+            <div className="section-title">Letzte Aktivitäten</div>
             {[
-              { to: '/guests',  Icon: IconUsers,         l: 'Gäste' },
-              { to: '/budget',  Icon: IconWallet,         l: 'Budget' },
-              { to: '/tasks',   Icon: IconCheckbox,       l: 'Aufgaben' },
-              { to: '/seating', Icon: IconLayoutColumns,  l: 'Sitzordnung' },
-            ].map(({ to, Icon, l }) => (
-              <Link key={to} to={to} style={{ textDecoration: 'none' }}>
-                <div style={{ padding: 12, background: 'var(--cream)', border: '1px solid var(--sand)', borderRadius: 12, cursor: 'pointer', transition: 'all .15s', textAlign: 'center' }}
-                  onMouseEnter={e => e.currentTarget.style.background = 'var(--sand)'}
-                  onMouseLeave={e => e.currentTarget.style.background = 'var(--cream)'}>
-                  <Icon size={20} stroke={1.5} style={{ color: 'var(--terra)', marginBottom: 4 }} />
-                  <div style={{ fontSize: 12.5, fontWeight: 500, color: 'var(--brown)' }}>{l}</div>
+              ...data.recentRsvps.map(r => ({
+                icon: r.attending === 'yes' ? '✅' : '❌',
+                text: `${r.name} hat ${r.attending === 'yes' ? 'zugesagt' : 'abgesagt'}`,
+                time: r.submitted_at,
+                to: '/guests',
+              })),
+              ...data.recentPhotos.map(p => ({
+                icon: '📸',
+                text: `Foto von ${p.uploader || 'Gast'} hochgeladen`,
+                time: p.created_at,
+                to: '/memories',
+              })),
+              ...data.recentWishes.map(w => ({
+                icon: '🎵',
+                text: `Musikwunsch von ${w.sender_name || 'Gast'}`,
+                time: w.submitted_at,
+                to: '/music',
+              })),
+            ]
+            .sort((a, b) => new Date(b.time) - new Date(a.time))
+            .slice(0, 5)
+            .map((a, i, arr) => (
+              <Link key={i} to={a.to} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: i < arr.length - 1 ? '1px solid #F5EFE4' : 'none', textDecoration: 'none' }}>
+                <span style={{ fontSize: 16 }}>{a.icon}</span>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 13, color: 'var(--espresso)' }}>{a.text}</div>
+                  <div style={{ fontSize: 11, color: 'var(--mocha)' }}>
+                    {a.time ? new Date(a.time).toLocaleDateString('de-DE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''}
+                  </div>
                 </div>
               </Link>
             ))}
+            {data.recentRsvps.length === 0 && data.recentPhotos.length === 0 && data.recentWishes.length === 0 && (
+              <div style={{ fontSize: 13, color: 'var(--mocha)', textAlign: 'center', padding: '16px 0' }}>
+                Noch keine Aktivitäten
+              </div>
+            )}
           </div>
         </div>
       </div>
