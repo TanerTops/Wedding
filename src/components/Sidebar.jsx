@@ -89,7 +89,13 @@ export default function Sidebar({ onLogout }) {
         </button>
       )}
 
-      <div className="sidebar-footer">with love ♡</div>
+      <div className="sidebar-footer" style={{ textAlign: 'center' }}>
+        <div style={{ marginBottom: 6 }}>mit Liebe gebaut ♡</div>
+        <div style={{ display: 'flex', gap: 12, justifyContent: 'center', fontSize: 11 }}>
+          <a href="/impressum" style={{ color: 'var(--mocha)', textDecoration: 'none' }}>Impressum</a>
+          <a href="/datenschutz" style={{ color: 'var(--mocha)', textDecoration: 'none' }}>Datenschutz</a>
+        </div>
+      </div>
     </aside>
   );
 }
