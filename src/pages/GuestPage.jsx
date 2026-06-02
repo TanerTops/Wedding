@@ -1,17 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { loadState, defaultWedding, defaultTimeline } from '../data/store';
-import { submitRSVP, uploadPhoto, submitScheduleRequest, submitMusicWish } from '../lib/db';
+import { submitRSVP, uploadPhoto, submitScheduleRequest, submitMusicWish, getGuestPageData } from '../lib/db';
 import {
   IconCalendar, IconMapPin, IconMusic, IconGift, IconShirt,
   IconChevronDown, IconCheck, IconArrowRight, IconHeart, IconPlus, IconUpload
 } from '@tabler/icons-react';
 
-// ─────────────────────────────────────────────────────────────────
-// The guest page reads data from localStorage (same device/browser)
-// OR from a base64-encoded payload in the URL hash: /guest/slug#data=...
-// The admin "Gästeseite" settings page generates the full shareable link.
-// ─────────────────────────────────────────────────────────────────
+// Guest page loads data from Supabase (or localStorage fallback)
 
 const defaultConfig = {
   heroTitle: '',
@@ -44,19 +40,6 @@ const SECTION_NAV = [
   { id: 'schedule', label: 'Programm' },
   { id: 'memories', label: 'Erinnerungen' },
 ];
-
-// Try to load embedded data from URL hash (for sharing across devices)
-function loadFromHash() {
-  try {
-    const hash = window.location.hash;
-    if (!hash.includes('data=')) return null;
-    const b64 = hash.split('data=')[1];
-    const json = atob(decodeURIComponent(b64));
-    return JSON.parse(json);
-  } catch {
-    return null;
-  }
-}
 
 export default function GuestPage() {
   const { slug } = useParams();
@@ -576,7 +559,7 @@ export default function GuestPage() {
             <SectionHeader title="Eure Erinnerungen" sub="Teilt eure schönsten Fotos vom großen Tag mit uns!" />
 
             {/* Approved public gallery */}
-            <GuestMemoriesGallery />
+            <GuestMemoriesGallery photos={pageData?.photos} categories={pageData?.memoryCategories} />
 
             <div style={{ width: 60, height: 1, background: 'linear-gradient(90deg,transparent,var(--mocha),transparent)', margin: '32px auto 0' }} />
 
@@ -739,15 +722,12 @@ function GuestNav({ bride, groom, sections, active, onNav }) {
   );
 }
 
-function GuestMemoriesGallery() {
+function GuestMemoriesGallery({ photos: propPhotos, categories: propCategories }) {
   const [lightbox, setLightbox] = useState(null);
   const [activeCategory, setActiveCategory] = useState('all');
 
-  // Load from hash (shared link) or localStorage
-  const hashData = loadFromHash();
-  const allPhotos = hashData?.memories || loadState('memories', []);
-  const categories = hashData?.memoryCategories || loadState('memoryCategories', []);
-  const approvedPhotos = allPhotos.filter(p => p.approved);
+  const approvedPhotos = propPhotos || loadState('memories', []).filter(p => p.approved);
+  const categories = propCategories || loadState('memoryCategories', []);
 
   if (approvedPhotos.length === 0) return (
     <div style={{ textAlign: 'center', padding: '32px 0', color: 'var(--mocha)' }}>
