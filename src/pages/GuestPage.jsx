@@ -65,7 +65,7 @@ export default function GuestPage() {
   const [dataLoading, setDataLoading] = useState(true);
 
   useEffect(() => {
-    getGuestPageData().then(({ data }) => {
+    getGuestPageData(slug).then(({ data }) => {
       if (data) setPageData(data);
       setDataLoading(false);
     });
