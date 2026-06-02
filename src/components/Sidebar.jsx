@@ -1,4 +1,5 @@
 import { NavLink } from 'react-router-dom';
+import { useState, useEffect } from 'react';
 import {
   IconLayoutDashboard, IconUsers, IconWallet, IconCheckbox,
   IconClock, IconLayoutColumns, IconMapPin, IconMusic,
@@ -6,6 +7,7 @@ import {
   IconPhoto, IconCamera, IconLogout
 } from '@tabler/icons-react';
 import { loadState, defaultWedding, makeSlug } from '../data/store';
+import { getWedding, getTasks } from '../lib/db';
 
 const NAV = [
   { to: '/', icon: IconLayoutDashboard, label: 'Übersicht' },
@@ -25,9 +27,19 @@ const NAV = [
 ];
 
 export default function Sidebar({ onLogout }) {
-  const wedding = loadState('wedding', defaultWedding);
-  const tasks = loadState('tasks', []);
-  const days = Math.ceil((new Date(wedding.date) - new Date()) / 86400000);
+  const [wedding, setWedding] = useState(() => loadState('wedding', defaultWedding));
+  const [tasks, setTasks] = useState(() => loadState('tasks', []));
+
+  useEffect(() => {
+    getWedding().then(({ data }) => { if (data) { setWedding(data); } });
+    getTasks().then(({ data }) => { if (data) setTasks(data); });
+    // Listen for wedding updates from Settings
+    const handler = () => getWedding().then(({ data }) => { if (data) setWedding(data); });
+    window.addEventListener('weddingUpdated', handler);
+    return () => window.removeEventListener('weddingUpdated', handler);
+  }, []);
+
+  const days = Math.ceil((new Date(wedding?.date || Date.now()) - new Date()) / 86400000);
   const done = tasks.filter(t => t.done).length;
   const pct = tasks.length ? Math.round(done / tasks.length * 100) : 0;
   const guestUrl = `/guest/${makeSlug(wedding)}`;
