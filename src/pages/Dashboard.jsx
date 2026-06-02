@@ -6,6 +6,7 @@ import {
 } from '@tabler/icons-react';
 import { loadState, defaultWedding, makeSlug } from '../data/store';
 import { getWedding, getGuests, getBudgetItems, getTasks, getRSVPs, getPhotos, getMusicWishes } from '../lib/db';
+import Onboarding from './Onboarding';
 
 export default function Dashboard() {
   const [data, setData] = useState({
@@ -20,6 +21,7 @@ export default function Dashboard() {
     recentWishes: [],
   });
   const [loading, setLoading] = useState(true);
+  const [showOnboarding, setShowOnboarding] = useState(() => !loadState('onboardingDismissed', false));
 
   useEffect(() => {
     Promise.all([
@@ -58,10 +60,22 @@ export default function Dashboard() {
   const newRsvps     = rsvps.filter(r => !guests.some(g => g.name?.toLowerCase() === r.name?.toLowerCase())).length;
   const guestUrl     = `/guest/${makeSlug(wedding)}`;
 
+  // Payment reminders: items due within 14 days
+  const dueItems = budgetItems.filter(i => {
+    if (i.paid) return false;
+    if (!i.due) return false;
+    const d = Math.ceil((new Date(i.due) - new Date()) / 86400000);
+    return d >= 0 && d <= 14;
+  }).sort((a, b) => new Date(a.due) - new Date(b.due));
+
   const notifications = [
     newRsvps > 0 && { icon: '✉️', text: `${newRsvps} neue RSVP-Eingänge`, to: '/guests', color: 'var(--terra)' },
     pendingPhotos > 0 && { icon: '📸', text: `${pendingPhotos} Fotos warten auf Freigabe`, to: '/memories', color: 'var(--gold)' },
     pending > 0 && { icon: '⏳', text: `${pending} Gäste noch ausstehend`, to: '/guests', color: 'var(--mocha)' },
+    ...dueItems.map(i => {
+      const d = Math.ceil((new Date(i.due) - new Date()) / 86400000);
+      return { icon: '💳', text: `${i.desc || i.description}: ${i.amount?.toLocaleString('de-DE')} € fällig in ${d} Tag${d !== 1 ? 'en' : ''}`, to: '/budget', color: '#E57373' };
+    }),
   ].filter(Boolean);
 
   return (
@@ -84,12 +98,47 @@ export default function Dashboard() {
       </div>
 
       <div className="page-body">
-        {/* Stats */}
+        {/* Onboarding */}
+        {showOnboarding && <Onboarding onDismiss={() => setShowOnboarding(false)} />}
+
+        {/* Beautiful countdown hero */}
+        <div className="card" style={{ marginBottom: 16, padding: '28px 24px', background: 'linear-gradient(135deg, #FDF8F0 0%, #F5EDE0 100%)', border: '1px solid var(--sand)', overflow: 'hidden', position: 'relative' }}>
+          <div style={{ position: 'absolute', right: -20, top: -20, width: 160, height: 160, borderRadius: '50%', background: 'rgba(196,149,106,0.08)', pointerEvents: 'none' }} />
+          <div style={{ position: 'absolute', right: 40, bottom: -40, width: 100, height: 100, borderRadius: '50%', background: 'rgba(168,181,160,0.1)', pointerEvents: 'none' }} />
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
+            <div>
+              <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 14, color: 'var(--mocha)', letterSpacing: 2, textTransform: 'uppercase', marginBottom: 4 }}>
+                {wedding.bride} & {wedding.groom}
+              </div>
+              <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 38, fontStyle: 'italic', color: 'var(--espresso)', lineHeight: 1.1 }}>
+                {days > 0 ? `Noch ${days} Tage` : days === 0 ? '🎉 Heute!' : `Vor ${Math.abs(days)} Tagen`}
+              </div>
+              <div style={{ fontSize: 13, color: 'var(--mocha)', marginTop: 6 }}>
+                {new Date(wedding.date).toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+                {wedding.venue && ` · ${wedding.venue}`}
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 12 }}>
+              {[
+                { v: Math.floor(days / 7), l: 'Wochen' },
+                { v: days, l: 'Tage' },
+                { v: days * 24, l: 'Stunden' },
+              ].map(({ v, l }) => (
+                <div key={l} style={{ textAlign: 'center', background: '#fff', borderRadius: 14, padding: '12px 16px', border: '1px solid var(--sand)', minWidth: 64 }}>
+                  <div style={{ fontSize: 28, fontWeight: 700, color: 'var(--espresso)', fontFamily: "'Cormorant Garamond',serif" }}>{Math.max(0, v)}</div>
+                  <div style={{ fontSize: 10, color: 'var(--mocha)', textTransform: 'uppercase', letterSpacing: 1 }}>{l}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Stats row */}
         <div className="stats-grid" style={{ marginBottom: 16 }}>
-          <StatCard label="Tage noch"  value={days}          sub={new Date(wedding.date).toLocaleDateString('de-DE', { day: 'numeric', month: 'long' })} accent="var(--gold)" />
           <StatCard label="Gäste"      value={guests.length} sub={`${confirmed} zugesagt`} accent="var(--sage)" />
           <StatCard label="RSVP"       value={rsvpPct + '%'} sub={`${pending} ausstehend`} accent="var(--terra)" />
           <StatCard label="Budget"     value={budgPct + '%'} sub={totalSpent.toLocaleString('de-DE') + ' € bezahlt'} accent="var(--blush)" />
+          <StatCard label="Aufgaben"   value={taskPct + '%'} sub={`${doneTasks}/${tasks.length} erledigt`} accent="var(--gold)" />
         </div>
 
         {/* Notifications */}
