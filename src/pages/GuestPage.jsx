@@ -615,14 +615,17 @@ export default function GuestPage() {
                     style={{ width: '100%', justifyContent: 'center' }}
                     onClick={async () => {
                     if (!uploads.length) return;
+                    setUploadDone('uploading');
+                    let success = true;
                     for (const file of uploads) {
-                      await uploadPhoto(file, uploadName || 'Gast', 'guest');
+                      const { error } = await uploadPhoto(file, uploadName || 'Gast', 'guest');
+                      if (error) { success = false; console.error('Upload error:', error); }
                     }
-                    setUploadDone(true);
+                    setUploadDone(success ? true : 'error');
                   }}
-                    disabled={uploads.length === 0}
+                    disabled={uploads.length === 0 || uploadDone === 'uploading'}
                   >
-                    <IconUpload size={15} stroke={2} /> Fotos einreichen
+                    <IconUpload size={15} stroke={2} /> {uploadDone === 'uploading' ? 'Wird hochgeladen...' : 'Fotos einreichen'}
                   </button>
                 </>
               )}
