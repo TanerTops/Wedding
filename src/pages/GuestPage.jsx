@@ -121,6 +121,7 @@ export default function GuestPage() {
       ...rsvpData,
       plus_one: !!(rsvpData.companions?.trim()),
       companions: rsvpData.companions || '',
+      inviteCode: inviteCode.trim().toUpperCase(),
     });
     if (!error) setRsvpDone(true);
     else setCodeError('Fehler beim Absenden. Bitte nochmal versuchen.');
