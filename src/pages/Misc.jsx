@@ -152,30 +152,86 @@ export function MusicPage() {
 
 
 export function VenuePage() {
-  const [venue, setVenue] = useState(() => loadState('venue', { name: 'Schloss Waldenburg', address: 'Waldenburgstraße 1, 74638 Waldenburg', contact: 'info@schloss-waldenburg.de', phone: '+49 7942 123456', notes: 'Parkplätze vorhanden.' }));
-  function save() { saveState('venue', venue); alert('Gespeichert! 🌿'); }
+  const [venue, setVenue] = useState({ name: '', address: '', contact: '', phone: '', notes: '' });
+  const [saved, setSaved] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    // Load from weddings table (venue is part of wedding data)
+    if (hasSupabase()) {
+      supabase.auth.getUser().then(({ data: { user } }) => {
+        if (!user) { setLoading(false); return; }
+        supabase.from('weddings').select('venue, venue_address, venue_contact, venue_phone, venue_notes')
+          .eq('user_id', user.id).limit(1).single()
+          .then(({ data }) => {
+            if (data) setVenue({
+              name:    data.venue || '',
+              address: data.venue_address || '',
+              contact: data.venue_contact || '',
+              phone:   data.venue_phone || '',
+              notes:   data.venue_notes || '',
+            });
+            setLoading(false);
+          });
+      });
+    } else {
+      setVenue(loadState('venue', { name: '', address: '', contact: '', phone: '', notes: '' }));
+      setLoading(false);
+    }
+  }, []);
+
+  async function save() {
+    saveState('venue', venue);
+    if (hasSupabase()) {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await supabase.from('weddings').update({
+          venue:         venue.name,
+          venue_address: venue.address,
+          venue_contact: venue.contact,
+          venue_phone:   venue.phone,
+          venue_notes:   venue.notes,
+        }).eq('user_id', user.id);
+      }
+    }
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  }
+
   return (
     <>
-      <div className="topbar"><h1>Location</h1></div>
+      <div className="topbar">
+        <div><h1>Location</h1><div className="topbar-sub">Venue & Anfahrt</div></div>
+        <button className="btn btn-primary" onClick={save}>{saved ? '✓ Gespeichert' : 'Speichern'}</button>
+      </div>
       <div className="page-body">
-        <div className="card" style={{ maxWidth: 560 }}>
-          <div className="section-title">Location Details</div>
-          <div className="form-group"><label className="form-label">Name</label><input className="input" value={venue.name} onChange={e => setVenue(v => ({ ...v, name: e.target.value }))} /></div>
-          <div className="form-group"><label className="form-label">Adresse</label><input className="input" value={venue.address} onChange={e => setVenue(v => ({ ...v, address: e.target.value }))} /></div>
-          <div className="grid-2">
-            <div className="form-group"><label className="form-label">E-Mail</label><input className="input" value={venue.contact} onChange={e => setVenue(v => ({ ...v, contact: e.target.value }))} /></div>
-            <div className="form-group"><label className="form-label">Telefon</label><input className="input" value={venue.phone} onChange={e => setVenue(v => ({ ...v, phone: e.target.value }))} /></div>
+        {loading ? (
+          <div className="card" style={{ textAlign: 'center', padding: 40, color: 'var(--mocha)' }}>Wird geladen...</div>
+        ) : (
+          <div className="card" style={{ maxWidth: 560 }}>
+            <div className="section-title" style={{ marginBottom: 16 }}>Location Details</div>
+            <div className="form-group"><label className="form-label">Name</label><input className="input" placeholder="z.B. Schloss Waldenburg" value={venue.name} onChange={e => setVenue(v => ({ ...v, name: e.target.value }))} /></div>
+            <div className="form-group"><label className="form-label">Adresse</label><input className="input" placeholder="Straße, PLZ Ort" value={venue.address} onChange={e => setVenue(v => ({ ...v, address: e.target.value }))} /></div>
+            <div className="grid-2">
+              <div className="form-group"><label className="form-label">E-Mail</label><input className="input" type="email" value={venue.contact} onChange={e => setVenue(v => ({ ...v, contact: e.target.value }))} /></div>
+              <div className="form-group"><label className="form-label">Telefon</label><input className="input" type="tel" value={venue.phone} onChange={e => setVenue(v => ({ ...v, phone: e.target.value }))} /></div>
+            </div>
+            <div className="form-group"><label className="form-label">Notizen / Anfahrt</label><textarea className="input" rows={4} value={venue.notes} onChange={e => setVenue(v => ({ ...v, notes: e.target.value }))} style={{ resize: 'vertical' }} placeholder="Parkplätze, ÖPNV, Hinweise..." /></div>
+            {venue.address && (
+              <a href={`https://maps.google.com/?q=${encodeURIComponent(venue.address)}`} target="_blank" rel="noopener"
+                className="btn btn-secondary btn-sm" style={{ marginTop: 4 }}>
+                🗺 In Google Maps öffnen
+              </a>
+            )}
           </div>
-          <div className="form-group"><label className="form-label">Notizen</label><textarea className="input" rows={4} value={venue.notes} onChange={e => setVenue(v => ({ ...v, notes: e.target.value }))} style={{ resize: 'vertical' }} /></div>
-          <button className="btn btn-primary" onClick={save}>Speichern</button>
-        </div>
+        )}
       </div>
     </>
   );
 }
 
 export function RegistryPage() {
-  const [items, setItems] = useState(() => loadState('registry', []));
+  const [items, setItems] = useState([]);
   const [modal, setModal] = useState(false);
   const [form, setForm] = useState({ title: '', description: '', amount: '', type: 'item', link: '' });
 
