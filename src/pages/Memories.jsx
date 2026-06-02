@@ -30,7 +30,7 @@ export default function Memories() {
 
   useEffect(() => {
     getPhotos().then(({ data }) => {
-      if (data && data.length > 0) {
+      if (data !== null && data !== undefined) {
         setPhotos(data);
         saveState('memories', data);
       }
