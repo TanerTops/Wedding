@@ -137,13 +137,6 @@ export async function initializeUser(customWedding = null) {
   // Mark as initialized
   await supabase.from('user_profiles').upsert({ id: userId, initialized: true });
 
-  // Also save to localStorage for immediate use
-  saveState('wedding', wedding);
-  saveState('guests', TEMPLATE_GUESTS.map((g, i) => ({ ...g, id: i + 1, group: g.group_name, inviteCode: makeInviteCode(g.name, year) })));
-  saveState('budgetItems', TEMPLATE_BUDGET.map((b, i) => ({ ...b, id: i + 1, desc: b.description })));
-  saveState('timeline', TEMPLATE_TIMELINE.map((e, i) => ({ ...e, id: i + 1, endTime: e.end_time, desc: e.description })));
-  saveState('guestPageConfig', TEMPLATE_CONFIG);
-
   console.log('[Vince] Initialization complete');
 }
 
