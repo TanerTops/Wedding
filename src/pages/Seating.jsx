@@ -635,6 +635,28 @@ export default function Seating() {
     />;
   }
 
+
+  function onCanvasWheel(e) {
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? 0.9 : 1.1;
+    setZoom(z => Math.min(3, Math.max(0.3, z * delta)));
+  }
+
+  function onCanvasPanStart(e) {
+    if (draggingTable || rotatingTable) return;
+    setIsPanning(true);
+    setPanStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
+  }
+
+  function onCanvasPanMove(e) {
+    if (!isPanning || draggingTable || rotatingTable) return;
+    setPan({ x: e.clientX - panStart.x, y: e.clientY - panStart.y });
+  }
+
+  function onCanvasPanEnd() {
+    setIsPanning(false);
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
       <div className="topbar" style={{ flexShrink: 0 }}>
