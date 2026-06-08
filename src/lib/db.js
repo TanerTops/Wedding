@@ -13,10 +13,10 @@ const TEMPLATE_WEDDING = {
 };
 
 const TEMPLATE_GUESTS = [
-  { name: 'Ingrid Müller',     email: 'ingrid@email.de',    group_name: 'Familie Braut',     status: 'confirmed', menu: 'Rind',         note: '' },
-  { name: 'Wolfgang Müller',   email: 'w.mueller@email.de', group_name: 'Familie Braut',     status: 'confirmed', menu: 'Rind',         note: '' },
-  { name: 'Anna Lehmann',      email: 'anna@email.de',      group_name: 'Freunde',           status: 'confirmed', menu: 'Vegan',        note: '' },
-  { name: 'Max Hartmann',      email: '',                   group_name: 'Freunde',           status: 'pending',   menu: '',             note: '' },
+  { name: 'Ingrid Müller',     email: 'ingrid@email.de',    group_name: 'Familie Braut',     status: 'confirmed', menu: 'Rind',         note: '', is_companion: false, parent_id: null },
+  { name: 'Wolfgang Müller',   email: 'w.mueller@email.de', group_name: 'Familie Braut',     status: 'confirmed', menu: 'Rind',         note: '', is_companion: false, parent_id: null },
+  { name: 'Anna Lehmann',      email: 'anna@email.de',      group_name: 'Freunde',           status: 'confirmed', menu: 'Vegan',        note: '', is_companion: false, parent_id: null },
+  { name: 'Max Hartmann',      email: '',                   group_name: 'Freunde',           status: 'pending',   menu: '',             note: '', is_companion: false, parent_id: null },
 ];
 
 const TEMPLATE_BUDGET = [
@@ -35,11 +35,11 @@ const TEMPLATE_TIMELINE = [
 ];
 
 const TEMPLATE_TASKS = [
-  { title: 'Location buchen', category: 'Organisation', done: true,  due: '2025-12-01', note: '' },
-  { title: 'Caterer anfragen', category: 'Catering',     done: false, due: '2026-01-15', note: '' },
-  { title: 'Einladungen versenden', category: 'Gäste',   done: false, due: '2026-06-01', note: '' },
-  { title: 'Fotografen buchen', category: 'Dienstleister', done: true, due: '2025-11-01', note: '' },
-  { title: 'Ringe aussuchen', category: 'Sonstiges',     done: false, due: '2026-03-01', note: '' },
+  { title: 'Location buchen',       category: 'Organisation',   done: true,  due: '2025-12-01', note: '' },
+  { title: 'Caterer anfragen',      category: 'Catering',       done: false, due: '2026-01-15', note: '' },
+  { title: 'Einladungen versenden', category: 'Gäste',          done: false, due: '2026-06-01', note: '' },
+  { title: 'Fotografen buchen',     category: 'Dienstleister',  done: true,  due: '2025-11-01', note: '' },
+  { title: 'Ringe aussuchen',       category: 'Sonstiges',      done: false, due: '2026-03-01', note: '' },
 ];
 
 const TEMPLATE_REGISTRY = [
@@ -74,73 +74,52 @@ export async function initializeUser(customWedding = null) {
   const userId = await getUserId();
   if (!userId) return;
 
-  // Check if already initialized
   const { data: profile } = await supabase
     .from('user_profiles')
     .select('initialized')
     .eq('id', userId)
     .single();
 
-  if (profile?.initialized) return; // already done
+  if (profile?.initialized) return;
 
   console.log('[Vince] First login — initializing with template data...');
 
-  // Check for pending wedding data from registration (when email confirmation was needed)
   const pendingWedding = (() => {
     try { const d = localStorage.getItem('vince_pending_wedding'); return d ? JSON.parse(d) : null; } catch { return null; }
   })();
   if (pendingWedding) { localStorage.removeItem('vince_pending_wedding'); }
   const weddingInput = customWedding || pendingWedding;
-  console.log('[Vince] weddingInput:', weddingInput);
 
-  // Use custom wedding data if provided, otherwise use template
   const wedding = weddingInput ? {
-    bride: weddingInput.bride || TEMPLATE_WEDDING.bride,
-    groom: weddingInput.groom || TEMPLATE_WEDDING.groom,
-    date: weddingInput.date || TEMPLATE_WEDDING.date,
-    venue: weddingInput.venue || TEMPLATE_WEDDING.venue,
+    bride:  weddingInput.bride  || TEMPLATE_WEDDING.bride,
+    groom:  weddingInput.groom  || TEMPLATE_WEDDING.groom,
+    date:   weddingInput.date   || TEMPLATE_WEDDING.date,
+    venue:  weddingInput.venue  || TEMPLATE_WEDDING.venue,
     budget: TEMPLATE_WEDDING.budget,
     notes: '',
   } : TEMPLATE_WEDDING;
-  console.log('[Vince] final wedding:', wedding);
 
-  // Create wedding (delete any existing first to avoid duplicates)
   const year = new Date(wedding.date).getFullYear();
   await supabase.from('weddings').delete().eq('user_id', userId);
   await supabase.from('weddings').insert({ ...wedding, user_id: userId });
 
-  // Create guests with invite codes
   await supabase.from('guests').insert(
-    TEMPLATE_GUESTS.map(g => ({ ...g, user_id: userId, invite_code: makeInviteCode(g.name, year) }))
+    TEMPLATE_GUESTS.map(g => ({
+      ...g,
+      user_id:      userId,
+      invite_code:  makeInviteCode(g.name, year),
+      is_companion: false,
+      parent_id:    null,
+    }))
   );
 
-  // Create budget items
-  await supabase.from('budget_items').insert(
-    TEMPLATE_BUDGET.map(b => ({ ...b, user_id: userId }))
-  );
-
-  // Create timeline
-  await supabase.from('timeline').insert(
-    TEMPLATE_TIMELINE.map(e => ({ ...e, user_id: userId }))
-  );
-
-  // Create tasks
-  await supabase.from('tasks').insert(
-    TEMPLATE_TASKS.map(t => ({ ...t, user_id: userId }))
-  );
-
-  // Create registry
-  await supabase.from('registry').insert(
-    TEMPLATE_REGISTRY.map(r => ({ ...r, user_id: userId }))
-  );
-
-  // Create guest page config
+  await supabase.from('budget_items').insert(TEMPLATE_BUDGET.map(b => ({ ...b, user_id: userId })));
+  await supabase.from('timeline').insert(TEMPLATE_TIMELINE.map(e => ({ ...e, user_id: userId })));
+  await supabase.from('tasks').insert(TEMPLATE_TASKS.map(t => ({ ...t, user_id: userId })));
+  await supabase.from('registry').insert(TEMPLATE_REGISTRY.map(r => ({ ...r, user_id: userId })));
   await supabase.from('guest_page_config').insert({ config: TEMPLATE_CONFIG, user_id: userId });
-
-  // Mark as initialized
   await supabase.from('user_profiles').upsert({ id: userId, initialized: true });
 
-  // Auto-sync local data to Supabase (in case user had prior localStorage data)
   const localTimeline = loadState('timeline', []);
   if (localTimeline.length > 0) {
     const { data: existingTl } = await supabase.from('timeline').select('id').eq('user_id', userId).limit(1);
@@ -182,7 +161,13 @@ export async function getGuests() {
   if (!hasSupabase()) return { data: loadState('guests', []), error: null };
   const userId = await getUserId();
   const { data, error } = await supabase.from('guests').select('*').eq('user_id', userId).order('name');
-  return { data: data || [], error };
+  // Normalize: ensure is_companion and parent_id are always defined
+  const normalized = (data || []).map(g => ({
+    ...g,
+    is_companion: g.is_companion === true,
+    parent_id:    g.parent_id || null,
+  }));
+  return { data: normalized, error };
 }
 
 export async function upsertGuest(guest) {
@@ -193,13 +178,21 @@ export async function upsertGuest(guest) {
     return { error: null };
   }
   const userId = await getUserId();
-  // Remove 'group' alias - Supabase column is 'group_name'
-  const { group, inviteCode, ...rest } = guest;
-  const { error } = await supabase.from('guests').upsert({ 
-    ...rest, 
-    group_name: group || guest.group_name || 'Freunde',
-    invite_code: inviteCode || guest.invite_code || '',
-    user_id: userId 
+
+  // Explicitly strip frontend-only aliases and map to DB column names
+  const {
+    group,        // frontend alias → group_name
+    inviteCode,   // frontend alias → invite_code
+    ...rest
+  } = guest;
+
+  const { error } = await supabase.from('guests').upsert({
+    ...rest,
+    group_name:   group || guest.group_name || 'Freunde',
+    invite_code:  inviteCode || guest.invite_code || '',
+    is_companion: guest.is_companion === true,   // explicit boolean
+    parent_id:    guest.parent_id || null,        // explicit null if missing
+    user_id:      userId,
   });
   return { error };
 }
@@ -221,30 +214,28 @@ export async function submitRSVP(rsvpData) {
     return { error: null };
   }
   const { error } = await supabase.from('rsvp_responses').insert({
-    name: rsvpData.name, email: rsvpData.email,
-    attending: rsvpData.attending, menu: rsvpData.menu,
-    plus_one: rsvpData.plus_one || false,
-    companions: rsvpData.companions || '',
-    message: rsvpData.message,
+    name:         rsvpData.name,
+    email:        rsvpData.email,
+    attending:    rsvpData.attending,
+    menu:         rsvpData.menu,
+    plus_one:     rsvpData.plus_one || false,
+    companions:   rsvpData.companions || '',
+    message:      rsvpData.message,
     submitted_at: new Date().toISOString(),
   });
 
-  // Auto-update guest status based on invite code
   if (!error && rsvpData.inviteCode) {
-    // Find guest by invite_code and update their status + menu
     const { data: guests } = await supabase
       .from('guests')
       .select('id')
       .eq('invite_code', rsvpData.inviteCode.toUpperCase());
-    
     if (guests && guests.length > 0) {
       await supabase.from('guests').update({
         status: rsvpData.attending === 'yes' ? 'confirmed' : 'declined',
-        menu: rsvpData.menu || '',
+        menu:   rsvpData.menu || '',
       }).eq('invite_code', rsvpData.inviteCode.toUpperCase());
     }
   }
-
   return { error };
 }
 
@@ -301,8 +292,8 @@ export async function upsertTimelineEvent(event) {
   const userId = await getUserId();
   const { error } = await supabase.from('timeline').upsert({
     ...event, user_id: userId,
-    end_time: event.endTime || event.end_time || '',
-    description: event.desc || event.description || '',
+    end_time:    event.endTime || event.end_time || '',
+    description: event.desc   || event.description || '',
   });
   return { error };
 }
@@ -320,7 +311,6 @@ export async function deleteTimelineEvent(id) {
 export async function getPhotos() {
   if (!hasSupabase()) return { data: loadState('memories', []), error: null };
   const userId = await getUserId();
-  // Admin sees own photos, guests see approved photos (handled by RLS)
   const { data, error } = userId
     ? await supabase.from('photos').select('*').eq('user_id', userId).order('created_at', { ascending: false })
     : await supabase.from('photos').select('*').eq('approved', true).order('created_at', { ascending: false });
@@ -369,19 +359,18 @@ export async function getGuestPageData(slug) {
   if (!hasSupabase()) {
     return {
       data: {
-        wedding: loadState('wedding', null),
-        config: loadState('guestPageConfig', {}),
-        timeline: loadState('timeline', []),
-        registry: loadState('registry', []),
-        photos: loadState('memories', []).filter(p => p.approved),
+        wedding:          loadState('wedding', null),
+        config:           loadState('guestPageConfig', {}),
+        timeline:         loadState('timeline', []),
+        registry:         loadState('registry', []),
+        photos:           loadState('memories', []).filter(p => p.approved),
         memoryCategories: loadState('memoryCategories', []),
-        guests: loadState('guests', []),
+        guests:           loadState('guests', []),
       },
       error: null
     };
   }
 
-  // Find wedding by slug (bride-groom format)
   const { data: weddings } = await supabase.from('weddings').select('*');
   let wedding = null;
   if (weddings && slug) {
@@ -394,23 +383,28 @@ export async function getGuestPageData(slug) {
   const [config, timeline, guests, photos] = await Promise.all([
     userId ? supabase.from('guest_page_config').select('config').eq('user_id', userId).limit(1).single() : Promise.resolve({ data: null }),
     userId ? supabase.from('timeline').select('*').eq('user_id', userId).order('time') : Promise.resolve({ data: [] }),
-    userId ? supabase.from('guests').select('id, name, invite_code, menu, status').eq('user_id', userId) : Promise.resolve({ data: [] }),
+    userId ? supabase.from('guests').select('id, name, invite_code, menu, status, is_companion, parent_id').eq('user_id', userId) : Promise.resolve({ data: [] }),
     supabase.from('photos').select('*').eq('approved', true).order('created_at', { ascending: false }),
   ]);
 
-  const timelineData = (timeline.data?.length > 0) ? timeline.data.map(e => ({ ...e, endTime: e.end_time, desc: e.description })) : loadState('timeline', []);
-  const mergedConfig = config.data?.config || loadState('guestPageConfig', {});
-  const guestData = (guests.data || []).map(g => ({ ...g, inviteCode: g.invite_code }));
+  const timelineData  = (timeline.data?.length > 0) ? timeline.data.map(e => ({ ...e, endTime: e.end_time, desc: e.description })) : loadState('timeline', []);
+  const mergedConfig  = config.data?.config || loadState('guestPageConfig', {});
+  const guestData     = (guests.data || []).map(g => ({
+    ...g,
+    inviteCode:   g.invite_code,
+    is_companion: g.is_companion === true,
+    parent_id:    g.parent_id || null,
+  }));
 
   return {
     data: {
       wedding,
-      config: mergedConfig,
-      timeline: timelineData,
-      registry: loadState('registry', []),
-      photos: photos.data || [],
+      config:           mergedConfig,
+      timeline:         timelineData,
+      registry:         loadState('registry', []),
+      photos:           photos.data || [],
       memoryCategories: loadState('memoryCategories', []),
-      guests: guestData,
+      guests:           guestData,
     },
     error: null,
   };
@@ -492,30 +486,16 @@ export async function syncLocalToSupabase() {
 // ── Account deletion ─────────────────────────────────────────────
 export async function deleteAccount() {
   if (!hasSupabase()) return { error: new Error('Supabase not configured') };
-
-  // Get current session for auth token
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) return { error: new Error('Not logged in') };
-
-  // Call Edge Function which deletes data + auth user via service role
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
   const res = await fetch(`${supabaseUrl}/functions/v1/delete-account`, {
     method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${session.access_token}`,
-      'Content-Type': 'application/json',
-    },
+    headers: { 'Authorization': `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
   });
-
   const result = await res.json();
-  if (!res.ok || result.error) {
-    return { error: new Error(result.error || 'Deletion failed') };
-  }
-
-  // Clear localStorage
+  if (!res.ok || result.error) return { error: new Error(result.error || 'Deletion failed') };
   Object.keys(localStorage).filter(k => k.startsWith('vince_')).forEach(k => localStorage.removeItem(k));
-
-  // Sign out locally
   await supabase.auth.signOut();
   return { error: null };
 }
