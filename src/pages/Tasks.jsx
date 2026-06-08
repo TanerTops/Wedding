@@ -33,12 +33,12 @@ function makeICS(task) {
 function downloadICS(task) {
   const ics = makeICS(task);
   if (!ics) return;
-  const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' });
-  const a    = document.createElement('a');
-  a.href     = URL.createObjectURL(blob);
-  a.download = `${task.title.replace(/[^a-z0-9]/gi,'_')}.ics`;
+  const a      = document.createElement('a');
+  a.href       = 'data:text/calendar;charset=utf-8,' + encodeURIComponent(ics);
+  a.download   = `${task.title.replace(/[^a-z0-9]/gi,'_')}.ics`;
+  document.body.appendChild(a);
   a.click();
-  URL.revokeObjectURL(a.href);
+  document.body.removeChild(a);
 }
 
 export default function Tasks() {
@@ -58,9 +58,10 @@ export default function Tasks() {
 
   // Build assignee options from wedding data
   const assignees = wedding ? [
-    { id: 'bride',  label: wedding.bride,  color: AV[0] },
-    { id: 'groom',  label: wedding.groom,  color: AV[1] },
-    // Trauzeugen werden hier später ergänzt (aus Settings)
+    { id: 'bride',          label: wedding.bride,          color: AV[0] },
+    { id: 'groom',          label: wedding.groom,          color: AV[1] },
+    ...(wedding.witness_bride ? [{ id: 'witness_bride', label: wedding.witness_bride, color: AV[2] }] : []),
+    ...(wedding.witness_groom ? [{ id: 'witness_groom', label: wedding.witness_groom, color: AV[3] }] : []),
   ] : [];
 
   function assigneeLabel(id) {
@@ -105,7 +106,11 @@ export default function Tasks() {
       if (filter === 'done') return t.done;
       return true;
     })
-    .filter(t => !assigneeFilter || t.assignee === assigneeFilter)
+    .filter(t => {
+      if (!assigneeFilter) return true;
+      if (assigneeFilter === 'unassigned') return !t.assignee;
+      return t.assignee === assigneeFilter;
+    })
     .sort((a, b) => {
       if (a.done !== b.done) return a.done ? 1 : -1;
       const p = { high: 0, medium: 1, low: 2 };
