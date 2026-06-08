@@ -12,6 +12,7 @@ import { loadState } from './data/store';
 import Sidebar from './components/Sidebar';
 import NotificationCenter from './components/NotificationCenter';
 import OnboardingWizard from './components/OnboardingWizard';
+import PhotographerPage from './pages/PhotographerPage';
 import Auth from './pages/Auth';
 import Dashboard from './pages/Dashboard';
 import Guests from './pages/Guests';
@@ -135,9 +136,10 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/guest/:slug"  element={<GuestPage />} />
-        <Route path="/impressum"    element={<Impressum />} />
-        <Route path="/datenschutz"  element={<Datenschutz />} />
+        <Route path="/guest/:slug"        element={<GuestPage />} />
+        <Route path="/photographer/:token" element={<PhotographerPage />} />
+        <Route path="/impressum"           element={<Impressum />} />
+        <Route path="/datenschutz"         element={<Datenschutz />} />
         <Route path="/login"        element={!session && supabase ? <Auth onAuth={setSession} /> : <Navigate to="/" />} />
         <Route path="/*"            element={
           supabase && !session
