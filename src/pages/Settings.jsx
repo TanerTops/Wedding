@@ -1,42 +1,72 @@
 import { useState, useEffect } from 'react';
+import { IconCopy, IconCheck, IconCamera } from '@tabler/icons-react';
 import { loadState, saveState, defaultWedding } from '../data/store';
 import { saveWedding, deleteAccount, syncLocalToSupabase, getWedding } from '../lib/db';
 import { supabase } from '../lib/supabase';
 
+function generateToken() {
+  return crypto.randomUUID().replace(/-/g, '').slice(0, 24);
+}
+
 export default function Settings() {
-  const [wedding, setWedding] = useState(() => loadState('wedding', defaultWedding));
+  const [wedding,       setWedding]       = useState(() => loadState('wedding', defaultWedding));
+  const [saved,         setSaved]         = useState(false);
+  const [deleting,      setDeleting]      = useState(false);
+  const [coAdminEmail,  setCoAdminEmail]  = useState('');
+  const [coAdminSending,setCoAdminSending]= useState(false);
+  const [coAdminMsg,    setCoAdminMsg]    = useState('');
+  const [confirmDelete, setConfirmDelete] = useState('');
+  const [copied,        setCopied]        = useState(false);
+  const [generatingToken, setGeneratingToken] = useState(false);
 
   useEffect(() => {
     getWedding().then(({ data }) => {
-      if (data) {
-        setWedding(data);
-        saveState('wedding', data);
-      }
+      if (data) { setWedding(data); saveState('wedding', data); }
     });
   }, []);
-  const [saved, setSaved] = useState(false);
-  const [deleting, setDeleting] = useState(false);
-  const [coAdminEmail, setCoAdminEmail] = useState('');
-  const [coAdminSending, setCoAdminSending] = useState(false);
-  const [coAdminMsg, setCoAdminMsg] = useState('');
-  const [confirmDelete, setConfirmDelete] = useState('');
+
+  const photographerUrl = wedding.photographer_token
+    ? `${window.location.origin}/photographer/${wedding.photographer_token}`
+    : null;
 
   async function handleSave() {
     saveState('wedding', wedding);
     await saveWedding(wedding);
-    // Also sync timeline if not yet in Supabase
     await syncLocalToSupabase();
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
-    // Force page reload so Sidebar reflects new names
     window.dispatchEvent(new Event('weddingUpdated'));
+  }
+
+  async function generatePhotographerLink() {
+    setGeneratingToken(true);
+    const token   = generateToken();
+    const updated = { ...wedding, photographer_token: token };
+    setWedding(updated);
+    saveState('wedding', updated);
+    await saveWedding(updated);
+    setGeneratingToken(false);
+  }
+
+  async function revokePhotographerLink() {
+    if (!confirm('Link wirklich widerrufen? Der Fotograf verliert sofort den Zugang.')) return;
+    const updated = { ...wedding, photographer_token: null };
+    setWedding(updated);
+    saveState('wedding', updated);
+    await saveWedding(updated);
+  }
+
+  function copyLink() {
+    if (!photographerUrl) return;
+    navigator.clipboard.writeText(photographerUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   }
 
   async function inviteCoAdmin() {
     if (!coAdminEmail.trim()) return;
     setCoAdminSending(true);
-    // Use Supabase magic link / invite
-    const { error } = await supabase.auth.signInWithOtp({ 
+    const { error } = await supabase.auth.signInWithOtp({
       email: coAdminEmail,
       options: { emailRedirectTo: window.location.origin }
     });
@@ -69,68 +99,137 @@ export default function Settings() {
       </div>
 
       <div className="page-body">
+
         {/* Wedding data */}
-        <div className="card" style={{ marginBottom: 20 }}>
-          <div className="section-title" style={{ marginBottom: 16 }}>Hochzeitsdaten</div>
+        <div className="card" style={{ marginBottom:20 }}>
+          <div className="section-title" style={{ marginBottom:16 }}>Hochzeitsdaten</div>
           <div className="grid-2">
             <div className="form-group">
               <label className="form-label">Braut</label>
-              <input className="input" value={wedding.bride || ''} onChange={e => setWedding(w => ({ ...w, bride: e.target.value }))} />
+              <input className="input" value={wedding.bride||''} onChange={e => setWedding(w=>({...w,bride:e.target.value}))}/>
             </div>
             <div className="form-group">
               <label className="form-label">Bräutigam</label>
-              <input className="input" value={wedding.groom || ''} onChange={e => setWedding(w => ({ ...w, groom: e.target.value }))} />
+              <input className="input" value={wedding.groom||''} onChange={e => setWedding(w=>({...w,groom:e.target.value}))}/>
             </div>
           </div>
           <div className="grid-2">
             <div className="form-group">
               <label className="form-label">Datum</label>
-              <input className="input" type="date" value={wedding.date || ''} onChange={e => setWedding(w => ({ ...w, date: e.target.value }))} />
+              <input className="input" type="date" value={wedding.date||''} onChange={e => setWedding(w=>({...w,date:e.target.value}))}/>
             </div>
             <div className="form-group">
               <label className="form-label">Location</label>
-              <input className="input" placeholder="z.B. Schloss Waldenburg" value={wedding.venue || ''} onChange={e => setWedding(w => ({ ...w, venue: e.target.value }))} />
+              <input className="input" placeholder="z.B. Schloss Waldenburg" value={wedding.venue||''} onChange={e => setWedding(w=>({...w,venue:e.target.value}))}/>
             </div>
           </div>
-          <div className="form-group">
-            <label className="form-label">Budget (€)</label>
-            <input className="input" type="number" value={wedding.budget || ''} onChange={e => setWedding(w => ({ ...w, budget: parseInt(e.target.value) || 0 }))} />
+          <div className="grid-2">
+            <div className="form-group">
+              <label className="form-label">Budget (€)</label>
+              <input className="input" type="number" value={wedding.budget||''} onChange={e => setWedding(w=>({...w,budget:parseInt(e.target.value)||0}))}/>
+            </div>
+          </div>
+
+          {/* Witnesses */}
+          <div style={{ marginTop:8, paddingTop:16, borderTop:'1px solid var(--sand)' }}>
+            <div className="section-title" style={{ marginBottom:12 }}>Trauzeugen</div>
+            <div className="grid-2">
+              <div className="form-group">
+                <label className="form-label">Trauzeugin / Trauzeuge von {wedding.bride||'Person 1'}</label>
+                <input className="input" placeholder="Name (optional)" value={wedding.witness_bride||''} onChange={e => setWedding(w=>({...w,witness_bride:e.target.value}))}/>
+              </div>
+              <div className="form-group">
+                <label className="form-label">Trauzeuge / Trauzeugin von {wedding.groom||'Person 2'}</label>
+                <input className="input" placeholder="Name (optional)" value={wedding.witness_groom||''} onChange={e => setWedding(w=>({...w,witness_groom:e.target.value}))}/>
+              </div>
+            </div>
+            <div style={{ fontSize:11, color:'var(--mocha)' }}>Trauzeugen können Aufgaben zugewiesen werden.</div>
           </div>
         </div>
 
-        {/* Co-Admin */}
-        <div className="card" style={{ marginBottom: 20 }}>
-          <div className="section-title" style={{ marginBottom: 4 }}>Mitplaner einladen</div>
-          <p style={{ fontSize: 13, color: 'var(--mocha)', marginBottom: 16, lineHeight: 1.6 }}>
-            Lade eine zweite Person ein (z.B. Trauzeugin) — sie bekommt einen Login-Link per Email und kann dann gemeinsam mit euch planen.
+        {/* Photographer link */}
+        <div className="card" style={{ marginBottom:20 }}>
+          <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:4 }}>
+            <IconCamera size={16} stroke={1.5} style={{ color:'var(--terra)' }}/>
+            <div className="section-title" style={{ margin:0 }}>Fotografen-Zugang</div>
+          </div>
+          <p style={{ fontSize:13, color:'var(--mocha)', marginBottom:16, lineHeight:1.6 }}>
+            Generiere einen dauerhaften Link für deinen Fotografen. Er kann damit die Fotoplanung einsehen und bearbeiten — ohne Zugang zu Budget, Gästedaten oder anderen Bereichen.
           </p>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <input className="input" style={{ flex: 1 }} type="email" placeholder="email@beispiel.de" value={coAdminEmail} onChange={e => setCoAdminEmail(e.target.value)} onKeyDown={e => e.key === 'Enter' && inviteCoAdmin()} />
+
+          {photographerUrl ? (
+            <>
+              <div style={{ background:'var(--warm)', borderRadius:10, padding:'10px 14px', marginBottom:12, border:'1px solid var(--sand)', display:'flex', alignItems:'center', gap:10 }}>
+                <code style={{ flex:1, fontSize:12, color:'var(--espresso)', wordBreak:'break-all', lineHeight:1.4 }}>
+                  {photographerUrl}
+                </code>
+                <button className="btn btn-secondary btn-sm" style={{ flexShrink:0 }} onClick={copyLink}>
+                  {copied ? <><IconCheck size={12} stroke={2}/> Kopiert</> : <><IconCopy size={12} stroke={1.5}/> Kopieren</>}
+                </button>
+              </div>
+              <div style={{ display:'flex', gap:8 }}>
+                <a
+                  href={photographerUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn btn-secondary btn-sm"
+                >
+                  Link öffnen →
+                </a>
+                <button
+                  className="btn btn-sm"
+                  style={{ background:'#FEE2E2', color:'#991B1B' }}
+                  onClick={revokePhotographerLink}
+                >
+                  Link widerrufen
+                </button>
+              </div>
+            </>
+          ) : (
+            <button
+              className="btn btn-primary btn-sm"
+              onClick={generatePhotographerLink}
+              disabled={generatingToken}
+            >
+              <IconCamera size={13} stroke={1.5}/>
+              {generatingToken ? 'Wird generiert…' : 'Fotografen-Link generieren'}
+            </button>
+          )}
+        </div>
+
+        {/* Co-Admin */}
+        <div className="card" style={{ marginBottom:20 }}>
+          <div className="section-title" style={{ marginBottom:4 }}>Mitplaner einladen</div>
+          <p style={{ fontSize:13, color:'var(--mocha)', marginBottom:16, lineHeight:1.6 }}>
+            Lade eine zweite Person ein (z.B. Trauzeugin) — sie bekommt einen Login-Link per Email und kann gemeinsam mit euch planen.
+          </p>
+          <div style={{ display:'flex', gap:8 }}>
+            <input className="input" style={{ flex:1 }} type="email" placeholder="email@beispiel.de" value={coAdminEmail} onChange={e => setCoAdminEmail(e.target.value)} onKeyDown={e => e.key==='Enter'&&inviteCoAdmin()}/>
             <button className="btn btn-primary" onClick={inviteCoAdmin} disabled={coAdminSending}>
-              {coAdminSending ? '...' : 'Einladen'}
+              {coAdminSending ? '…' : 'Einladen'}
             </button>
           </div>
-          {coAdminMsg && <div style={{ fontSize: 13, color: coAdminMsg.startsWith('✓') ? 'var(--sage)' : '#E57373', marginTop: 8 }}>{coAdminMsg}</div>}
-          <div style={{ fontSize: 11, color: 'var(--mocha)', marginTop: 8 }}>
+          {coAdminMsg && <div style={{ fontSize:13, color:coAdminMsg.startsWith('✓')?'var(--sage)':'#E57373', marginTop:8 }}>{coAdminMsg}</div>}
+          <div style={{ fontSize:11, color:'var(--mocha)', marginTop:8 }}>
             ℹ️ Die eingeladene Person muss sich mit der gleichen Email registrieren um Zugang zu erhalten.
           </div>
         </div>
 
         {/* Danger zone */}
-        <div className="card" style={{ border: '1px solid #FECACA' }}>
-          <div className="section-title" style={{ marginBottom: 4, color: '#991B1B' }}>⚠️ Gefahrenzone</div>
-          <p style={{ fontSize: 13, color: 'var(--mocha)', marginBottom: 16, lineHeight: 1.6 }}>
+        <div className="card" style={{ border:'1px solid #FECACA' }}>
+          <div className="section-title" style={{ marginBottom:4, color:'#991B1B' }}>⚠️ Gefahrenzone</div>
+          <p style={{ fontSize:13, color:'var(--mocha)', marginBottom:16, lineHeight:1.6 }}>
             Account und alle Daten unwiderruflich löschen — Gäste, Budget, Zeitplan, Fotos, alles.
           </p>
           <div className="form-group">
             <label className="form-label">Tippe <strong>LÖSCHEN</strong> zur Bestätigung</label>
-            <input className="input" placeholder="LÖSCHEN" value={confirmDelete} onChange={e => setConfirmDelete(e.target.value)} style={{ borderColor: confirmDelete === 'LÖSCHEN' ? '#EF4444' : undefined }} />
+            <input className="input" placeholder="LÖSCHEN" value={confirmDelete} onChange={e => setConfirmDelete(e.target.value)} style={{ borderColor:confirmDelete==='LÖSCHEN'?'#EF4444':undefined }}/>
           </div>
           <button
             className="btn"
-            style={{ background: confirmDelete === 'LÖSCHEN' ? '#EF4444' : '#FEE2E2', color: confirmDelete === 'LÖSCHEN' ? '#fff' : '#991B1B', border: 'none', padding: '10px 20px', borderRadius: 10, cursor: confirmDelete === 'LÖSCHEN' ? 'pointer' : 'not-allowed', fontFamily: "'DM Sans',sans-serif", fontWeight: 600, fontSize: 13 }}
+            style={{ background:confirmDelete==='LÖSCHEN'?'#EF4444':'#FEE2E2', color:confirmDelete==='LÖSCHEN'?'#fff':'#991B1B', border:'none', padding:'10px 20px', borderRadius:10, cursor:confirmDelete==='LÖSCHEN'?'pointer':'not-allowed', fontFamily:"'DM Sans',sans-serif", fontWeight:600, fontSize:13 }}
             onClick={handleDeleteAccount}
-            disabled={confirmDelete !== 'LÖSCHEN' || deleting}
+            disabled={confirmDelete!=='LÖSCHEN'||deleting}
           >
             {deleting ? 'Wird gelöscht...' : 'Account endgültig löschen'}
           </button>
