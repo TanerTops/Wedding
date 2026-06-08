@@ -1,136 +1,151 @@
 import { useState, useEffect } from 'react';
 import { IconCheck, IconClock, IconMapPin, IconUsers, IconPlus, IconTrash, IconX } from '@tabler/icons-react';
+import { supabase } from '../lib/supabase';
 
 const PRIO_COLORS = { high: 'var(--terra)', medium: 'var(--gold)', low: 'var(--sage)' };
 const PRIO_LABELS = { high: 'Wichtig', medium: 'Normal', low: 'Optional' };
 
 export default function PhotographerPage() {
-  const [data,   setData]   = useState(null);
-  const [error,  setError]  = useState(null);
-  const [saving, setSaving] = useState(false);
+  const [wedding,   setWedding]   = useState(null);
+  const [guests,    setGuests]    = useState([]);
+  const [groups,    setGroups]    = useState([]);
+  const [error,     setError]     = useState(null);
+  const [loading,   setLoading]   = useState(true);
+  const [saving,    setSaving]    = useState(false);
   const [editGroup, setEditGroup] = useState(null);
-  const [modal, setModal]   = useState(false);
-  const [form,  setForm]    = useState({});
+  const [modal,     setModal]     = useState(false);
+  const [form,      setForm]      = useState({});
 
-  // Extract token from URL
-  const token = window.location.pathname.split('/photographer/')[1];
+  // Extract token from URL path
+  const token = window.location.pathname.split('/photographer/')[1]?.split('/')[0];
 
   useEffect(() => {
-    if (!token) { setError('Kein Zugriffslink gefunden.'); return; }
-    fetch(`/api/photographer/${token}`)
-      .catch(() => null)
-      .then(async res => {
-        // Fallback: load directly from Supabase via token
-        loadFromSupabase(token);
-      });
+    if (!token) { setError('Kein Zugriffslink gefunden.'); setLoading(false); return; }
+    load();
   }, [token]);
 
-  async function loadFromSupabase(token) {
+  async function load() {
+    setLoading(true);
     try {
-      const { createClient } = await import('@supabase/supabase-js');
-      const supabase = createClient(
-        import.meta.env.VITE_SUPABASE_URL,
-        import.meta.env.VITE_SUPABASE_ANON_KEY
-      );
-
-      // Find wedding by photographer_token
-      const { data: wedding, error: wErr } = await supabase
+      // Find wedding by token
+      const { data: weddingData, error: wErr } = await supabase
         .from('weddings')
         .select('*')
         .eq('photographer_token', token)
         .single();
 
-      if (wErr || !wedding) { setError('Ungültiger oder abgelaufener Link.'); return; }
+      if (wErr || !weddingData) { setError('Ungültiger oder abgelaufener Link.'); setLoading(false); return; }
+      setWedding(weddingData);
 
-      // Load guests (only name + group for privacy)
-      const { data: guests } = await supabase
+      // Load guests (name + group only)
+      const { data: guestData } = await supabase
         .from('guests')
         .select('id, name, group_name, status')
-        .eq('user_id', wedding.user_id)
+        .eq('user_id', weddingData.user_id)
         .eq('is_companion', false)
         .order('name');
+      setGuests(guestData || []);
 
-      // Load photo groups from localStorage key scoped to wedding
-      const groupsKey = `photoGroups_${wedding.id}`;
-      const { data: stored } = await supabase
+      // Load photo groups
+      const { data: groupData } = await supabase
         .from('photo_groups')
         .select('*')
-        .eq('user_id', wedding.user_id)
+        .eq('user_id', weddingData.user_id)
         .order('created_at');
-
-      setData({
-        wedding,
-        guests:  guests  || [],
-        groups:  stored  || [],
-        supabase,
-      });
+      setGroups(groupData || []);
     } catch (e) {
       setError('Fehler beim Laden: ' + e.message);
     }
+    setLoading(false);
   }
 
-  async function saveGroups(groups) {
-    if (!data?.supabase || !data?.wedding) return;
+  async function saveGroup(group) {
     setSaving(true);
-    // Upsert all groups
-    await Promise.all(groups.map(g =>
-      data.supabase.from('photo_groups').upsert({ ...g, user_id: data.wedding.user_id })
-    ));
-    setData(d => ({ ...d, groups }));
+    const { error } = await supabase
+      .from('photo_groups')
+      .upsert({ ...group, user_id: wedding.user_id });
+    if (error) console.error('Save error:', error);
     setSaving(false);
   }
 
-  function toggleDone(id) {
-    const updated = data.groups.map(g => g.id === id ? { ...g, done: !g.done } : g);
-    saveGroups(updated);
+  async function updateGroups(updated) {
+    setGroups(updated);
   }
 
-  function updateNote(id, note) {
-    const updated = data.groups.map(g => g.id === id ? { ...g, note } : g);
-    saveGroups(updated);
+  async function toggleDone(id) {
+    const group = groups.find(g => g.id === id);
+    if (!group) return;
+    const updated = { ...group, done: !group.done };
+    setGroups(groups.map(g => g.id === id ? updated : g));
+    await saveGroup(updated);
   }
 
-  function addGuestToGroup(groupId, guestId) {
-    const gid = parseInt(guestId);
+  async function updateNote(id, note) {
+    const group = groups.find(g => g.id === id);
+    if (!group) return;
+    const updated = { ...group, note };
+    setGroups(groups.map(g => g.id === id ? updated : g));
+    await saveGroup(updated);
+  }
+
+  async function addGuestToGroup(groupId, guestId) {
+    const gid = parseInt(guestId) || guestId;
     if (!gid) return;
-    const updated = data.groups.map(g =>
-      g.id === groupId ? { ...g, guests: g.guests?.includes(gid) ? g.guests : [...(g.guests||[]), gid] } : g
-    );
-    saveGroups(updated);
+    const group = groups.find(g => g.id === groupId);
+    if (!group) return;
+    const currentGuests = group.guests || [];
+    if (currentGuests.includes(gid) || currentGuests.includes(String(gid))) return;
+    const updated = { ...group, guests: [...currentGuests, gid] };
+    setGroups(groups.map(g => g.id === groupId ? updated : g));
+    await saveGroup(updated);
   }
 
-  function removeGuestFromGroup(groupId, guestId) {
-    const updated = data.groups.map(g =>
-      g.id === groupId ? { ...g, guests: (g.guests||[]).filter(id => id !== guestId) } : g
-    );
-    saveGroups(updated);
+  async function removeGuestFromGroup(groupId, guestId) {
+    const group = groups.find(g => g.id === groupId);
+    if (!group) return;
+    const updated = {
+      ...group,
+      guests: (group.guests || []).filter(id => id !== guestId && id !== parseInt(guestId) && String(id) !== String(guestId))
+    };
+    setGroups(groups.map(g => g.id === groupId ? updated : g));
+    await saveGroup(updated);
   }
 
-  function addGroup() {
+  async function addGroup() {
     if (!form.name?.trim()) return;
     const newGroup = {
-      id:       crypto.randomUUID(),
-      name:     form.name,
-      description: form.desc     || '',
-      location: form.location || '',
-      priority: form.priority || 'medium',
-      duration: parseInt(form.duration) || 1,
-      note:     form.note     || '',
-      done:     false,
-      guests:   [],
+      id:          crypto.randomUUID(),
+      name:        form.name,
+      description: form.description || '',
+      location:    form.location    || '',
+      priority:    form.priority    || 'medium',
+      duration:    parseInt(form.duration) || 1,
+      note:        form.note        || '',
+      done:        false,
+      guests:      [],
+      user_id:     wedding.user_id,
     };
-    saveGroups([...data.groups, newGroup]);
+    setGroups([...groups, newGroup]);
+    await saveGroup(newGroup);
     setModal(false);
     setForm({});
   }
 
-  function deleteGroup(id) {
+  async function deleteGroup(id) {
     if (!confirm('Gruppe löschen?')) return;
-    const updated = data.groups.filter(g => g.id !== id);
-    saveGroups(updated);
+    setGroups(groups.filter(g => g.id !== id));
+    await supabase.from('photo_groups').delete().eq('id', id);
   }
 
   // ── Render states ──
+  if (loading) return (
+    <div style={{ minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', background:'var(--cream)' }}>
+      <div style={{ textAlign:'center', color:'var(--mocha)', fontFamily:"'DM Sans',sans-serif" }}>
+        <div style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:24, fontStyle:'italic', marginBottom:8 }}>Wird geladen…</div>
+      </div>
+    </div>
+  );
+
   if (error) return (
     <div style={{ minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', background:'var(--cream)', fontFamily:"'DM Sans',sans-serif" }}>
       <div style={{ textAlign:'center', maxWidth:400, padding:32 }}>
@@ -141,15 +156,6 @@ export default function PhotographerPage() {
     </div>
   );
 
-  if (!data) return (
-    <div style={{ minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', background:'var(--cream)' }}>
-      <div style={{ textAlign:'center', color:'var(--mocha)', fontFamily:"'DM Sans',sans-serif" }}>
-        <div style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:24, fontStyle:'italic', marginBottom:8 }}>Wird geladen…</div>
-      </div>
-    </div>
-  );
-
-  const { wedding, guests, groups } = data;
   const done          = groups.filter(g => g.done).length;
   const totalDuration = groups.filter(g => !g.done).reduce((s, g) => s + (g.duration||0), 0);
 
@@ -179,9 +185,9 @@ export default function PhotographerPage() {
         {/* Stats */}
         <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:12, marginBottom:20 }}>
           {[
-            { label:'Gruppen',    value: groups.length,   color:'var(--mocha)' },
-            { label:'Erledigt',   value: done,             color:'var(--sage)'  },
-            { label:'Zeit ca.',   value: `~${totalDuration}m`, color:'var(--terra)' },
+            { label:'Gruppen',  value: groups.length,       color:'var(--mocha)' },
+            { label:'Erledigt', value: done,                color:'var(--sage)'  },
+            { label:'Zeit ca.', value: `~${totalDuration}m`, color:'var(--terra)' },
           ].map(s => (
             <div key={s.label} className="stat-card" style={{ borderTopColor:s.color }}>
               <div className="stat-label">{s.label}</div>
@@ -190,7 +196,7 @@ export default function PhotographerPage() {
           ))}
         </div>
 
-        {/* Gästeliste (readonly, nur Namen + Gruppen) */}
+        {/* Gästeliste readonly */}
         {guests.length > 0 && (
           <div className="card" style={{ marginBottom:20 }}>
             <div className="section-title" style={{ marginBottom:10 }}>Gästeliste</div>
@@ -208,12 +214,13 @@ export default function PhotographerPage() {
         {/* Photo groups */}
         <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
           {groups.map(group => {
-            const groupGuests    = (group.guests||[]).map(id => guests.find(g => g.id === id || g.id === parseInt(id))).filter(Boolean);
-            const availableToAdd = guests.filter(g => !(group.guests||[]).includes(g.id) && !(group.guests||[]).includes(String(g.id)));
-            const isEditing      = editGroup === group.id;
+            const guestIds    = group.guests || [];
+            const groupGuests = guestIds.map(id => guests.find(g => String(g.id) === String(id))).filter(Boolean);
+            const availableToAdd = guests.filter(g => !guestIds.some(id => String(id) === String(g.id)));
+            const isEditing   = editGroup === group.id;
 
             return (
-              <div key={group.id} className="card" style={{ borderLeft:`4px solid ${PRIO_COLORS[group.priority]}`, opacity:group.done?0.65:1 }}>
+              <div key={group.id} className="card" style={{ borderLeft:`4px solid ${PRIO_COLORS[group.priority||'medium']}`, opacity:group.done?0.65:1 }}>
                 <div style={{ display:'flex', alignItems:'flex-start', gap:12 }}>
                   {/* Done toggle */}
                   <div onClick={() => toggleDone(group.id)} style={{ width:22, height:22, borderRadius:'50%', border:`2px solid ${group.done?'var(--sage)':'var(--sand)'}`, background:group.done?'var(--sage)':'#fff', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', flexShrink:0, marginTop:2 }}>
@@ -223,8 +230,8 @@ export default function PhotographerPage() {
                   <div style={{ flex:1 }}>
                     <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:4, flexWrap:'wrap' }}>
                       <div style={{ fontWeight:600, fontSize:15, color:'var(--espresso)', textDecoration:group.done?'line-through':'none' }}>{group.name}</div>
-                      <span style={{ fontSize:10, fontWeight:600, color:PRIO_COLORS[group.priority], background:PRIO_COLORS[group.priority]+'18', padding:'1px 7px', borderRadius:20 }}>
-                        {PRIO_LABELS[group.priority]}
+                      <span style={{ fontSize:10, fontWeight:600, color:PRIO_COLORS[group.priority||'medium'], background:PRIO_COLORS[group.priority||'medium']+'18', padding:'1px 7px', borderRadius:20 }}>
+                        {PRIO_LABELS[group.priority||'medium']}
                       </span>
                       {group.duration > 0 && (
                         <span style={{ fontSize:11, color:'var(--mocha)', display:'flex', alignItems:'center', gap:3 }}>
@@ -240,7 +247,7 @@ export default function PhotographerPage() {
                       </div>
                     )}
 
-                    {/* Note — editable by photographer */}
+                    {/* Note */}
                     {isEditing ? (
                       <input
                         className="input"
@@ -270,9 +277,13 @@ export default function PhotographerPage() {
                     )}
 
                     {/* Add guest when editing */}
-                    {isEditing && availableToAdd.length > 0 && (
-                      <select className="input" style={{ fontSize:12, marginBottom:8 }}
-                        onChange={e => { if (e.target.value) addGuestToGroup(group.id, e.target.value); e.target.value=''; }}>
+                    {isEditing && (
+                      <select
+                        className="input"
+                        style={{ fontSize:12, marginBottom:8 }}
+                        value=""
+                        onChange={e => { if (e.target.value) { addGuestToGroup(group.id, e.target.value); e.target.value=''; } }}
+                      >
                         <option value="">+ Gast hinzufügen</option>
                         {availableToAdd.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
                       </select>
@@ -319,7 +330,7 @@ export default function PhotographerPage() {
               <button className="btn-icon" onClick={() => setModal(false)}><IconX size={14} stroke={2}/></button>
             </div>
             <div className="form-group"><label className="form-label">Gruppenname *</label><input className="input" placeholder="z.B. Familie der Braut" value={form.name||''} onChange={e => setForm(f=>({...f,name:e.target.value}))}/></div>
-            <div className="form-group"><label className="form-label">Beschreibung</label><input className="input" placeholder="Kurze Beschreibung" value={form.desc||''} onChange={e => setForm(f=>({...f,desc:e.target.value}))}/></div>
+            <div className="form-group"><label className="form-label">Beschreibung</label><input className="input" placeholder="Kurze Beschreibung" value={form.description||''} onChange={e => setForm(f=>({...f,description:e.target.value}))}/></div>
             <div className="grid-2">
               <div className="form-group"><label className="form-label">Ort</label><input className="input" placeholder="z.B. Garten" value={form.location||''} onChange={e => setForm(f=>({...f,location:e.target.value}))}/></div>
               <div className="form-group"><label className="form-label">Dauer (Min.)</label><input className="input" type="number" min="0" max="60" value={form.duration||1} onChange={e => setForm(f=>({...f,duration:e.target.value}))}/></div>
