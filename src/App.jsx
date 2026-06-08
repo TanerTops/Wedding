@@ -171,7 +171,7 @@ function AdminLayout({ onLogout }) {
     <div className="app-layout">
       <Sidebar onLogout={onLogout} />
 
-      {/* Global notification bell — fixed top-right, above all content */}
+      {/* Global notification bell — fixed, clear of topbar action buttons */}
       <div style={{
         position:  'fixed',
         top:       14,
