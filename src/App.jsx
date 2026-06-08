@@ -8,8 +8,10 @@ import {
 import { useState, useEffect } from 'react';
 import { supabase } from './lib/supabase';
 import { initializeUser } from './lib/db';
+import { loadState } from './data/store';
 import Sidebar from './components/Sidebar';
 import NotificationCenter from './components/NotificationCenter';
+import OnboardingWizard from './components/OnboardingWizard';
 import Auth from './pages/Auth';
 import Dashboard from './pages/Dashboard';
 import Guests from './pages/Guests';
@@ -148,7 +150,24 @@ export default function App() {
 }
 
 function AdminLayout({ onLogout }) {
-  const [error, setError] = useState(null);
+  const [error, setError]           = useState(null);
+  const [wedding, setWedding]       = useState(null);
+  const [showWizard, setShowWizard] = useState(false);
+
+  useEffect(() => {
+    // Check if wizard has been completed
+    const done = loadState('onboardingWizardDone', false);
+    if (done) return;
+    // Load wedding to prefill wizard
+    import('./lib/db').then(({ getWedding }) => {
+      getWedding().then(({ data }) => {
+        setWedding(data);
+        // Show wizard only for fresh accounts (bride still template name or empty)
+        const isFresh = !data || !data.bride || data.bride === 'Sarah' || data.bride === '';
+        if (isFresh) setShowWizard(true);
+      });
+    });
+  }, []);
 
   if (error) {
     return (
@@ -171,7 +190,15 @@ function AdminLayout({ onLogout }) {
     <div className="app-layout">
       <Sidebar onLogout={onLogout} />
 
-      {/* Global notification bell — fixed, clear of topbar action buttons */}
+      {/* Onboarding wizard — shown once for new users */}
+      {showWizard && (
+        <OnboardingWizard
+          wedding={wedding}
+          onComplete={() => setShowWizard(false)}
+        />
+      )}
+
+      {/* Global notification bell — fixed top-right, clear of topbar action buttons */}
       <div style={{
         position:  'fixed',
         top:       14,
