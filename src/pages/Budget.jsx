@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { IconPlus, IconTrash, IconEdit, IconX, IconDownload, IconAlertCircle, IconClock } from '@tabler/icons-react';
-import { getBudgetItems, upsertBudgetItem, deleteBudgetItem } from '../lib/db';
+import { getBudgetItems, upsertBudgetItem, deleteBudgetItem, getWedding, saveWedding } from '../lib/db';
 import { loadState, saveState, defaultBudgetItems, defaultBudgetCategories, defaultWedding } from '../data/store';
 
 const fEU = n => Number(n).toLocaleString('de-DE') + ' €';
@@ -21,17 +21,41 @@ const DEFAULT_CATS = [
 const CAT_COLORS = ['#C4956A','#A8B5A0','#C9A884','#B8A9C9','#C4B5A5','#8B9E7A','#B5A88A','#A89880','#C4956A','#9B8EA0'];
 
 export default function Budget() {
-  const [wedding]   = useState(() => loadState('wedding', defaultWedding));
-  const [items, setItems]   = useState([]);
-  const [cats, setCats]     = useState(() => loadState('budgetCategories', DEFAULT_CATS));
-  const [tab, setTab]       = useState('overview');
-  const [modal, setModal]   = useState(null);
-  const [form, setForm]     = useState({});
+  const [wedding, setWedding]   = useState(() => loadState('wedding', defaultWedding));
+  const [items, setItems]       = useState([]);
+  const [cats, setCats]         = useState(() => loadState('budgetCategories', DEFAULT_CATS));
+  const [tab, setTab]           = useState('overview');
+  const [modal, setModal]       = useState(null);
+  const [form, setForm]         = useState({});
   const [catModal, setCatModal] = useState(false);
-  const [newCat, setNewCat] = useState({ name:'', budget:'', color:'#C4956A' });
+  const [newCat, setNewCat]     = useState({ name:'', budget:'', color:'#C4956A' });
+
+  // Inline budget editing
+  const [editingBudget, setEditingBudget] = useState(false);
+  const [budgetInput, setBudgetInput]     = useState('');
+
+  // Load data from Supabase on mount
+  useEffect(() => {
+    getBudgetItems().then(({ data }) => {
+      if (data) setItems(data.map(i => ({ ...i, desc: i.description || i.desc })));
+    });
+    getWedding().then(({ data }) => {
+      if (data) setWedding(data);
+    });
+  }, []);
 
   function saveItems(u) { setItems(u); saveState('budgetItems', u); }
   function saveCats(u)  { setCats(u);  saveState('budgetCategories', u); }
+
+  // ── Inline budget save ──────────────────────────────────────────
+  async function handleBudgetSave() {
+    const val = parseFloat(budgetInput);
+    if (!val || val <= 0) { setEditingBudget(false); return; }
+    const updated = { ...wedding, budget: val };
+    setWedding(updated);
+    setEditingBudget(false);
+    await saveWedding(updated);
+  }
 
   // ── Calculations ───────────────────────────────────────────────
   const totalBudget   = wedding.budget;
@@ -132,11 +156,43 @@ export default function Budget() {
 
         {/* ── KPI cards ── */}
         <div className="stats-grid" style={{gridTemplateColumns:'repeat(4,1fr)',marginBottom:18}}>
-          <div className="stat-card" style={{borderTopColor:'var(--mocha)'}}>
+
+          {/* Gesamtbudget — inline editable */}
+          <div
+            className="stat-card"
+            style={{borderTopColor:'var(--mocha)', cursor: editingBudget ? 'default' : 'pointer', userSelect:'none'}}
+            onClick={() => { if (!editingBudget) { setBudgetInput(String(wedding.budget)); setEditingBudget(true); } }}
+          >
             <div className="stat-label">Gesamtbudget</div>
-            <div className="stat-value">{fEU(totalBudget)}</div>
-            <div className="stat-sub">Euer Hochzeitsbudget</div>
+            {editingBudget ? (
+              <div style={{display:'flex',alignItems:'center',gap:6,marginTop:4}}>
+                <input
+                  autoFocus
+                  type="number"
+                  className="input"
+                  style={{fontSize:18,fontWeight:700,padding:'2px 8px',width:130,color:'var(--espresso)'}}
+                  value={budgetInput}
+                  onChange={e => setBudgetInput(e.target.value)}
+                  onBlur={handleBudgetSave}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') handleBudgetSave();
+                    if (e.key === 'Escape') setEditingBudget(false);
+                  }}
+                  onClick={e => e.stopPropagation()}
+                />
+                <span style={{fontSize:13,color:'var(--mocha)'}}>€</span>
+              </div>
+            ) : (
+              <div style={{display:'flex',alignItems:'center',gap:6}}>
+                <div className="stat-value">{fEU(totalBudget)}</div>
+                <IconEdit size={13} stroke={1.5} style={{color:'var(--mocha)',marginTop:2,flexShrink:0}}/>
+              </div>
+            )}
+            <div className="stat-sub" style={{fontSize:11}}>
+              {editingBudget ? 'Enter zum Speichern · Esc zum Abbrechen' : 'Klicken zum Bearbeiten'}
+            </div>
           </div>
+
           <div className="stat-card" style={{borderTopColor:'var(--sage)'}}>
             <div className="stat-label">Ausgegeben</div>
             <div className="stat-value">{fEU(totalSpent)}</div>
