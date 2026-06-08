@@ -485,7 +485,7 @@ export default function Guests() {
       </div>
 
       {/* ── Modal: Add / Edit guest ── */}
-      {(modal === 'add' || modal === 'addCompanion' || (modal && modal !== 'delete')) && modal !== 'delete' && (
+      {modal && modal !== 'delete' && (
         <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&setModal(null)}>
           <div className="modal">
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:18 }}>
