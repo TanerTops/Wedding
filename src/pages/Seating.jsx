@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { IconPlus, IconTrash, IconX, IconRotateClockwise } from '@tabler/icons-react';
+import { IconPlus, IconTrash, IconX, IconRotateClockwise, IconCheck } from '@tabler/icons-react';
 import { loadState, saveState, defaultSeating, defaultGuests } from '../data/store';
 import { getGuests, saveSeating, getSeating } from '../lib/db';
 
@@ -10,19 +10,16 @@ const avc = id => AV_COLORS[id % AV_COLORS.length];
 const CANVAS_W = 820, CANVAS_H = 540;
 const SEAT_R = 13;
 const BLOCKED_COLOR = '#EAE0D0';
-const PROXIMITY = 4; // px — only block seats that are truly inside/touching the other table
+const PROXIMITY = 4;
 
-// ── geometry helpers ─────────────────────────────────────────────
 function deg2rad(d) { return d * Math.PI / 180; }
 
-// Get table dimensions based on shape and seat count
 function getTableDims(shape, seats) {
   if (shape === 'round')  return { rx: Math.max(38, 18 + seats * 5.5), ry: Math.max(38, 18 + seats * 5.5) };
   if (shape === 'rect')   return { rx: Math.max(72, 28 + seats * 7), ry: 34 };
-  /* square */            return { rx: Math.max(46, 28 + seats * 4), ry: Math.max(46, 28 + seats * 4) };
+  return { rx: Math.max(46, 28 + seats * 4), ry: Math.max(46, 28 + seats * 4) };
 }
 
-// Generate seat positions in LOCAL space (cx=0,cy=0, no rotation)
 function getSeatPositionsLocal(shape, seats, rx, ry) {
   const pos = [];
   if (shape === 'round') {
@@ -32,7 +29,6 @@ function getSeatPositionsLocal(shape, seats, rx, ry) {
       pos.push({ lx: r * Math.cos(a), ly: r * Math.sin(a), sideAngle: a });
     }
   } else {
-    // rect / square: distribute seats on 4 sides, store which side each belongs to
     const sides = [
       { name: 'top',    normal: -Math.PI/2 },
       { name: 'bottom', normal:  Math.PI/2 },
@@ -40,19 +36,18 @@ function getSeatPositionsLocal(shape, seats, rx, ry) {
       { name: 'right',  normal:  0         },
     ];
     const perSide = [
-      Math.round(seats * (rx / (2*(rx+ry)))),  // top
-      Math.round(seats * (rx / (2*(rx+ry)))),  // bottom
+      Math.round(seats * (rx / (2*(rx+ry)))),
+      Math.round(seats * (rx / (2*(rx+ry)))),
       0, 0
     ];
     let used = perSide[0] + perSide[1];
     const rem = seats - used;
     perSide[2] = Math.ceil(rem/2);
     perSide[3] = rem - perSide[2];
-    // Ensure total matches
     while (perSide.reduce((a,b)=>a+b,0) < seats) perSide[0]++;
     while (perSide.reduce((a,b)=>a+b,0) > seats) { for(let i=0;i<4;i++){if(perSide[i]>0){perSide[i]--;break;}} }
 
-    const distribute = (n, len, normal, ox, oy) => {
+    const distribute = (n, len, normal) => {
       for (let i = 0; i < n; i++) {
         const t = n === 1 ? 0.5 : i / (n - 1);
         const offset = -len + len * 2 * t;
@@ -72,13 +67,11 @@ function getSeatPositionsLocal(shape, seats, rx, ry) {
   return pos;
 }
 
-// Rotate a point around origin
 function rotatePoint(px, py, angle) {
   const cos = Math.cos(angle), sin = Math.sin(angle);
   return { x: px * cos - py * sin, y: px * sin + py * cos };
 }
 
-// Get world-space seat positions (with rotation + translation)
 function getWorldSeats(table) {
   const { rx, ry } = getTableDims(table.shape, table.seats);
   const local = getSeatPositionsLocal(table.shape, table.seats, rx, ry);
@@ -89,7 +82,6 @@ function getWorldSeats(table) {
   });
 }
 
-// Get 4 corners of a rect/square table in world space
 function getTableCorners(table) {
   const { rx, ry } = getTableDims(table.shape, table.seats);
   const rot = deg2rad(table.rotation || 0);
@@ -100,16 +92,13 @@ function getTableCorners(table) {
   });
 }
 
-// Project point onto axis and get interval
 function projectOntoAxis(corners, ax, ay) {
   const dots = corners.map(c => c.x * ax + c.y * ay);
   return { min: Math.min(...dots), max: Math.max(...dots) };
 }
 
-// Check overlap on one axis (SAT)
 function overlaps(a, b) { return a.max >= b.min && b.max >= a.min; }
 
-// Get separation gap between two OBBs using SAT
 function getOBBSeparation(t1, t2) {
   const corners1 = getTableCorners(t1);
   const corners2 = getTableCorners(t2);
@@ -131,13 +120,9 @@ function getOBBSeparation(t1, t2) {
   return { separated: false, gap: -minSep, axis: minAxis };
 }
 
-// Blocked seat detection.
-// Rules:
-//   - Long side (side seats of rect): only block seats that are PHYSICALLY INSIDE the neighbour body
-//   - Head end (short ends of rect): block ALL seats on that end of BOTH tables when they touch
 function getBlockedSeats(tables) {
-  const blocked = {};     // shows X — both sides of centre head contact
-  const invisible = {};  // completely hidden — the discarded corner seat
+  const blocked = {};
+  const invisible = {};
 
   function pointInside(wx, wy, table, pad = SEAT_R) {
     const { rx, ry } = getTableDims(table.shape, table.seats);
@@ -200,18 +185,14 @@ function getBlockedSeats(tables) {
         if (h2h && isHead && minD < SEAT_R * 5) {
           const isCentre = Math.abs(ly1) < ry1 * 0.35;
           if (isCentre) {
-            // Centre: both physically in the gap → show X on both
             blocked[`${t1.id}_${si}`] = true;
             blocked[`${t2.id}_${minIdx}`] = true;
           } else {
-            // Corner: t2's seat is the discarded duplicate → make it INVISIBLE
-            // t1's corner seat stays visible (it's the shared seat)
             if (i < j) {
               invisible[`${t2.id}_${minIdx}`] = true;
             }
           }
         } else if (!h2h && pointInside(seat.wx, seat.wy, t2)) {
-          // Long-side: show X
           blocked[`${t1.id}_${si}`] = true;
           if (pointInside(seats2[minIdx].wx, seats2[minIdx].wy, t1)) {
             blocked[`${t2.id}_${minIdx}`] = true;
@@ -223,8 +204,6 @@ function getBlockedSeats(tables) {
 
   return { blocked, invisible };
 }
-
-
 
 export default function Seating() {
   const [seating, setSeating] = useState(() => {
@@ -242,7 +221,7 @@ export default function Seating() {
   const [panel, setPanel] = useState(null);
   const [editTable, setEditTable] = useState(null);
   const [draggingTable, setDraggingTable] = useState(null);
-  const [rotatingTable, setRotatingTable] = useState(null); // { id, startAngle, startRot }
+  const [rotatingTable, setRotatingTable] = useState(null);
   const [draggingGuest, setDraggingGuest] = useState(null);
   const [hoveredSeat, setHoveredSeat] = useState(null);
   const [selectedTable, setSelectedTable] = useState(null);
@@ -251,15 +230,21 @@ export default function Seating() {
   const [isPanning, setIsPanning] = useState(false);
   const [panStart, setPanStart] = useState(null);
   const [newTable, setNewTable] = useState({ name: '', shape: 'round', seats: 8 });
+  // Toast for desktop seat count save confirmation
+  const [toast, setToast] = useState(null);
   const svgRef = useRef();
 
   function save(updated) { setSeating(updated); saveState('seating', updated); }
+
+  function showToast(msg) {
+    setToast(msg);
+    setTimeout(() => setToast(null), 2000);
+  }
 
   const assignedIds = seating.tables.flatMap(t => t.guests);
   const unassigned = guests.filter(g => !assignedIds.includes(g.id) && g.status !== 'declined');
   const { blocked: blockedSeats, invisible: invisibleSeats } = getBlockedSeats(seating.tables);
 
-  // ── SVG coords ─────────────────────────────────────────────────
   function getSVGPoint(e) {
     const svg = svgRef.current;
     const pt = svg.createSVGPoint();
@@ -274,7 +259,6 @@ export default function Seating() {
     return pt.matrixTransform(svg.getScreenCTM().inverse());
   }
 
-  // Touch handlers for table drag
   function onTableTouchStart(e, tableId) {
     e.stopPropagation();
     const touch = e.touches[0];
@@ -299,7 +283,6 @@ export default function Seating() {
     setDraggingTable(null);
   }
 
-  // ── Table drag ──────────────────────────────────────────────────
   function onTableMouseDown(e, tableId) {
     if (e.button !== 0) return;
     e.stopPropagation();
@@ -309,7 +292,6 @@ export default function Seating() {
     setSelectedTable(tableId);
   }
 
-  // ── Rotation handle ─────────────────────────────────────────────
   function onRotateMouseDown(e, tableId) {
     e.stopPropagation();
     e.preventDefault();
@@ -330,7 +312,6 @@ export default function Seating() {
       const t = seating.tables.find(t => t.id === rotatingTable.id);
       const curAngle = Math.atan2(p.y - t.y, p.x - t.x) * 180 / Math.PI;
       let newRot = rotatingTable.startRot + (curAngle - rotatingTable.startAngle);
-      // Snap to 15° increments when close
       const snap = 15;
       const snapped = Math.round(newRot / snap) * snap;
       if (Math.abs(snapped - newRot) < 5) newRot = snapped;
@@ -344,7 +325,6 @@ export default function Seating() {
     setRotatingTable(null);
   }
 
-  // ── Guest drag ──────────────────────────────────────────────────
   function onGuestDragStart(e, guestId, fromTable) {
     setDraggingGuest({ guestId, fromTable: fromTable || 'unassigned' });
     e.dataTransfer.effectAllowed = 'move';
@@ -409,8 +389,7 @@ export default function Seating() {
     setEditTable(et => et ? { ...et, ...updates } : null);
   }
 
-  // ── Render tables ───────────────────────────────────────────────
-  // Group detection: find touching table clusters for continuous seat numbering
+  // ── Seat number offsets ─────────────────────────────────────────
   const seatOffsets = (() => {
     const tables = seating.tables;
 
@@ -427,7 +406,6 @@ export default function Seating() {
       });
     }
 
-    // Union-Find
     const parent = {};
     tables.forEach(t => { parent[t.id] = t.id; });
     function find(id) { return parent[id] === id ? id : (parent[id] = find(parent[id])); }
@@ -436,7 +414,6 @@ export default function Seating() {
       for (let j = i+1; j < tables.length; j++)
         if (areTouching(tables[i], tables[j])) union(tables[i].id, tables[j].id);
 
-    // Group and sort left-to-right, top-to-bottom
     const groups = {};
     tables.forEach(t => {
       const root = find(t.id);
@@ -445,7 +422,6 @@ export default function Seating() {
     });
     Object.values(groups).forEach(g => g.sort((a,b) => a.x - b.x || a.y - b.y));
 
-    // Assign offsets: skip blocked seats so numbers are truly sequential
     const offsets = {};
     Object.values(groups).forEach(group => {
       let counter = 0;
@@ -467,7 +443,6 @@ export default function Seating() {
     const isSelected = selectedTable === table.id;
     const isDragging = draggingTable?.id === table.id;
     const tableOffset = seatOffsets[table.id] ?? 0;
-    // Build a local map: seatLocalIndex -> globalSeatNumber (skipping blocked)
     const globalSeatNum = {};
     let globalCounter = tableOffset;
     getWorldSeats(table).forEach((_, si) => {
@@ -477,23 +452,17 @@ export default function Seating() {
       }
     });
 
-    // Rotation handle position (top of table in world space)
     const rHandleLocal = { x: 0, y: -(Math.max(rx,ry) + 48) };
     const rHandleWorld = rotatePoint(rHandleLocal.x, rHandleLocal.y, deg2rad(rot));
     const rHx = table.x + rHandleWorld.x, rHy = table.y + rHandleWorld.y;
-
-    // Arm from table to handle
     const armLocal = { x: 0, y: -(Math.max(rx,ry) + 4) };
     const armWorld = rotatePoint(armLocal.x, armLocal.y, deg2rad(rot));
 
     return (
       <g key={table.id} style={{ cursor: isDragging ? 'grabbing' : 'grab', filter: isDragging ? 'drop-shadow(0 4px 12px rgba(91,61,30,0.2))' : 'none' }}>
-
-        {/* Seat circles */}
         {worldSeats.map((seat, si) => {
           const key = `${table.id}_${si}`;
           const blocked = blockedSeats[key];
-          // Corner discarded seat — completely hidden, not even an X
           if (invisibleSeats[key]) return null;
           const occupantId = seatOrder[si];
           const occupant = occupantId ? guests.find(g => g.id === occupantId) : null;
@@ -505,7 +474,6 @@ export default function Seating() {
               onDragLeave={() => setHoveredSeat(null)}
               onDrop={e => onSeatDrop(e, table.id, si)}
             >
-              {/* Seat */}
               <circle
                 cx={seat.wx} cy={seat.wy} r={SEAT_R}
                 fill={blocked ? BLOCKED_COLOR : occupant ? avc(occupant.id) : isHovered ? '#E8D5C0' : '#fff'}
@@ -517,19 +485,16 @@ export default function Seating() {
                 onDragStart={occupant ? e => onGuestDragStart(e, occupant.id, table.id) : undefined}
                 onDragEnd={() => setDraggingGuest(null)}
               />
-              {/* X icon for blocked */}
               {blocked && <>
                 <line x1={seat.wx-5} y1={seat.wy-5} x2={seat.wx+5} y2={seat.wy+5} stroke="#C4A882" strokeWidth={1.5} style={{ pointerEvents: 'none' }} />
                 <line x1={seat.wx+5} y1={seat.wy-5} x2={seat.wx-5} y2={seat.wy+5} stroke="#C4A882" strokeWidth={1.5} style={{ pointerEvents: 'none' }} />
               </>}
-              {/* Initials or number */}
               {!blocked && (
                 <text x={seat.wx} y={seat.wy+1} textAnchor="middle" dominantBaseline="middle"
                   style={{ fontSize: 8, fontWeight: 600, fill: occupant ? '#fff' : '#C4A882', fontFamily: 'DM Sans,sans-serif', pointerEvents: 'none', userSelect: 'none' }}>
                   {occupant ? ini(occupant.name) : (globalSeatNum[si] ?? '')}
                 </text>
               )}
-              {/* Tooltip on hover for assigned guest */}
               {occupant && isHovered && (
                 <g style={{ pointerEvents: 'none' }}>
                   <rect x={seat.wx - 36} y={seat.wy - 32} width={72} height={16} rx={4} fill="rgba(60,36,16,0.85)" />
@@ -539,7 +504,6 @@ export default function Seating() {
                   </text>
                 </g>
               )}
-              {/* Remove dot on occupied non-blocked seat */}
               {occupant && !blocked && (
                 <circle cx={seat.wx+9} cy={seat.wy-9} r={5} fill="#FFEBEE" stroke="#FFCDD2" strokeWidth={1}
                   style={{ cursor: 'pointer', opacity: 0, transition: 'opacity .15s' }}
@@ -552,7 +516,6 @@ export default function Seating() {
           );
         })}
 
-        {/* Table body */}
         <g onMouseDown={e => onTableMouseDown(e, table.id)}>
           {table.shape === 'round' ? (
             <circle cx={table.x} cy={table.y} r={rx}
@@ -579,25 +542,20 @@ export default function Seating() {
           </text>
         </g>
 
-        {/* Rotation handle – only for rect/square */}
         {table.shape !== 'round' && isSelected && (
           <g>
-            {/* Arm line */}
             <line x1={table.x + armWorld.x} y1={table.y + armWorld.y} x2={rHx} y2={rHy}
               stroke="#C4A882" strokeWidth={1.5} strokeDasharray="3,2" style={{ pointerEvents: 'none' }} />
-            {/* Handle circle */}
             <circle cx={rHx} cy={rHy} r={10}
               fill={rotatingTable?.id === table.id ? 'var(--terra)' : '#FDF8F2'}
               stroke="var(--terra)" strokeWidth={2}
               style={{ cursor: 'crosshair' }}
               onMouseDown={e => onRotateMouseDown(e, table.id)}
             />
-            {/* Rotate icon text */}
             <text x={rHx} y={rHy+1} textAnchor="middle" dominantBaseline="middle"
               style={{ fontSize: 11, fill: rotatingTable?.id === table.id ? '#fff' : 'var(--terra)', fontFamily: 'DM Sans,sans-serif', pointerEvents: 'none', userSelect: 'none' }}>
               ↻
             </text>
-            {/* Rotation angle label */}
             <text x={rHx+16} y={rHy+1} dominantBaseline="middle"
               style={{ fontSize: 9, fill: 'var(--mocha)', fontFamily: 'DM Sans,sans-serif', pointerEvents: 'none', userSelect: 'none' }}>
               {Math.round(((rot % 360) + 360) % 360)}°
@@ -605,7 +563,6 @@ export default function Seating() {
           </g>
         )}
 
-        {/* Edit button when selected */}
         {isSelected && (() => {
           const btnY = table.y + Math.max(ry, rx) + 30;
           return (
@@ -622,10 +579,7 @@ export default function Seating() {
     );
   }
 
-  const selTable = seating.tables.find(t => t.id === selectedTable);
-
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 769;
-
   if (isMobile) {
     return <MobileSeating
       seating={seating} guests={guests} blockedSeats={blockedSeats}
@@ -634,7 +588,6 @@ export default function Seating() {
       onSave={save} selectedTable={selectedTable} setSelectedTable={setSelectedTable}
     />;
   }
-
 
   function onCanvasWheel(e) {
     e.preventDefault();
@@ -653,19 +606,32 @@ export default function Seating() {
     setPan({ x: e.clientX - panStart.x, y: e.clientY - panStart.y });
   }
 
-  function onCanvasPanEnd() {
-    setIsPanning(false);
-  }
+  function onCanvasPanEnd() { setIsPanning(false); }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
+
+      {/* Toast notification */}
+      {toast && (
+        <div style={{
+          position: 'fixed', top: 20, left: '50%', transform: 'translateX(-50%)',
+          background: 'var(--espresso)', color: '#fff', padding: '8px 18px',
+          borderRadius: 20, fontSize: 13, fontWeight: 500, zIndex: 9999,
+          display: 'flex', alignItems: 'center', gap: 6,
+          boxShadow: '0 4px 16px rgba(0,0,0,0.2)',
+          animation: 'fadeIn .2s ease'
+        }}>
+          <IconCheck size={14} stroke={2} /> {toast}
+        </div>
+      )}
+
       <div className="topbar" style={{ flexShrink: 0 }}>
         <div>
           <h1>Sitzordnung</h1>
           <div className="topbar-sub">
             {assignedIds.length} / {guests.filter(g=>g.status==='confirmed').length} Gäste platziert
             · Tische ziehen & drehen · Sitze per Drag &amp; Drop
-            · <span style={{ color:'var(--terra)' }}>✕ = gesperrter Sitz (Tische zu nah)</span>
+            · <span style={{ color:'var(--terra)' }}>✕ = gesperrter Sitz</span>
           </div>
         </div>
         <button className="btn btn-primary" onClick={() => setPanel('addTable')}>
@@ -728,7 +694,6 @@ export default function Seating() {
           onMouseUp={e => { onSvgMouseUp(e); onCanvasPanEnd(); }}
           onMouseLeave={e => { onSvgMouseUp(e); onCanvasPanEnd(); }}
         >
-          {/* Zoom controls */}
           <div style={{ position:'absolute', top:10, right:10, zIndex:10, display:'flex', flexDirection:'column', gap:4 }}>
             <button onClick={() => setZoom(z => Math.min(3, z * 1.2))} style={{ width:32, height:32, borderRadius:8, border:'1px solid var(--sand)', background:'#fff', cursor:'pointer', fontSize:18, display:'flex', alignItems:'center', justifyContent:'center', color:'var(--brown)' }}>+</button>
             <button onClick={() => { setZoom(1); setPan({ x:0, y:0 }); }} style={{ width:32, height:32, borderRadius:8, border:'1px solid var(--sand)', background:'#fff', cursor:'pointer', fontSize:11, display:'flex', alignItems:'center', justifyContent:'center', color:'var(--mocha)' }}>⌂</button>
@@ -767,15 +732,12 @@ export default function Seating() {
             </div>
           )}
 
-          {/* Legend */}
           <div style={{ position:'absolute', bottom:12, right:14, background:'rgba(253,248,242,0.9)', borderRadius:10, border:'1px solid var(--sand)', padding:'8px 12px', fontSize:11, color:'var(--mocha)', display:'flex', gap:14 }}>
             <div style={{ display:'flex', alignItems:'center', gap:5 }}>
-              <div style={{ width:14, height:14, borderRadius:'50%', background:'#fff', border:'1.5px dashed #C4A882' }}/>
-              Freier Platz
+              <div style={{ width:14, height:14, borderRadius:'50%', background:'#fff', border:'1.5px dashed #C4A882' }}/> Freier Platz
             </div>
             <div style={{ display:'flex', alignItems:'center', gap:5 }}>
-              <div style={{ width:14, height:14, borderRadius:'50%', background:'#C4956A' }}/>
-              Belegt
+              <div style={{ width:14, height:14, borderRadius:'50%', background:'#C4956A' }}/> Belegt
             </div>
             <div style={{ display:'flex', alignItems:'center', gap:5 }}>
               <div style={{ width:14, height:14, borderRadius:'50%', background:BLOCKED_COLOR, border:'1px solid #D4C0A8', display:'flex', alignItems:'center', justifyContent:'center' }}>
@@ -850,10 +812,38 @@ export default function Seating() {
                       ))}
                     </div>
                   </div>
+
+                  {/* ── Seat count with +/- buttons ── */}
                   <div className="form-group">
                     <label className="form-label">Sitzplätze</label>
-                    <input className="input" type="number" min="2" max="20" value={liveTable.seats} onChange={e=>updateTable(liveTable.id,{seats:parseInt(e.target.value)||8})}/>
+                    <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                      <button
+                        className="btn btn-secondary btn-sm"
+                        style={{ width:34, height:34, padding:0, justifyContent:'center', fontSize:18, flexShrink:0 }}
+                        onClick={() => {
+                          const next = Math.max(2, (liveTable.seats||8) - 1);
+                          updateTable(liveTable.id, { seats: next });
+                          showToast(`Sitzplätze: ${next}`);
+                        }}
+                      >−</button>
+                      <div style={{ flex:1, textAlign:'center', fontWeight:700, fontSize:20, color:'var(--espresso)' }}>
+                        {liveTable.seats}
+                      </div>
+                      <button
+                        className="btn btn-secondary btn-sm"
+                        style={{ width:34, height:34, padding:0, justifyContent:'center', fontSize:18, flexShrink:0 }}
+                        onClick={() => {
+                          const next = Math.min(20, (liveTable.seats||8) + 1);
+                          updateTable(liveTable.id, { seats: next });
+                          showToast(`Sitzplätze: ${next}`);
+                        }}
+                      >+</button>
+                    </div>
+                    <div style={{ fontSize:11, color:'var(--mocha)', marginTop:5, textAlign:'center' }}>
+                      {liveTable.guests?.length || 0} von {liveTable.seats} belegt
+                    </div>
                   </div>
+
                   {liveTable.shape !== 'round' && (
                     <div className="form-group">
                       <label className="form-label">Rotation: {Math.round(((liveTable.rotation||0)%360+360)%360)}°</label>
@@ -888,7 +878,7 @@ export default function Seating() {
                           {blocked ? (
                             <span style={{ fontSize:11, color:'var(--mocha)', fontStyle:'italic' }}>Gesperrt</span>
                           ) : (
-                            <div style={{ display:'flex', gap:4 }}>
+                            <div style={{ display:'flex', gap:4, flex:1 }}>
                               <select className="input" style={{ fontSize:12, padding:'4px 8px', flex:1 }} value={occupantId||''}
                                 onChange={e=>{
                                   const newGid = e.target.value ? parseInt(e.target.value) : null;
@@ -933,22 +923,16 @@ export default function Seating() {
   );
 }
 
-
-
 // ── Mobile Seating View ──────────────────────────────────────────
-// Full mobile-optimised layout:
-// - Large seat tiles (easy to tap)
-// - Tap empty seat → pick guest from dropdown
-// - Tap occupied seat → options: change / remove
-// - Swipe-friendly table cards
-// - No drag needed — all via taps
 function MobileSeating({ seating, guests, blockedSeats, invisibleSeats, seatOffsets, assignedIds, unassigned, onSave }) {
   const [modal, setModal] = useState(null);
-  // modal: null | 'addTable' | 'editSeat' | 'tableMenu'
   const [newTable, setNewTable] = useState({ name: '', shape: 'round', seats: 8 });
-  const [activeSeat, setActiveSeat] = useState(null); // { tableId, seatIdx, occupantId }
+  const [activeSeat, setActiveSeat] = useState(null);
   const [activeTableId, setActiveTableId] = useState(null);
   const [assignGuest, setAssignGuest] = useState('');
+  // For inline seat count editing in tableMenu
+  const [editingSeatCount, setEditingSeatCount] = useState(false);
+  const [seatCountInput, setSeatCountInput] = useState(8);
 
   const confirmedGuests = guests.filter(g => g.status === 'confirmed');
 
@@ -970,6 +954,12 @@ function MobileSeating({ seating, guests, blockedSeats, invisibleSeats, seatOffs
     setModal(null);
   }
 
+  function updateTableSeats(tableId, newSeats) {
+    onSave({ ...seating, tables: seating.tables.map(t =>
+      t.id === tableId ? { ...t, seats: newSeats } : t
+    )});
+  }
+
   function removeGuestFromSeat(tableId, guestId, si) {
     onSave({ ...seating, tables: seating.tables.map(t => {
       if (t.id !== tableId) return t;
@@ -986,7 +976,6 @@ function MobileSeating({ seating, guests, blockedSeats, invisibleSeats, seatOffs
     const { tableId, seatIdx } = activeSeat;
     const gid = parseInt(assignGuest);
     const table = seating.tables.find(t => t.id === tableId);
-    // Remove guest from any existing seat first
     const cleanOrder = (table.seatOrder||[]).map(g => g === gid ? null : g);
     const cleanGuests = table.guests.filter(g => g !== gid);
     const newOrder = [...cleanOrder];
@@ -1000,11 +989,6 @@ function MobileSeating({ seating, guests, blockedSeats, invisibleSeats, seatOffs
     setModal(null);
   }
 
-  function moveGuestToSeat() {
-    // Same as assign but guest already has a seat — move them
-    assignGuestToSeat();
-  }
-
   function tapSeat(table, si) {
     const key = `${table.id}_${si}`;
     if (blockedSeats[key] || invisibleSeats[key]) return;
@@ -1015,7 +999,6 @@ function MobileSeating({ seating, guests, blockedSeats, invisibleSeats, seatOffs
     setModal('editSeat');
   }
 
-  // Available guests for a seat: unassigned + current occupant
   function availableFor(tableId, currentOccupantId) {
     return [
       { id: null, name: '– Sitz frei lassen –' },
@@ -1026,9 +1009,10 @@ function MobileSeating({ seating, guests, blockedSeats, invisibleSeats, seatOffs
     ];
   }
 
+  const activeTable = seating.tables.find(t => t.id === activeTableId);
+
   return (
     <div style={{ minHeight: '100vh', background: 'var(--cream)', paddingBottom: 80 }}>
-      {/* Topbar */}
       <div className="topbar">
         <div>
           <h1>Sitzordnung</h1>
@@ -1041,12 +1025,9 @@ function MobileSeating({ seating, guests, blockedSeats, invisibleSeats, seatOffs
 
       <div style={{ padding: '14px 14px' }}>
 
-        {/* Unassigned guests */}
         {unassigned.length > 0 && (
           <div className="card-warm" style={{ marginBottom: 14, borderLeft: '3px solid var(--gold)', padding: '12px 14px' }}>
-            <div className="section-title" style={{ marginBottom: 8 }}>
-              Nicht zugewiesen ({unassigned.length})
-            </div>
+            <div className="section-title" style={{ marginBottom: 8 }}>Nicht zugewiesen ({unassigned.length})</div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
               {unassigned.map(g => (
                 <div key={g.id} style={{ display: 'flex', alignItems: 'center', gap: 5, background: '#fff', padding: '4px 10px', borderRadius: 20, fontSize: 12, border: '1px solid var(--sand)' }}>
@@ -1058,7 +1039,6 @@ function MobileSeating({ seating, guests, blockedSeats, invisibleSeats, seatOffs
           </div>
         )}
 
-        {/* Table cards */}
         {seating.tables.map(table => {
           const seatOrder = table.seatOrder || [];
           const worldSeats = getWorldSeats(table);
@@ -1077,7 +1057,6 @@ function MobileSeating({ seating, guests, blockedSeats, invisibleSeats, seatOffs
 
           return (
             <div key={table.id} className="card" style={{ marginBottom: 14 }}>
-              {/* Table header */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
                 <div>
                   <div style={{ fontWeight: 600, fontSize: 15, color: 'var(--espresso)' }}>{table.name}</div>
@@ -1088,18 +1067,19 @@ function MobileSeating({ seating, guests, blockedSeats, invisibleSeats, seatOffs
                 </div>
                 <button
                   className="btn btn-secondary btn-sm"
-                  onClick={() => { setActiveTableId(table.id); setModal('tableMenu'); }}
-                >
-                  ···
-                </button>
+                  onClick={() => {
+                    setActiveTableId(table.id);
+                    setSeatCountInput(table.seats);
+                    setEditingSeatCount(false);
+                    setModal('tableMenu');
+                  }}
+                >···</button>
               </div>
 
-              {/* Fill bar */}
               <div className="progress-bar" style={{ marginBottom: 14 }}>
                 <div className="progress-fill" style={{ width: Math.min(100, pct*100)+'%', background: pct >= 1 ? 'var(--blush)' : 'var(--sage)' }} />
               </div>
 
-              {/* Seat grid — large tiles easy to tap */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(64px, 1fr))', gap: 8 }}>
                 {worldSeats.map((_, si) => {
                   const key = `${table.id}_${si}`;
@@ -1110,31 +1090,16 @@ function MobileSeating({ seating, guests, blockedSeats, invisibleSeats, seatOffs
                   const num = seatNums[si];
 
                   return (
-                    <div
-                      key={si}
-                      onClick={() => tapSeat(table, si)}
+                    <div key={si} onClick={() => tapSeat(table, si)}
                       style={{
-                        height: 56,
-                        borderRadius: 10,
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: 2,
+                        height: 56, borderRadius: 10,
+                        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2,
                         cursor: isBlocked ? 'not-allowed' : 'pointer',
-                        background: isBlocked ? '#F0EBE3'
-                          : occupant ? avc(occupant.id)
-                          : '#fff',
-                        border: isBlocked
-                          ? '1px solid #D4C0A8'
-                          : occupant
-                          ? '2px solid transparent'
-                          : '1.5px dashed #C4A882',
+                        background: isBlocked ? '#F0EBE3' : occupant ? avc(occupant.id) : '#fff',
+                        border: isBlocked ? '1px solid #D4C0A8' : occupant ? '2px solid transparent' : '1.5px dashed #C4A882',
                         boxShadow: occupant ? '0 2px 8px rgba(91,61,30,0.12)' : 'none',
-                        transition: 'all .15s',
-                        WebkitTapHighlightColor: 'transparent',
-                      }}
-                    >
+                        transition: 'all .15s', WebkitTapHighlightColor: 'transparent',
+                      }}>
                       {isBlocked ? (
                         <span style={{ fontSize: 14, color: '#C4A882' }}>✕</span>
                       ) : occupant ? (
@@ -1152,12 +1117,9 @@ function MobileSeating({ seating, guests, blockedSeats, invisibleSeats, seatOffs
                 })}
               </div>
 
-              {/* Guest list */}
               {tGuests.length > 0 && (
                 <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--sand)' }}>
-                  <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--mocha)', textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 8 }}>
-                    Belegung
-                  </div>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--mocha)', textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 8 }}>Belegung</div>
                   {tGuests.map(g => {
                     const si = seatOrder.indexOf(g.id);
                     const num = si >= 0 ? seatNums[si] : null;
@@ -1170,17 +1132,12 @@ function MobileSeating({ seating, guests, blockedSeats, invisibleSeats, seatOffs
                           </div>
                           {g.menu && <div style={{ fontSize: 11, color: 'var(--mocha)' }}>{g.menu}</div>}
                         </div>
-                        <button
-                          className="btn btn-secondary btn-sm"
-                          onClick={() => { setActiveSeat({ tableId: table.id, seatIdx: si, occupantId: g.id }); setAssignGuest(String(g.id)); setModal('editSeat'); }}
-                        >
+                        <button className="btn btn-secondary btn-sm"
+                          onClick={() => { setActiveSeat({ tableId: table.id, seatIdx: si, occupantId: g.id }); setAssignGuest(String(g.id)); setModal('editSeat'); }}>
                           ✏
                         </button>
-                        <button
-                          className="btn-icon"
-                          style={{ background: '#FEE2E2', color: '#991B1B', padding: '4px 7px' }}
-                          onClick={() => removeGuestFromSeat(table.id, g.id, si)}
-                        >
+                        <button className="btn-icon" style={{ background: '#FEE2E2', color: '#991B1B', padding: '4px 7px' }}
+                          onClick={() => removeGuestFromSeat(table.id, g.id, si)}>
                           <IconTrash size={13} stroke={1.5} />
                         </button>
                       </div>
@@ -1205,7 +1162,6 @@ function MobileSeating({ seating, guests, blockedSeats, invisibleSeats, seatOffs
 
       {/* ── MODALS ── */}
 
-      {/* Add table */}
       {modal === 'addTable' && (
         <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setModal(null)}>
           <div className="modal">
@@ -1238,14 +1194,53 @@ function MobileSeating({ seating, guests, blockedSeats, invisibleSeats, seatOffs
         </div>
       )}
 
-      {/* Table menu */}
-      {modal === 'tableMenu' && activeTableId && (
+      {/* ── Table menu modal — mit Sitzplatz-Edit ── */}
+      {modal === 'tableMenu' && activeTable && (
         <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setModal(null)}>
-          <div className="modal" style={{ maxWidth: 300 }}>
-            <h3>{seating.tables.find(t=>t.id===activeTableId)?.name}</h3>
-            <div style={{ display:'flex', flexDirection:'column', gap:8, marginTop:4 }}>
-              <button className="btn btn-secondary" style={{ justifyContent:'center' }} onClick={() => setModal(null)}>Schließen</button>
-              <button className="btn btn-danger" style={{ justifyContent:'center' }} onClick={() => deleteTable(activeTableId)}>
+          <div className="modal" style={{ maxWidth: 320 }}>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16 }}>
+              <h3 style={{ margin:0 }}>{activeTable.name}</h3>
+              <button className="btn-icon" onClick={() => setModal(null)}><IconX size={14} stroke={2}/></button>
+            </div>
+
+            {/* Sitzplätze ändern */}
+            <div style={{ background:'var(--warm)', borderRadius:12, padding:'14px 16px', marginBottom:14 }}>
+              <div style={{ fontSize:12, fontWeight:600, color:'var(--mocha)', textTransform:'uppercase', letterSpacing:'0.4px', marginBottom:10 }}>
+                Sitzplätze
+              </div>
+              <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+                <button
+                  className="btn btn-secondary"
+                  style={{ width:42, height:42, padding:0, justifyContent:'center', fontSize:20, flexShrink:0, borderRadius:10 }}
+                  onClick={() => {
+                    const next = Math.max(2, seatCountInput - 1);
+                    setSeatCountInput(next);
+                    updateTableSeats(activeTable.id, next);
+                  }}
+                >−</button>
+                <div style={{ flex:1, textAlign:'center' }}>
+                  <div style={{ fontWeight:700, fontSize:28, color:'var(--espresso)', lineHeight:1 }}>{seatCountInput}</div>
+                  <div style={{ fontSize:11, color:'var(--mocha)', marginTop:2 }}>
+                    {activeTable.guests.length} belegt
+                  </div>
+                </div>
+                <button
+                  className="btn btn-secondary"
+                  style={{ width:42, height:42, padding:0, justifyContent:'center', fontSize:20, flexShrink:0, borderRadius:10 }}
+                  onClick={() => {
+                    const next = Math.min(20, seatCountInput + 1);
+                    setSeatCountInput(next);
+                    updateTableSeats(activeTable.id, next);
+                  }}
+                >+</button>
+              </div>
+            </div>
+
+            <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+              <button className="btn btn-secondary" style={{ justifyContent:'center' }} onClick={() => setModal(null)}>
+                Schließen
+              </button>
+              <button className="btn btn-danger btn-sm" style={{ justifyContent:'center' }} onClick={() => deleteTable(activeTable.id)}>
                 <IconTrash size={14} stroke={1.5} /> Tisch löschen
               </button>
             </div>
@@ -1258,7 +1253,6 @@ function MobileSeating({ seating, guests, blockedSeats, invisibleSeats, seatOffs
         <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setModal(null)}>
           <div className="modal">
             <h3>{activeSeat.occupantId ? 'Sitz bearbeiten' : 'Gast zuweisen'}</h3>
-
             {activeSeat.occupantId && (
               <div style={{ background:'var(--warm)', borderRadius:10, padding:'10px 14px', marginBottom:14, display:'flex', alignItems:'center', gap:10 }}>
                 <div className="avatar" style={{ width:32, height:32, background: avc(activeSeat.occupantId), fontSize:11 }}>
@@ -1270,28 +1264,21 @@ function MobileSeating({ seating, guests, blockedSeats, invisibleSeats, seatOffs
                   </div>
                   <div style={{ fontSize:11, color:'var(--mocha)' }}>Aktuell hier zugewiesen</div>
                 </div>
-                <button
-                  className="btn btn-danger btn-sm"
-                  onClick={() => {
-                    removeGuestFromSeat(activeSeat.tableId, activeSeat.occupantId, activeSeat.seatIdx);
-                    setModal(null);
-                  }}
-                >
+                <button className="btn btn-danger btn-sm"
+                  onClick={() => { removeGuestFromSeat(activeSeat.tableId, activeSeat.occupantId, activeSeat.seatIdx); setModal(null); }}>
                   Entfernen
                 </button>
               </div>
             )}
-
             <div className="form-group">
               <label className="form-label">{activeSeat.occupantId ? 'Anderen Gast zuweisen' : 'Gast auswählen'}</label>
               <select className="input" value={assignGuest} onChange={e => setAssignGuest(e.target.value)}>
                 <option value="">– Gast wählen –</option>
                 {availableFor(activeSeat.tableId, activeSeat.occupantId).filter(g=>g.id!==null).map(g => (
-                  <option key={g.id} value={g.id}>{g.name}{g.group ? ` (${g.group})` : ''}</option>
+                  <option key={g.id} value={g.id}>{g.name}</option>
                 ))}
               </select>
             </div>
-
             <div style={{ display:'flex', gap:8, justifyContent:'flex-end' }}>
               <button className="btn btn-secondary" onClick={() => setModal(null)}>Abbrechen</button>
               <button className="btn btn-primary" onClick={assignGuestToSeat} disabled={!assignGuest}>
