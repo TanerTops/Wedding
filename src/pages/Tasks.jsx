@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { IconPlus, IconTrash, IconX, IconCheck, IconCalendar } from '@tabler/icons-react';
+import { IconPlus, IconTrash, IconX, IconCheck, IconCalendar, IconEdit } from '@tabler/icons-react';
 import { loadState, saveState, defaultTasks } from '../data/store';
 import { getTasks, upsertTask, deleteTask as dbDeleteTask, getWedding } from '../lib/db';
 
@@ -44,7 +44,8 @@ function downloadICS(task) {
 export default function Tasks() {
   const [tasks,   setTasks]   = useState([]);
   const [wedding, setWedding] = useState(null);
-  const [modal,   setModal]   = useState(false);
+  const [modal,   setModal]   = useState(false); // false | 'add' | 'edit'
+  const [editingTask, setEditingTask] = useState(null);
   const [form,    setForm]    = useState(emptyTask);
   const [filter,  setFilter]  = useState('all');
   const [assigneeFilter, setAssigneeFilter] = useState('');
@@ -81,11 +82,24 @@ export default function Tasks() {
 
   async function addTask() {
     if (!form.title.trim()) return;
-    const newTask = { ...form, id: crypto.randomUUID() };
-    saveLocal([...tasks, newTask]);
-    await upsertTask(newTask);
+    if (modal === 'edit' && editingTask) {
+      const updated = tasks.map(t => t.id === editingTask.id ? { ...t, ...form, id: editingTask.id } : t);
+      saveLocal(updated);
+      await upsertTask({ ...form, id: editingTask.id });
+    } else {
+      const newTask = { ...form, id: crypto.randomUUID() };
+      saveLocal([...tasks, newTask]);
+      await upsertTask(newTask);
+    }
     setModal(false);
+    setEditingTask(null);
     setForm(emptyTask);
+  }
+
+  function openEdit(task) {
+    setForm({ ...task });
+    setEditingTask(task);
+    setModal('edit');
   }
 
   async function removeTask(id) {
@@ -131,7 +145,7 @@ export default function Tasks() {
           <h1>Aufgaben</h1>
           <div className="topbar-sub">{done} von {tasks.length} erledigt · {pct}%</div>
         </div>
-        <button className="btn btn-primary" onClick={() => { setForm(emptyTask); setModal(true); }}>
+        <button className="btn btn-primary" onClick={() => { setForm(emptyTask); setEditingTask(null); setModal('add'); }}>
           <IconPlus size={15} stroke={2}/> Neue Aufgabe
         </button>
       </div>
@@ -228,26 +242,23 @@ export default function Tasks() {
                       {task.priority==='high'?'Hoch':task.priority==='medium'?'Mittel':'Niedrig'}
                     </span>
 
-                    {/* Assignee avatar — click to cycle */}
+                    {/* Assignee avatar — proper select */}
                     {assignees.length > 0 && (
-                      <div style={{ position:'relative', flexShrink:0 }}>
-                        <select
-                          value={task.assignee||''}
-                          onChange={e => updateAssignee(task.id, e.target.value || null)}
-                          style={{ position:'absolute', inset:0, opacity:0, cursor:'pointer', width:'100%', height:'100%' }}
-                          title="Zuweisen"
-                        />
-                        {hasAssignee ? (
-                          <div style={{ width:26, height:26, borderRadius:'50%', background:assigneeColor(task.assignee), display:'flex', alignItems:'center', justifyContent:'center', fontSize:9, fontWeight:700, color:'#fff', cursor:'pointer', title:'Zuweisung ändern' }}>
-                            {ini(assigneeLabel(task.assignee))}
-                          </div>
-                        ) : (
-                          <div style={{ width:26, height:26, borderRadius:'50%', border:'1.5px dashed var(--sand)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:11, color:'var(--mocha)', cursor:'pointer', background:'#fff' }}>
-                            +
-                          </div>
-                        )}
-                      </div>
+                      <select
+                        value={task.assignee||''}
+                        onChange={e => updateAssignee(task.id, e.target.value || null)}
+                        style={{ fontSize:11, padding:'2px 6px', borderRadius:20, border:'1px solid var(--sand)', background:'var(--warm)', color:'var(--mocha)', cursor:'pointer', maxWidth:90, flexShrink:0 }}
+                        title="Zuweisen"
+                      >
+                        <option value="">— Niemand —</option>
+                        {assignees.map(a => <option key={a.id} value={a.id}>{a.label}</option>)}
+                      </select>
                     )}
+
+                    {/* Edit */}
+                    <button className="btn-icon" style={{ padding:5, flexShrink:0 }} onClick={() => openEdit(task)}>
+                      <IconEdit size={13} stroke={1.5}/>
+                    </button>
 
                     {/* Calendar export */}
                     {task.due && (
@@ -279,12 +290,12 @@ export default function Tasks() {
         )}
       </div>
 
-      {/* ── Modal: Neue Aufgabe ── */}
+      {/* ── Modal: Neue / Aufgabe bearbeiten ── */}
       {modal && (
         <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&setModal(false)}>
           <div className="modal">
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20 }}>
-              <h3>Neue Aufgabe</h3>
+              <h3>{modal === 'edit' ? 'Aufgabe bearbeiten' : 'Neue Aufgabe'}</h3>
               <button className="btn-icon" onClick={()=>setModal(false)}><IconX size={16} stroke={2}/></button>
             </div>
 
@@ -326,7 +337,7 @@ export default function Tasks() {
 
             <div style={{ display:'flex', gap:10, justifyContent:'flex-end' }}>
               <button className="btn btn-secondary" onClick={()=>setModal(false)}>Abbrechen</button>
-              <button className="btn btn-primary" onClick={addTask}>Hinzufügen</button>
+              <button className="btn btn-primary" onClick={addTask}>{modal === 'edit' ? 'Speichern' : 'Hinzufügen'}</button>
             </div>
           </div>
         </div>
