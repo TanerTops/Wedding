@@ -145,6 +145,10 @@ h1, h2, h3, h4 { font-family: 'Cormorant Garamond', serif; font-weight: 400; }
 
 .topbar h1 { font-size: 26px; color: var(--espresso); font-style: italic; }
 .topbar-sub { font-size: 12px; color: var(--mocha); margin-top: 2px; }
+
+/* Space for fixed notification bell on desktop */
+@media (min-width: 769px) { .topbar { padding-right: 60px; } }
+
 .page-body { padding: 24px 28px; }
 
 /* ── CARDS ──────────────────────────────────────────────────── */
@@ -327,11 +331,9 @@ h1, h2, h3, h4 { font-family: 'Cormorant Garamond', serif; font-weight: 400; }
 
 /* ── MOBILE RESPONSIVE ─────────────────────────────────────────── */
 @media (max-width: 768px) {
-  /* Hide sidebar, show bottom nav */
   .sidebar { display: none; }
   .main-content { margin-left: 0; padding-bottom: 64px; }
 
-  /* Bottom navigation */
   .mobile-nav {
     display: flex !important;
     position: fixed;
