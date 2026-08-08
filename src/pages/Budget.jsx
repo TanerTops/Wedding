@@ -20,6 +20,23 @@ const DEFAULT_CATS = [
 
 const CAT_COLORS = ['#C4956A','#A8B5A0','#C9A884','#B8A9C9','#C4B5A5','#8B9E7A','#B5A88A','#A89880','#C4956A','#9B8EA0'];
 
+// Oft vergessene Kostenblöcke — als Vorschläge in der Kategorien-Ansicht
+const SUGGESTED_CATS = [
+  'Kinderbetreuung',
+  'Trauung / Standesamt',
+  'Papeterie',
+  'Übernachtung / Hotel',
+  'Trinkgelder',
+  'Hochzeitstorte',
+  'Beauty & Styling',
+  'Videografie',
+  'Deko & Mietmöbel',
+  'Ringe',
+  'Hochzeitsplaner',
+  'Gastgeschenke',
+  'Versicherung',
+];
+
 export default function Budget() {
   const [wedding, setWedding]   = useState(() => loadState('wedding', defaultWedding));
   const [items, setItems]       = useState([]);
@@ -71,6 +88,11 @@ export default function Budget() {
     .filter(i => i.due && daysUntil(i.due) <= 30)
     .sort((a,b) => new Date(a.due) - new Date(b.due));
 
+  const catSuggestions = useMemo(
+    () => SUGGESTED_CATS.filter(name => !cats.some(c => c.name.toLowerCase() === name.toLowerCase())),
+    [cats]
+  );
+
   // Per category spending
   const catData = useMemo(() => cats.map(cat => {
     const catItems = items.filter(i => i.cat === cat.name);
@@ -115,6 +137,10 @@ export default function Budget() {
     if(!newCat.name.trim()) return;
     saveCats([...cats,{id:Math.max(0,...cats.map(c=>c.id))+1,...newCat,budget:parseFloat(newCat.budget)||0}]);
     setNewCat({name:'',budget:'',color:'#C4956A'}); setCatModal(false);
+  }
+  function addSuggestedCat(name) {
+    const color = CAT_COLORS[cats.length % CAT_COLORS.length];
+    saveCats([...cats,{id:Math.max(0,...cats.map(c=>c.id))+1,name,budget:0,color}]);
   }
   function updateCatBudget(id, val) {
     saveCats(cats.map(c=>c.id===id?{...c,budget:parseFloat(val)||0}:c));
@@ -378,6 +404,23 @@ export default function Budget() {
                 <IconPlus size={13} stroke={2}/> Kategorie
               </button>
             </div>
+
+            {catSuggestions.length>0 && (
+              <div className="card-warm" style={{marginBottom:16,padding:'14px 16px'}}>
+                <div className="section-title" style={{marginBottom:6}}>Weitere mögliche Kostenblöcke</div>
+                <div style={{fontSize:12,color:'var(--mocha)',marginBottom:10}}>
+                  Oft vergessen — ein Klick fügt die Kategorie mit 0 € Budget hinzu, den Betrag könnt ihr danach im Budgetrechner anpassen.
+                </div>
+                <div style={{display:'flex',flexWrap:'wrap',gap:8}}>
+                  {catSuggestions.map(name=>(
+                    <button key={name} type="button" className="btn btn-secondary btn-sm" onClick={()=>addSuggestedCat(name)}>
+                      <IconPlus size={12} stroke={2}/> {name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div style={{display:'flex',flexDirection:'column',gap:12}}>
               {catData.map(cat=>{
                 const catItems = items.filter(i=>i.cat===cat.name);
