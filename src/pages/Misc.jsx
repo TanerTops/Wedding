@@ -1,13 +1,15 @@
 import { useState, useEffect } from 'react';
-import { getMusicWishes, getRegistry, upsertRegistryItem, deleteRegistryItem } from '../lib/db';
+import { getMusicWishes, getRegistry, upsertRegistryItem, deleteRegistryItem, getPlaylistSongs, upsertPlaylistSong, deletePlaylistSong } from '../lib/db';
 import { supabase, hasSupabase } from '../lib/supabase';
 import { loadState, saveState } from '../data/store';
 
+const DEFAULT_SONGS = [
+  { id: 1, title: "Can't Help Falling in Love", artist: 'Elvis Presley', type: 'Eröffnungstanz', addedBy: 'Brautpaar' },
+  { id: 2, title: 'Perfect', artist: 'Ed Sheeran', type: 'Hintergrundmusik', addedBy: 'Brautpaar' },
+];
+
 export function MusicPage() {
-  const [songs, setSongs] = useState(() => loadState('music', [
-    { id: 1, title: "Can't Help Falling in Love", artist: 'Elvis Presley', type: 'Eröffnungstanz', addedBy: 'Brautpaar' },
-    { id: 2, title: 'Perfect', artist: 'Ed Sheeran', type: 'Hintergrundmusik', addedBy: 'Brautpaar' },
-  ]));
+  const [songs, setSongs] = useState(() => loadState('music', DEFAULT_SONGS));
   const [wishes, setWishes] = useState([]);
   const [importedWishes, setImportedWishes] = useState(() => loadState('importedWishes', []));
   const [tab, setTab] = useState('playlist');
@@ -15,32 +17,51 @@ export function MusicPage() {
   const [form, setForm] = useState({ title: '', artist: '', type: 'Party', addedBy: 'Brautpaar' });
   const types = ['Eröffnungstanz', 'Einzug', 'Hintergrundmusik', 'Party', 'Sonstiges'];
 
-  // Load wishes from Supabase
+  // Load wishes + playlist from Supabase (was: playlist only lived in localStorage,
+  // so songs vanished on other devices/browsers — now synced per account)
   useEffect(() => {
     getMusicWishes().then(({ data }) => {
       if (data) setWishes(data);
+    });
+    getPlaylistSongs().then(async ({ data }) => {
+      if (data && data.length > 0) {
+        setSongs(data);
+        saveState('music', data);
+      } else if (hasSupabase()) {
+        // One-time migration: push any locally-stored songs up to Supabase
+        const local = loadState('music', []);
+        if (local.length > 0) {
+          await Promise.all(local.map(s => upsertPlaylistSong({ ...s, id: s.id && String(s.id).length > 10 ? s.id : crypto.randomUUID() })));
+          getPlaylistSongs().then(({ data: refreshed }) => { if (refreshed) { setSongs(refreshed); saveState('music', refreshed); } });
+        }
+      }
     });
   }, []);
 
   function saveSongs(u) { setSongs(u); saveState('music', u); }
 
-  function addSong() {
+  async function addSong() {
     if (!form.title.trim()) return;
-    saveSongs([...songs, { ...form, id: Math.max(0, ...songs.map(s => s.id)) + 1 }]);
+    const newSong = { ...form, id: crypto.randomUUID() };
+    saveSongs([...songs, newSong]);
     setModal(false);
     setForm({ title: '', artist: '', type: 'Party', addedBy: 'Brautpaar' });
+    await upsertPlaylistSong(newSong);
   }
 
-  function importWish(wish) {
+  async function removeSong(id) {
+    saveSongs(songs.filter(s => s.id !== id));
+    await deletePlaylistSong(id);
+  }
+
+  async function importWish(wish) {
     const songList = Array.isArray(wish.songs) ? wish.songs : [];
-    let updated = [...songs];
-    let nextId = Math.max(0, ...updated.map(s => s.id)) + 1;
-    songList.forEach(s => {
-      if (s.title?.trim()) {
-        updated.push({ id: nextId++, title: s.title, artist: s.artist || '', type: 'Party', addedBy: wish.sender_name || 'Gast' });
-      }
-    });
+    const newSongs = songList
+      .filter(s => s.title?.trim())
+      .map(s => ({ id: crypto.randomUUID(), title: s.title, artist: s.artist || '', type: 'Party', addedBy: wish.sender_name || 'Gast' }));
+    const updated = [...songs, ...newSongs];
     saveSongs(updated);
+    await Promise.all(newSongs.map(s => upsertPlaylistSong(s)));
     // Mark wish as imported
     const updated2 = [...importedWishes, wish.id];
     setImportedWishes(updated2);
@@ -81,7 +102,7 @@ export function MusicPage() {
                           <div style={{ fontSize: 12, color: 'var(--mocha)' }}>{song.artist}</div>
                         </div>
                         <span style={{ fontSize: 11, color: 'var(--mocha)' }}>von {song.addedBy}</span>
-                        <button className="btn-icon" onClick={() => saveSongs(songs.filter(s => s.id !== song.id))}>✕</button>
+                        <button className="btn-icon" onClick={() => removeSong(song.id)}>✕</button>
                       </div>
                     ))}
                   </div>
