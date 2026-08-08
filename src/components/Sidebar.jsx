@@ -4,7 +4,7 @@ import {
   IconLayoutDashboard, IconUsers, IconWallet, IconCheckbox,
   IconClock, IconLayoutColumns, IconMapPin, IconMusic,
   IconGift, IconNotes, IconSettings, IconExternalLink, IconWorldWww,
-  IconPhoto, IconCamera, IconLogout
+  IconPhoto, IconCamera, IconLogout, IconBuildingStore
 } from '@tabler/icons-react';
 import { loadState, defaultWedding, makeSlug } from '../data/store';
 import { getWedding, getTasks } from '../lib/db';
@@ -13,6 +13,7 @@ const NAV = [
   { to: '/', icon: IconLayoutDashboard, label: 'Übersicht' },
   { to: '/guests', icon: IconUsers, label: 'Gäste' },
   { to: '/budget', icon: IconWallet, label: 'Budget' },
+  { to: '/vendors', icon: IconBuildingStore, label: 'Dienstleister' },
   { to: '/tasks', icon: IconCheckbox, label: 'Aufgaben' },
   { to: '/timeline', icon: IconClock, label: 'Zeitplan' },
   { to: '/seating', icon: IconLayoutColumns, label: 'Sitzordnung' },
