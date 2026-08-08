@@ -95,7 +95,7 @@ export default function Dashboard() {
     <>
       <div className="topbar">
         <div>
-          <h1>{wedding.bride} & {wedding.groom}</h1>
+          <h1>Übersicht</h1>
           <div className="topbar-sub">
             {wedding.venue || 'Hochzeitsplanung'}
           </div>
