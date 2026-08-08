@@ -23,6 +23,7 @@ import Timeline from './pages/Timeline';
 import Seating from './pages/Seating';
 import Settings from './pages/Settings';
 import GuestPage from './pages/GuestPage';
+import MemoriesSharePage from './pages/MemoriesSharePage';
 import GuestPageSettings from './pages/GuestPageSettings';
 import { Impressum, Datenschutz } from './pages/Legal';
 import Memories from './pages/Memories';
@@ -139,6 +140,7 @@ export default function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/guest/:slug"        element={<GuestPage />} />
+        <Route path="/memories/:slug"     element={<MemoriesSharePage />} />
         <Route path="/photographer/:token" element={<PhotographerPage />} />
         <Route path="/impressum"           element={<Impressum />} />
         <Route path="/datenschutz"         element={<Datenschutz />} />
