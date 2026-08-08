@@ -5,6 +5,7 @@ import {
   IconExternalLink, IconCopy, IconCheck,
   IconToggleRight, IconToggleLeft, IconPlus, IconTrash, IconX
 } from '@tabler/icons-react';
+import QrCodeCard from '../components/QrCodeCard';
 
 
 const defaultConfig = {
@@ -62,6 +63,8 @@ export default function GuestPageSettings() {
     } catch { return `${window.location.origin}/guest/${makeSlug(wedding)}`; }
   }
   const guestUrl = buildShareUrl();
+  const cleanGuestUrl = `${window.location.origin}/guest/${makeSlug(wedding)}`;
+  const memoriesUrl = `${window.location.origin}/memories/${makeSlug(wedding)}`;
 
   function update(key, val) { setConfig(c => ({ ...c, [key]: val })); }
   function toggleSection(id) { setConfig(c => ({ ...c, sections: { ...c.sections, [id]: !c.sections[id] } })); }
@@ -143,7 +146,17 @@ export default function GuestPageSettings() {
           </div>
         </div>
 
-
+        {/* QR codes for printing on invitations */}
+        <div className="card" style={{ marginBottom: 18 }}>
+          <div className="section-title" style={{ marginBottom: 4 }}>QR-Codes</div>
+          <div style={{ fontSize: 12, color: 'var(--mocha)', marginBottom: 14 }}>
+            Zum Ausdrucken auf euren Einladungen — als PNG herunterladen.
+          </div>
+          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+            <QrCodeCard label="Gästeseite" sub="RSVP, Ablauf, Geschenke & mehr" url={cleanGuestUrl} filename="gaesteseite-qr.png" />
+            <QrCodeCard label="Foto-Galerie" sub="Freigegebene Fotos ansehen" url={memoriesUrl} filename="foto-galerie-qr.png" />
+          </div>
+        </div>
 
         {/* Tabs */}
         <div className="tabs" style={{ marginBottom: 18 }}>
