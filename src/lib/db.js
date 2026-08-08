@@ -414,8 +414,6 @@ export async function getGuestPageData(slug) {
         config:           loadState('guestPageConfig', {}),
         timeline:         loadState('timeline', []),
         registry:         loadState('registry', []),
-        photos:           loadState('memories', []).filter(p => p.approved),
-        memoryCategories: loadState('memoryCategories', []),
         guests:           loadState('guests', []),
       },
       error: null
@@ -431,11 +429,10 @@ export async function getGuestPageData(slug) {
   if (!wedding && weddings?.length > 0) wedding = weddings[0];
   const userId = wedding?.user_id;
 
-  const [config, timeline, guests, photos] = await Promise.all([
+  const [config, timeline, guests] = await Promise.all([
     userId ? supabase.from('guest_page_config').select('config').eq('user_id', userId).limit(1).single() : Promise.resolve({ data: null }),
     userId ? supabase.from('timeline').select('*').eq('user_id', userId).order('time') : Promise.resolve({ data: [] }),
     userId ? supabase.from('guests').select('id, name, invite_code, menu, status, is_companion, parent_id').eq('user_id', userId) : Promise.resolve({ data: [] }),
-    supabase.from('photos').select('*').eq('approved', true).order('created_at', { ascending: false }),
   ]);
 
   const timelineData  = (timeline.data?.length > 0) ? timeline.data.map(e => ({ ...e, endTime: e.end_time, desc: e.description })) : loadState('timeline', []);
@@ -453,9 +450,43 @@ export async function getGuestPageData(slug) {
       config:           mergedConfig,
       timeline:         timelineData,
       registry:         loadState('registry', []),
-      photos:           photos.data || [],
-      memoryCategories: loadState('memoryCategories', []),
       guests:           guestData,
+    },
+    error: null,
+  };
+}
+
+// ── Memories Share Page (public — approved photos only) ───────────
+export async function getMemoriesPageData(slug) {
+  if (!hasSupabase()) {
+    return {
+      data: {
+        wedding:          loadState('wedding', null),
+        photos:           loadState('memories', []).filter(p => p.approved),
+        memoryCategories: loadState('memoryCategories', []),
+      },
+      error: null,
+    };
+  }
+
+  const { data: weddings } = await supabase.from('weddings').select('*');
+  let wedding = null;
+  if (weddings && slug) {
+    const clean = s => s.toLowerCase().replace(/ä/g,'ae').replace(/ö/g,'oe').replace(/ü/g,'ue').replace(/ß/g,'ss').replace(/[^a-z0-9]/g,'-').replace(/-+/g,'-').replace(/^-|-$/g,'');
+    wedding = weddings.find(w => `${clean(w.bride)}-${clean(w.groom)}` === slug);
+  }
+  if (!wedding && weddings?.length > 0) wedding = weddings[0];
+  const userId = wedding?.user_id;
+
+  const { data: photos } = userId
+    ? await supabase.from('photos').select('*').eq('approved', true).eq('user_id', userId).order('created_at', { ascending: false })
+    : { data: [] };
+
+  return {
+    data: {
+      wedding: wedding ? { bride: wedding.bride, groom: wedding.groom, date: wedding.date, venue: wedding.venue } : null,
+      photos: photos || [],
+      memoryCategories: loadState('memoryCategories', []),
     },
     error: null,
   };
