@@ -23,16 +23,24 @@ export function MusicPage() {
     getMusicWishes().then(({ data }) => {
       if (data) setWishes(data);
     });
-    getPlaylistSongs().then(async ({ data }) => {
+    getPlaylistSongs().then(async ({ data, error }) => {
+      if (error) {
+        // Table not reachable yet (e.g. migration not run) — keep showing
+        // whatever is in localStorage instead of wiping the list.
+        console.warn('[Vince] playlist_songs not available yet, staying on local data:', error.message || error);
+        return;
+      }
       if (data && data.length > 0) {
         setSongs(data);
         saveState('music', data);
       } else if (hasSupabase()) {
-        // One-time migration: push any locally-stored songs up to Supabase
+        // Table exists and is genuinely empty for this account — one-time
+        // migration: push any locally-stored songs up to Supabase.
         const local = loadState('music', []);
         if (local.length > 0) {
           await Promise.all(local.map(s => upsertPlaylistSong({ ...s, id: s.id && String(s.id).length > 10 ? s.id : crypto.randomUUID() })));
-          getPlaylistSongs().then(({ data: refreshed }) => { if (refreshed) { setSongs(refreshed); saveState('music', refreshed); } });
+          const { data: refreshed, error: refreshErr } = await getPlaylistSongs();
+          if (!refreshErr && refreshed) { setSongs(refreshed); saveState('music', refreshed); }
         }
       }
     });
