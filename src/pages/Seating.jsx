@@ -10,7 +10,17 @@ const ini = n => {
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
   return '';
 };
-const avc = id => AV_COLORS[id % AV_COLORS.length];
+// Robust against non-numeric guest ids (e.g. UUIDs from Supabase) — the old
+// `id % AV_COLORS.length` silently produced NaN for string ids, which made
+// occupied seats render with no background color (white text on white = invisible).
+function hashId(id) {
+  if (typeof id === 'number' && !Number.isNaN(id)) return id;
+  const s = String(id);
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+  return h;
+}
+const avc = id => AV_COLORS[hashId(id) % AV_COLORS.length];
 
 const CANVAS_W = 820, CANVAS_H = 540;
 const SEAT_R = 13;
@@ -246,7 +256,12 @@ export default function Seating() {
     setTimeout(() => setToast(null), 2000);
   }
 
-  const assignedIds = seating.tables.flatMap(t => t.guests);
+  // Only count ids that still resolve to a real, current guest — stale/ghost
+  // ids (e.g. from a guest removed elsewhere) previously inflated "X / Y
+  // platziert" counters and per-table "X / Y Plätze" without being visible
+  // anywhere (Belegung already filtered them out, this brings the counts in sync).
+  const validGuestIds = new Set(guests.map(g => g.id));
+  const assignedIds = seating.tables.flatMap(t => t.guests).filter(id => validGuestIds.has(id));
   const unassigned = guests.filter(g => !assignedIds.includes(g.id) && g.status !== 'declined');
   const { blocked: blockedSeats, invisible: invisibleSeats } = getBlockedSeats(seating.tables);
 
@@ -1070,7 +1085,11 @@ function MobileSeating({ seating, guests, blockedSeats, invisibleSeats, seatOffs
             }
           });
           const tGuests = table.guests.map(id => guests.find(g => g.id === id)).filter(Boolean);
-          const pct = table.guests.length / table.seats;
+          // Use the resolved guest count (not the raw id list) — ids can go
+          // stale if a guest was later removed elsewhere, which previously
+          // made the "X / Y Plätze" counter drift from what's actually shown
+          // in the Belegung list below.
+          const pct = tGuests.length / table.seats;
 
           return (
             <div key={table.id} className="card" style={{ marginBottom: 14 }}>
@@ -1079,7 +1098,7 @@ function MobileSeating({ seating, guests, blockedSeats, invisibleSeats, seatOffs
                   <div style={{ fontWeight: 600, fontSize: 15, color: 'var(--espresso)' }}>{table.name}</div>
                   <div style={{ fontSize: 12, color: 'var(--mocha)', marginTop: 1 }}>
                     {table.shape === 'round' ? '⬤' : table.shape === 'rect' ? '▬' : '■'}&nbsp;
-                    {table.guests.length} / {table.seats} Plätze
+                    {tGuests.length} / {table.seats} Plätze
                   </div>
                 </div>
                 <button
