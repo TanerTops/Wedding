@@ -5,6 +5,7 @@ import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } 
 import { CSS } from '@dnd-kit/utilities';
 import { loadState, saveState, defaultGuests } from '../data/store';
 import { getGuests } from '../lib/db';
+import Moodboard from '../components/Moodboard';
 
 const DEFAULT_GROUPS = [
   { id:1, name:'Brautpaar', desc:'Romantische Paarfotos', location:'Schlossgarten', priority:'high', duration:0, done:false, guests:[], note:'Goldene Stunde nutzen' },
@@ -255,6 +256,8 @@ export default function Photos() {
             </SortableContext>
           </DndContext>
         </div>
+
+        <Moodboard page="photos" title="Moodboard / Shooting-Inspiration" />
       </div>
 
       {/* Add group modal */}
