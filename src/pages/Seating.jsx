@@ -505,12 +505,20 @@ export default function Seating() {
                 </g>
               )}
               {occupant && !blocked && (
-                <circle cx={seat.wx+9} cy={seat.wy-9} r={5} fill="#FFEBEE" stroke="#FFCDD2" strokeWidth={1}
-                  style={{ cursor: 'pointer', opacity: 0, transition: 'opacity .15s' }}
-                  onMouseEnter={e => e.target.style.opacity = 1}
-                  onMouseLeave={e => e.target.style.opacity = 0}
+                <g
+                  className="seat-remove-btn"
+                  style={{ cursor: 'pointer' }}
                   onClick={e => { e.stopPropagation(); removeFromSeat(table.id, occupant.id, si); }}
-                />
+                >
+                  <title>{`${occupant.name} vom Sitzplatz entfernen`}</title>
+                  {/* Always-visible remove badge — was invisible-until-hovered before, now clearly discoverable */}
+                  <circle cx={seat.wx+10} cy={seat.wy-10} r={8} fill="#E53935" stroke="#fff" strokeWidth={1.5}
+                    style={{ filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.25))' }} />
+                  <line x1={seat.wx+7} y1={seat.wy-13} x2={seat.wx+13} y2={seat.wy-7} stroke="#fff" strokeWidth={1.6} strokeLinecap="round" />
+                  <line x1={seat.wx+13} y1={seat.wy-13} x2={seat.wx+7} y2={seat.wy-7} stroke="#fff" strokeWidth={1.6} strokeLinecap="round" />
+                  {/* Larger invisible hit area for easier clicking */}
+                  <circle cx={seat.wx+10} cy={seat.wy-10} r={13} fill="transparent" />
+                </g>
               )}
             </g>
           );
