@@ -230,7 +230,7 @@ export default function Dashboard() {
 
           {/* Recent activity */}
           <div className="card-warm">
-            <div className="section-title">Letzte Aktivitäten</div>
+            <div className="section-title">Letzte Aktivitäten von Gästen</div>
             {[
               ...(data.recentRsvps || []).map(r => ({
                 icon: r.attending === 'yes' ? '✅' : '❌',
