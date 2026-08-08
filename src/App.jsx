@@ -3,7 +3,7 @@ import {
   IconLayoutDashboard, IconUsers, IconWallet, IconCheckbox,
   IconLayoutColumns, IconClock, IconMapPin, IconMusic,
   IconGift, IconNotes, IconSettings, IconWorldWww, IconX, IconMenu2,
-  IconPhoto, IconCamera, IconLogout
+  IconPhoto, IconCamera, IconLogout, IconBuildingStore
 } from '@tabler/icons-react';
 import { useState, useEffect } from 'react';
 import { supabase } from './lib/supabase';
@@ -17,6 +17,7 @@ import Auth from './pages/Auth';
 import Dashboard from './pages/Dashboard';
 import Guests from './pages/Guests';
 import Budget from './pages/Budget';
+import Vendors from './pages/Vendors';
 import Tasks from './pages/Tasks';
 import Timeline from './pages/Timeline';
 import Seating from './pages/Seating';
@@ -37,6 +38,7 @@ const NAV_MAIN = [
 ];
 
 const NAV_MORE = [
+  { to: '/vendors',    icon: IconBuildingStore, label: 'Dienstleister' },
   { to: '/seating',    icon: IconLayoutColumns, label: 'Sitzordnung'   },
   { to: '/timeline',   icon: IconClock,         label: 'Zeitplan'      },
   { to: '/venue',      icon: IconMapPin,        label: 'Location'      },
@@ -215,6 +217,7 @@ function AdminLayout({ onLogout }) {
           <Route path="/"           element={<Dashboard />} />
           <Route path="/guests"     element={<Guests />} />
           <Route path="/budget"     element={<Budget />} />
+          <Route path="/vendors"    element={<Vendors />} />
           <Route path="/tasks"      element={<Tasks />} />
           <Route path="/timeline"   element={<Timeline />} />
           <Route path="/seating"    element={<Seating />} />
