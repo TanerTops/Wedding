@@ -4,7 +4,12 @@ import { loadState, saveState, defaultSeating, defaultGuests } from '../data/sto
 import { getGuests, saveSeating, getSeating } from '../lib/db';
 
 const AV_COLORS = ['#C4956A','#A8B5A0','#C4B5A5','#8B9E7A','#B8A9C9','#C9A884','#9B8EA0','#B5A88A'];
-const ini = n => n.split(' ').map(x => x[0]).slice(0,2).join('').toUpperCase();
+const ini = n => {
+  const parts = (n || '').trim().split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return '';
+};
 const avc = id => AV_COLORS[id % AV_COLORS.length];
 
 const CANVAS_W = 820, CANVAS_H = 540;
@@ -495,15 +500,19 @@ export default function Seating() {
                   {occupant ? ini(occupant.name) : (globalSeatNum[si] ?? '')}
                 </text>
               )}
-              {occupant && isHovered && (
-                <g style={{ pointerEvents: 'none' }}>
-                  <rect x={seat.wx - 36} y={seat.wy - 32} width={72} height={16} rx={4} fill="rgba(60,36,16,0.85)" />
-                  <text x={seat.wx} y={seat.wy - 22} textAnchor="middle" dominantBaseline="middle"
-                    style={{ fontSize: 8.5, fill: '#FAF7F0', fontFamily: 'DM Sans,sans-serif' }}>
-                    {occupant.name.length > 14 ? occupant.name.slice(0,13)+'…' : occupant.name}
-                  </text>
-                </g>
-              )}
+              {occupant && isHovered && (() => {
+                // Full name, never truncated — box width adapts to the name length
+                const tw = Math.max(72, occupant.name.length * 6.4 + 16);
+                return (
+                  <g style={{ pointerEvents: 'none' }}>
+                    <rect x={seat.wx - tw / 2} y={seat.wy - 32} width={tw} height={18} rx={4} fill="rgba(60,36,16,0.9)" />
+                    <text x={seat.wx} y={seat.wy - 23} textAnchor="middle" dominantBaseline="middle"
+                      style={{ fontSize: 9, fill: '#FAF7F0', fontFamily: 'DM Sans,sans-serif' }}>
+                      {occupant.name}
+                    </text>
+                  </g>
+                );
+              })()}
               {occupant && !blocked && (
                 <g
                   className="seat-remove-btn"
@@ -533,7 +542,7 @@ export default function Seating() {
             />
           ) : (
             <rect x={table.x-rx} y={table.y-ry} width={rx*2} height={ry*2}
-              rx={table.shape==='rect' ? 8 : 4}
+              rx={0}
               fill={isSelected ? '#FDF5E8' : '#FDF8F2'}
               stroke={isSelected ? 'var(--terra)' : '#DDD3C0'}
               strokeWidth={isSelected ? 2.5 : 1.5}
