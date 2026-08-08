@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { IconPhoto, IconUpload, IconTrash, IconEye, IconEyeOff, IconX, IconPlus, IconTag, IconEdit, IconLink, IconCopy, IconCheck, IconExternalLink } from '@tabler/icons-react';
 import { loadState, saveState, defaultWedding, makeSlug } from '../data/store';
 import { getPhotos, updatePhoto, deletePhoto as dbDeletePhoto, uploadPhoto } from '../lib/db';
+import QrCodeCard from '../components/QrCodeCard';
 
 const DEFAULT_CATEGORIES = [
   { id: 'getting-ready', label: 'Getting Ready', emoji: '💄', color: '#C4956A' },
@@ -165,6 +166,9 @@ export default function Memories() {
             <a href={galleryUrl} target="_blank" rel="noopener" className="btn btn-primary btn-sm" style={{ flexShrink: 0 }}>
               <IconExternalLink size={13} stroke={1.5} /> Öffnen
             </a>
+          </div>
+          <div style={{ marginTop: 14, display: 'flex' }}>
+            <QrCodeCard label="QR-Code" sub="Zum Ausdrucken auf Einladungen" url={galleryUrl} filename="foto-galerie-qr.png" />
           </div>
         </div>
 
