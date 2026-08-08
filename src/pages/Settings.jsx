@@ -1,8 +1,42 @@
 import { useState, useEffect } from 'react';
-import { IconCopy, IconCheck, IconCamera } from '@tabler/icons-react';
-import { loadState, saveState, defaultWedding } from '../data/store';
+import {
+  IconCopy, IconCheck, IconCamera, IconGripVertical, IconX,
+  IconUsers, IconWallet, IconBuildingStore, IconCheckbox, IconClock,
+  IconLayoutColumns, IconMapPin, IconMusic, IconGift, IconNotes,
+  IconWorldWww, IconPhoto, IconSettings,
+} from '@tabler/icons-react';
+import { DndContext, closestCenter, PointerSensor, TouchSensor, useSensor, useSensors } from '@dnd-kit/core';
+import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import { loadState, saveState, defaultWedding, QUICK_ACTION_CATALOG, DEFAULT_QUICK_ACTIONS } from '../data/store';
 import { saveWedding, deleteAccount, syncLocalToSupabase, getWedding } from '../lib/db';
 import { supabase } from '../lib/supabase';
+
+const ICON_MAP = {
+  IconUsers, IconWallet, IconBuildingStore, IconCheckbox, IconClock,
+  IconLayoutColumns, IconMapPin, IconMusic, IconGift, IconNotes,
+  IconWorldWww, IconPhoto, IconSettings,
+};
+
+// ── Sortable chip for a selected quick action ──────────────────────
+function SortableQuickAction({ id, label, Icon, onRemove }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.6 : 1,
+  };
+  return (
+    <div ref={setNodeRef} style={{ ...style, display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', borderRadius: 10, background: 'var(--warm)', border: '1px solid var(--sand)' }}>
+      <span {...attributes} {...listeners} style={{ cursor: 'grab', touchAction: 'none', color: 'var(--taupe)', display: 'flex' }}>
+        <IconGripVertical size={15} stroke={1.5} />
+      </span>
+      {Icon && <Icon size={15} stroke={1.5} style={{ color: 'var(--terra)', flexShrink: 0 }} />}
+      <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--espresso)', flex: 1 }}>{label}</span>
+      <button className="btn-icon" style={{ padding: 4 }} onClick={onRemove}><IconX size={13} stroke={1.5} /></button>
+    </div>
+  );
+}
 
 function generateToken() {
   return crypto.randomUUID().replace(/-/g, '').slice(0, 24);
@@ -18,6 +52,34 @@ export default function Settings() {
   const [confirmDelete, setConfirmDelete] = useState('');
   const [copied,        setCopied]        = useState(false);
   const [generatingToken, setGeneratingToken] = useState(false);
+  const [quickActions, setQuickActions] = useState(() => loadState('quickActions', DEFAULT_QUICK_ACTIONS));
+
+  function toggleQuickAction(id) {
+    const updated = quickActions.includes(id)
+      ? quickActions.filter(q => q !== id)
+      : [...quickActions, id];
+    setQuickActions(updated);
+    saveState('quickActions', updated);
+  }
+  function removeQuickAction(id) {
+    const updated = quickActions.filter(q => q !== id);
+    setQuickActions(updated);
+    saveState('quickActions', updated);
+  }
+  const qaSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(TouchSensor,   { activationConstraint: { delay: 150, tolerance: 6 } })
+  );
+  function handleQuickActionDragEnd(evt) {
+    const { active, over } = evt;
+    if (!over || active.id === over.id) return;
+    const oldIndex = quickActions.indexOf(active.id);
+    const newIndex = quickActions.indexOf(over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
+    const updated = arrayMove(quickActions, oldIndex, newIndex);
+    setQuickActions(updated);
+    saveState('quickActions', updated);
+  }
 
   useEffect(() => {
     getWedding().then(({ data }) => {
@@ -195,6 +257,63 @@ export default function Settings() {
               {generatingToken ? 'Wird generiert…' : 'Fotografen-Link generieren'}
             </button>
           )}
+        </div>
+
+        {/* Quick actions config */}
+        <div className="card" style={{ marginBottom:20 }}>
+          <div className="section-title" style={{ marginBottom:4 }}>Schnellaktionen</div>
+          <p style={{ fontSize:13, color:'var(--mocha)', marginBottom:16, lineHeight:1.6 }}>
+            Wähle, welche Bereiche als Schnellzugriff auf dem Dashboard erscheinen, und ordne sie per Drag &amp; Drop.
+          </p>
+
+          {quickActions.length > 0 && (
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontSize:11, fontWeight:700, color:'var(--mocha)', textTransform:'uppercase', letterSpacing:'0.5px', marginBottom:8 }}>
+                Ausgewählt ({quickActions.length})
+              </div>
+              <DndContext sensors={qaSensors} collisionDetection={closestCenter} onDragEnd={handleQuickActionDragEnd}>
+                <SortableContext items={quickActions} strategy={verticalListSortingStrategy}>
+                  <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
+                    {quickActions.map(id => {
+                      const item = QUICK_ACTION_CATALOG.find(c => c.id === id);
+                      if (!item) return null;
+                      return (
+                        <SortableQuickAction
+                          key={id}
+                          id={id}
+                          label={item.label}
+                          Icon={ICON_MAP[item.iconName]}
+                          onRemove={() => removeQuickAction(id)}
+                        />
+                      );
+                    })}
+                  </div>
+                </SortableContext>
+              </DndContext>
+            </div>
+          )}
+
+          <div style={{ fontSize:11, fontWeight:700, color:'var(--mocha)', textTransform:'uppercase', letterSpacing:'0.5px', marginBottom:8 }}>
+            Verfügbar
+          </div>
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(130px, 1fr))', gap:8 }}>
+            {QUICK_ACTION_CATALOG.filter(item => !quickActions.includes(item.id)).map(item => {
+              const Icon = ICON_MAP[item.iconName];
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => toggleQuickAction(item.id)}
+                  style={{ display:'flex', alignItems:'center', gap:7, padding:'8px 10px', borderRadius:10, border:'1px dashed var(--sand)', background:'#fff', cursor:'pointer', fontFamily:"'DM Sans',sans-serif", textAlign:'left' }}
+                >
+                  {Icon && <Icon size={14} stroke={1.5} style={{ color:'var(--mocha)', flexShrink:0 }} />}
+                  <span style={{ fontSize:12.5, color:'var(--brown)' }}>{item.label}</span>
+                </button>
+              );
+            })}
+            {QUICK_ACTION_CATALOG.every(item => quickActions.includes(item.id)) && (
+              <div style={{ fontSize:12.5, color:'var(--mocha)', gridColumn:'1/-1' }}>Alle Bereiche sind schon ausgewählt.</div>
+            )}
+          </div>
         </div>
 
         {/* Co-Admin */}
