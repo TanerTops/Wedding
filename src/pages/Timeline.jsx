@@ -1,10 +1,13 @@
 import { useState, useEffect } from 'react';
 import {
   IconPlus, IconTrash, IconEdit, IconX, IconDownload,
-  IconUsers, IconTool, IconClock, IconMapPin, IconFilter
+  IconUsers, IconTool, IconClock, IconMapPin, IconFilter, IconGripVertical
 } from '@tabler/icons-react';
+import { DndContext, closestCenter, PointerSensor, TouchSensor, useSensor, useSensors } from '@dnd-kit/core';
+import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { loadState, saveState, defaultTimeline } from '../data/store';
-import { getTimeline, upsertTimelineEvent, deleteTimelineEvent, getScheduleRequests, getGuests, getSeating } from '../lib/db';
+import { getTimeline, upsertTimelineEvent, deleteTimelineEvent, getScheduleRequests, getGuests, getSeating, getWedding } from '../lib/db';
 
 const TYPES = [
   { id: 'ceremony',     label: 'Trauung',         color: '#C4956A', bg: '#FDF5E8', emoji: '💒' },
@@ -19,6 +22,122 @@ const TYPES = [
 ];
 const getType = id => TYPES.find(t => t.id === id) || TYPES[TYPES.length - 1];
 
+const ASSIGNEE_COLORS = ['#C4956A','#A8B5A0','#C4B5A5','#8B9E7A','#B8A9C9','#C9A884'];
+const assigneeInitials = n => (n || '').split(' ').map(x => x[0]).slice(0, 2).join('').toUpperCase();
+
+// ── Sortable row (drag & drop reorder, mouse + touch) ─────────────
+function SortableTimelineRow({ ev, type, duration, isLast, disabled, openEdit, del, assignees, assigneeColor, assigneeInitials, updateAssignee, allGuests }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: ev.id, disabled });
+  const rowStyle = {
+    display: 'flex',
+    borderBottom: isLast ? 'none' : '1px solid #F5EFE4',
+    transform: CSS.Transform.toString(transform),
+    transition,
+    background: isDragging ? 'var(--warm)' : '#fff',
+    boxShadow: isDragging ? '0 6px 18px rgba(91,61,30,0.18)' : 'none',
+    position: 'relative',
+    zIndex: isDragging ? 10 : 'auto',
+  };
+
+  return (
+    <div ref={setNodeRef} style={rowStyle}>
+      {/* Drag handle — generous touch target, only this listens for drag gestures */}
+      <div
+        {...(disabled ? {} : attributes)}
+        {...(disabled ? {} : listeners)}
+        title={disabled ? 'Nur bei Filter „Alle" verschiebbar' : 'Ziehen zum Umsortieren'}
+        style={{
+          width: 32, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+          cursor: disabled ? 'not-allowed' : 'grab', touchAction: 'none', color: disabled ? 'var(--sand)' : 'var(--taupe)',
+        }}
+      >
+        <IconGripVertical size={16} stroke={1.5} />
+      </div>
+
+      {/* Time column */}
+      <div style={{ width: 64, flexShrink: 0, padding: '18px 0', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 2 }}>
+        <span style={{ fontWeight: 700, fontSize: 13.5, color: 'var(--espresso)', fontFamily: 'DM Sans, sans-serif' }}>{fmt(ev.time)}</span>
+        {ev.endTime && <span style={{ fontSize: 10.5, color: 'var(--mocha)' }}>{fmt(ev.endTime)}</span>}
+      </div>
+
+      {/* Color stripe */}
+      <div style={{ width: 4, flexShrink: 0, background: type.color, margin: '12px 0' }} />
+
+      {/* Content */}
+      <div style={{ flex: 1, padding: '16px 16px 16px 14px' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
+          <div style={{ flex: 1 }}>
+            {/* Type badge */}
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: type.bg, border: `1px solid ${type.color}44`, borderRadius: 20, padding: '2px 9px', fontSize: 11, color: type.color, fontWeight: 600, marginBottom: 6 }}>
+              <span style={{ fontSize: 12 }}>{type.emoji}</span> {type.label}
+            </div>
+
+            <h3 style={{ fontSize: 15.5, fontWeight: 600, color: 'var(--espresso)', marginBottom: 3, lineHeight: 1.3 }}>{ev.title}</h3>
+
+            {ev.loc && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: 'var(--mocha)', marginBottom: ev.desc?4:6 }}>
+                <IconMapPin size={12} stroke={1.5} /> {ev.loc}
+              </div>
+            )}
+
+            {ev.desc && (
+              <div style={{ fontSize: 12.5, color: 'var(--mocha)', marginBottom: 8, lineHeight: 1.5 }}>{ev.desc}</div>
+            )}
+
+            {/* Badges row */}
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+              {duration && (
+                <span style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 11, color: 'var(--mocha)', background: 'var(--warm)', padding: '2px 8px', borderRadius: 20, border: '1px solid var(--sand)' }}>
+                  <IconClock size={11} stroke={1.5} /> {duration}
+                </span>
+              )}
+              {ev.guests && (
+                <span style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 11, color: 'var(--sage)', background: '#F0F5EE', padding: '2px 8px', borderRadius: 20, border: '1px solid var(--sage)44', fontWeight: 500 }}>
+                  <IconUsers size={11} stroke={1.5} /> {allGuests.length > 0 ? `${allGuests.length} Gäste` : 'Gäste'}
+                </span>
+              )}
+              {ev.vendor && (
+                <span style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 11, color: 'var(--terra)', background: '#FDF5E8', padding: '2px 8px', borderRadius: 20, border: '1px solid var(--terra)44', fontWeight: 500 }}>
+                  <IconTool size={11} stroke={1.5} /> Dienstleister
+                </span>
+              )}
+              {ev.assignee && (
+                <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: '#fff', background: assigneeColor(ev.assignee), padding: '2px 9px 2px 4px', borderRadius: 20, fontWeight: 500 }}>
+                  <span style={{ width: 14, height: 14, borderRadius: '50%', background: 'rgba(255,255,255,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 7, fontWeight: 700 }}>
+                    {assigneeInitials(assignees.find(a => a.id === ev.assignee)?.label || ev.assignee)}
+                  </span>
+                  {assignees.find(a => a.id === ev.assignee)?.label || ev.assignee}
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Actions */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+            {assignees.length > 0 && (
+              <select
+                value={ev.assignee || ''}
+                onChange={e => updateAssignee(ev.id, e.target.value || null)}
+                style={{ fontSize: 11, padding: '2px 6px', borderRadius: 20, border: '1px solid var(--sand)', background: 'var(--warm)', color: 'var(--mocha)', cursor: 'pointer', maxWidth: 92, flexShrink: 0 }}
+                title="Verantwortlich zuweisen"
+              >
+                <option value="">— Niemand —</option>
+                {assignees.map(a => <option key={a.id} value={a.id}>{a.label}</option>)}
+              </select>
+            )}
+            <button className="btn-icon" style={{ padding: '5px 7px' }} onClick={() => openEdit(ev)}>
+              <IconEdit size={13} stroke={1.5} />
+            </button>
+            <button className="btn-icon" style={{ padding: '5px 7px', background: '#FEE2E2', color: '#991B1B' }} onClick={() => del(ev.id)}>
+              <IconTrash size={13} stroke={1.5} />
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // Parse "HH:MM" → minutes
 const toMin = t => { try { const [h,m]=t.split(':').map(Number); return h*60+m; } catch { return 0; } };
 // Minutes → "HH:MM"
@@ -29,6 +148,7 @@ const fmt = t => { try { const [h,m]=t.split(':'); const d=new Date(2000,0,1,+h,
 
 export default function Timeline() {
   const [events, setEvents] = useState([]);
+  const [wedding, setWedding] = useState(null);
 
   useEffect(() => {
     getTimeline().then(({ data }) => {
@@ -38,11 +158,21 @@ export default function Timeline() {
         saveState('timeline', mapped);
       }
     });
+    getWedding().then(({ data }) => { if (data) setWedding(data); });
   }, []);
   const [tab, setTab] = useState('editor');
   const [activeFilter, setActiveFilter] = useState('all');
   const [modal, setModal] = useState(null);
   const [form, setForm] = useState({});
+
+  // Assignee options — same pattern as Tasks.jsx
+  const assignees = wedding ? [
+    { id: 'bride',          label: wedding.bride,          color: ASSIGNEE_COLORS[0] },
+    { id: 'groom',          label: wedding.groom,          color: ASSIGNEE_COLORS[1] },
+    ...(wedding.witness_bride ? [{ id: 'witness_bride', label: wedding.witness_bride, color: ASSIGNEE_COLORS[2] }] : []),
+    ...(wedding.witness_groom ? [{ id: 'witness_groom', label: wedding.witness_groom, color: ASSIGNEE_COLORS[3] }] : []),
+  ] : [];
+  const assigneeColor = id => assignees.find(a => a.id === id)?.color || 'var(--mocha)';
 
   function save(e) { setEvents(e); saveState('timeline', e); }
   async function saveEvent(event) {
@@ -56,8 +186,43 @@ export default function Timeline() {
     save(events.filter(e => e.id !== id));
     await deleteTimelineEvent(id);
   }
+  async function updateAssignee(id, assignee) {
+    const updated = events.map(e => e.id === id ? { ...e, assignee } : e);
+    save(updated);
+    await upsertTimelineEvent(updated.find(e => e.id === id));
+  }
 
   const sorted = [...events].sort((a,b) => toMin(a.time) - toMin(b.time));
+
+  // ── Drag & drop reordering ──────────────────────────────────────
+  // Dragging swaps *time slots* between events (keeps each slot's duration/gap
+  // intact) rather than rewriting the whole schedule — works with mouse & touch.
+  const dndSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(TouchSensor,   { activationConstraint: { delay: 150, tolerance: 6 } })
+  );
+
+  async function handleDragEnd(evt) {
+    const { active, over } = evt;
+    if (!over || active.id === over.id) return;
+    const oldIndex = sorted.findIndex(e => e.id === active.id);
+    const newIndex = sorted.findIndex(e => e.id === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    const timeSlots = sorted.map(e => ({ time: e.time, endTime: e.endTime }));
+    const reordered = arrayMove(sorted, oldIndex, newIndex)
+      .map((e, idx) => ({ ...e, time: timeSlots[idx].time, endTime: timeSlots[idx].endTime }));
+
+    const changed = reordered.filter(e => {
+      const orig = events.find(o => o.id === e.id);
+      return orig && (orig.time !== e.time || orig.endTime !== e.endTime);
+    });
+
+    // Merge reordered slot-times back into the full events array
+    const merged = events.map(e => reordered.find(r => r.id === e.id) || e);
+    save(merged);
+    await Promise.all(changed.map(e => upsertTimelineEvent(e)));
+  }
 
   // Filter
   const filtered = activeFilter === 'all' ? sorted
@@ -214,81 +379,44 @@ export default function Timeline() {
               ))}
             </div>
 
+            {/* Drag hint */}
+            {activeFilter !== 'all' && filtered.length > 1 && (
+              <div style={{ fontSize: 11.5, color: 'var(--mocha)', marginBottom: 8, fontStyle: 'italic' }}>
+                Zum Umsortieren per Drag &amp; Drop bitte den Filter „Alle" wählen.
+              </div>
+            )}
+
             {/* Visual timeline */}
             <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-              {filtered.map((ev, idx) => {
-                const type = getType(ev.type);
-                const duration = ev.endTime
-                  ? (() => { const m = toMin(ev.endTime) - toMin(ev.time); if (m <= 0) return ''; const h = Math.floor(m/60); const min = m%60; return h > 0 ? `${h}h${min>0?` ${min}min`:''}` : `${min} min`; })()
-                  : '';
-                const isLast = idx === filtered.length - 1;
+              <DndContext sensors={dndSensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                <SortableContext items={filtered.map(e => e.id)} strategy={verticalListSortingStrategy}>
+                  {filtered.map((ev, idx) => {
+                    const type = getType(ev.type);
+                    const duration = ev.endTime
+                      ? (() => { const m = toMin(ev.endTime) - toMin(ev.time); if (m <= 0) return ''; const h = Math.floor(m/60); const min = m%60; return h > 0 ? `${h}h${min>0?` ${min}min`:''}` : `${min} min`; })()
+                      : '';
+                    const isLast = idx === filtered.length - 1;
 
-                return (
-                  <div key={ev.id} style={{ display: 'flex', borderBottom: isLast?'none':'1px solid #F5EFE4' }}>
-                    {/* Time column */}
-                    <div style={{ width: 72, flexShrink: 0, padding: '18px 0 18px 16px', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 2 }}>
-                      <span style={{ fontWeight: 700, fontSize: 13.5, color: 'var(--espresso)', fontFamily: 'DM Sans, sans-serif' }}>{fmt(ev.time)}</span>
-                      {ev.endTime && <span style={{ fontSize: 10.5, color: 'var(--mocha)' }}>{fmt(ev.endTime)}</span>}
-                    </div>
-
-                    {/* Color stripe */}
-                    <div style={{ width: 4, flexShrink: 0, background: type.color, margin: '12px 0' }} />
-
-                    {/* Content */}
-                    <div style={{ flex: 1, padding: '16px 16px 16px 14px' }}>
-                      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
-                        <div style={{ flex: 1 }}>
-                          {/* Type badge */}
-                          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: type.bg, border: `1px solid ${type.color}44`, borderRadius: 20, padding: '2px 9px', fontSize: 11, color: type.color, fontWeight: 600, marginBottom: 6 }}>
-                            <span style={{ fontSize: 12 }}>{type.emoji}</span> {type.label}
-                          </div>
-
-                          <h3 style={{ fontSize: 15.5, fontWeight: 600, color: 'var(--espresso)', marginBottom: 3, lineHeight: 1.3 }}>{ev.title}</h3>
-
-                          {ev.loc && (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: 'var(--mocha)', marginBottom: ev.desc?4:6 }}>
-                              <IconMapPin size={12} stroke={1.5} /> {ev.loc}
-                            </div>
-                          )}
-
-                          {ev.desc && (
-                            <div style={{ fontSize: 12.5, color: 'var(--mocha)', marginBottom: 8, lineHeight: 1.5 }}>{ev.desc}</div>
-                          )}
-
-                          {/* Badges row */}
-                          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
-                            {duration && (
-                              <span style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 11, color: 'var(--mocha)', background: 'var(--warm)', padding: '2px 8px', borderRadius: 20, border: '1px solid var(--sand)' }}>
-                                <IconClock size={11} stroke={1.5} /> {duration}
-                              </span>
-                            )}
-                            {ev.guests && (
-                              <span style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 11, color: 'var(--sage)', background: '#F0F5EE', padding: '2px 8px', borderRadius: 20, border: '1px solid var(--sage)44', fontWeight: 500 }}>
-                                <IconUsers size={11} stroke={1.5} /> {allGuests.length > 0 ? `${allGuests.length} Gäste` : 'Gäste'}
-                              </span>
-                            )}
-                            {ev.vendor && (
-                              <span style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 11, color: 'var(--terra)', background: '#FDF5E8', padding: '2px 8px', borderRadius: 20, border: '1px solid var(--terra)44', fontWeight: 500 }}>
-                                <IconTool size={11} stroke={1.5} /> Dienstleister
-                              </span>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Actions */}
-                        <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
-                          <button className="btn-icon" style={{ padding: '5px 7px' }} onClick={() => openEdit(ev)}>
-                            <IconEdit size={13} stroke={1.5} />
-                          </button>
-                          <button className="btn-icon" style={{ padding: '5px 7px', background: '#FEE2E2', color: '#991B1B' }} onClick={() => del(ev.id)}>
-                            <IconTrash size={13} stroke={1.5} />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
+                    return (
+                      <SortableTimelineRow
+                        key={ev.id}
+                        ev={ev}
+                        type={type}
+                        duration={duration}
+                        isLast={isLast}
+                        disabled={activeFilter !== 'all'}
+                        openEdit={openEdit}
+                        del={del}
+                        assignees={assignees}
+                        assigneeColor={assigneeColor}
+                        assigneeInitials={assigneeInitials}
+                        updateAssignee={updateAssignee}
+                        allGuests={allGuests}
+                      />
+                    );
+                  })}
+                </SortableContext>
+              </DndContext>
 
               {filtered.length === 0 && (
                 <div style={{ padding: '48px 24px', textAlign: 'center', color: 'var(--mocha)' }}>
@@ -419,6 +547,16 @@ export default function Timeline() {
                 <IconTool size={14} stroke={1.5} /> Dienstleister
               </label>
             </div>
+
+            {assignees.length > 0 && (
+              <div className="form-group">
+                <label className="form-label">Verantwortlich</label>
+                <select className="input" value={form.assignee||''} onChange={e=>setForm(f=>({...f,assignee:e.target.value||null}))}>
+                  <option value="">— Niemand —</option>
+                  {assignees.map(a=><option key={a.id} value={a.id}>{a.label}</option>)}
+                </select>
+              </div>
+            )}
 
             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
               <button className="btn btn-secondary" onClick={() => setModal(null)}>Abbrechen</button>
