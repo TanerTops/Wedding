@@ -354,6 +354,57 @@ export async function deletePhoto(id, storagePath) {
   return { error };
 }
 
+// ── Moodboard (Location + Fotoplanung) ────────────────────────────
+export async function getMoodboardItems(page) {
+  if (!hasSupabase()) return { data: loadState(`moodboard_${page}`, []), error: null };
+  const userId = await getUserId();
+  const { data, error } = await supabase.from('moodboard_items').select('*')
+    .eq('page', page).eq('user_id', userId).order('created_at');
+  return { data: data || [], error };
+}
+
+export async function uploadMoodboardImage(file, page) {
+  if (!hasSupabase()) {
+    const url = URL.createObjectURL(file);
+    const item = { id: crypto.randomUUID(), page, type: 'upload', url, caption: '', created_at: new Date().toISOString() };
+    const items = loadState(`moodboard_${page}`, []);
+    saveState(`moodboard_${page}`, [...items, item]);
+    return { data: item, error: null };
+  }
+  const ext = file.name.split('.').pop();
+  const path = `moodboard/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+  const { error: uploadError } = await supabase.storage.from('wedding-photos').upload(path, file);
+  if (uploadError) return { data: null, error: uploadError };
+  const { data: { publicUrl } } = supabase.storage.from('wedding-photos').getPublicUrl(path);
+  const userId = await getUserId();
+  const item = { page, type: 'upload', url: publicUrl, caption: '', storage_path: path, user_id: userId };
+  const { data, error } = await supabase.from('moodboard_items').insert(item).select().single();
+  return { data, error };
+}
+
+export async function addMoodboardLink(url, page, caption = '') {
+  if (!hasSupabase()) {
+    const item = { id: crypto.randomUUID(), page, type: 'link', url, caption, created_at: new Date().toISOString() };
+    const items = loadState(`moodboard_${page}`, []);
+    saveState(`moodboard_${page}`, [...items, item]);
+    return { data: item, error: null };
+  }
+  const userId = await getUserId();
+  const item = { page, type: 'link', url, caption, user_id: userId };
+  const { data, error } = await supabase.from('moodboard_items').insert(item).select().single();
+  return { data, error };
+}
+
+export async function deleteMoodboardItem(id, page, storagePath) {
+  if (!hasSupabase()) {
+    saveState(`moodboard_${page}`, loadState(`moodboard_${page}`, []).filter(i => i.id !== id));
+    return { error: null };
+  }
+  if (storagePath) await supabase.storage.from('wedding-photos').remove([storagePath]);
+  const { error } = await supabase.from('moodboard_items').delete().eq('id', id);
+  return { error };
+}
+
 // ── Guest Page Data (public) ─────────────────────────────────────
 export async function getGuestPageData(slug) {
   if (!hasSupabase()) {
