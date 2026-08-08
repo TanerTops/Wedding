@@ -529,6 +529,35 @@ export async function deleteTask(id) {
   return { error };
 }
 
+// ── Playlist songs ──────────────────────────────────────────────
+export async function getPlaylistSongs() {
+  if (!hasSupabase()) return { data: loadState('music', []), error: null };
+  const userId = await getUserId();
+  const { data, error } = await supabase.from('playlist_songs').select('*').eq('user_id', userId).order('created_at');
+  return { data: data || [], error };
+}
+
+export async function upsertPlaylistSong(song) {
+  if (!hasSupabase()) {
+    const songs = loadState('music', []);
+    const exists = songs.find(s => s.id === song.id);
+    saveState('music', exists ? songs.map(s => s.id === song.id ? song : s) : [...songs, song]);
+    return { error: null };
+  }
+  const userId = await getUserId();
+  const { error } = await supabase.from('playlist_songs').upsert({ ...song, user_id: userId });
+  return { error };
+}
+
+export async function deletePlaylistSong(id) {
+  if (!hasSupabase()) {
+    saveState('music', loadState('music', []).filter(s => s.id !== id));
+    return { error: null };
+  }
+  const { error } = await supabase.from('playlist_songs').delete().eq('id', id);
+  return { error };
+}
+
 // ── Registry ─────────────────────────────────────────────────────
 export async function getRegistry() {
   if (!hasSupabase()) return { data: loadState('registry', []), error: null };
