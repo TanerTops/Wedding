@@ -40,6 +40,10 @@ export default function Dashboard() {
         tasks:        t.data || [],
         rsvps:        r.data || [],
         pendingPhotos: (p.data || []).filter(ph => !ph.approved && ph.uploaded_by === 'guest').length,
+        // Bugfix: these were fetched but never stored, so "Letzte Aktivitäten" always showed empty
+        recentRsvps:  r.data || [],
+        recentPhotos: (p.data || []).filter(ph => ph.uploaded_by === 'guest'),
+        recentWishes: m.data || [],
       });
       setLoading(false);
     });
