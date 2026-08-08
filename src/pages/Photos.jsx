@@ -1,5 +1,8 @@
 import { useState, useEffect } from 'react';
-import { IconPlus, IconTrash, IconX, IconUsers, IconCheck, IconClock, IconMapPin, IconCamera } from '@tabler/icons-react';
+import { IconPlus, IconTrash, IconX, IconUsers, IconCheck, IconClock, IconMapPin, IconCamera, IconGripVertical } from '@tabler/icons-react';
+import { DndContext, closestCenter, PointerSensor, TouchSensor, useSensor, useSensors } from '@dnd-kit/core';
+import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { loadState, saveState, defaultGuests } from '../data/store';
 import { getGuests } from '../lib/db';
 
@@ -12,6 +15,35 @@ const DEFAULT_GROUPS = [
   { id:6, name:'Freunde der Braut', desc:'Beste Freundinnen von Sarah', location:'Garten', priority:'medium', duration:1, done:false, guests:[], note:'' },
   { id:7, name:'Freunde des Bräutigams', desc:'Beste Freunde von Tobias', location:'Garten', priority:'medium', duration:1, done:false, guests:[], note:'' },
 ];
+
+// ── Sortable card wrapper (drag & drop reorder, mouse + touch) ────
+function SortablePhotoGroup({ id, priorityColor, done, children }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    borderLeft: `4px solid ${priorityColor}`,
+    opacity: done ? 0.65 : (isDragging ? 0.85 : 1),
+    boxShadow: isDragging ? '0 6px 18px rgba(91,61,30,0.18)' : undefined,
+    position: 'relative',
+    zIndex: isDragging ? 10 : 'auto',
+  };
+  const dragHandle = (
+    <div
+      {...attributes}
+      {...listeners}
+      title="Ziehen zum Umsortieren"
+      style={{ cursor: 'grab', touchAction: 'none', color: 'var(--taupe)', flexShrink: 0, display: 'flex', alignItems: 'center', paddingTop: 2 }}
+    >
+      <IconGripVertical size={16} stroke={1.5} />
+    </div>
+  );
+  return (
+    <div ref={setNodeRef} className="card" style={style}>
+      {children(dragHandle)}
+    </div>
+  );
+}
 
 export default function Photos() {
   const [groups, setGroups] = useState(() => loadState('photoGroups', DEFAULT_GROUPS));
@@ -56,6 +88,20 @@ export default function Photos() {
 
   function removeGuestFromGroup(groupId, guestId) {
     save(groups.map(g => g.id === groupId ? { ...g, guests: g.guests.filter(id => id !== guestId) } : g));
+  }
+
+  // ── Drag & drop reordering (order = array index, mouse + touch) ──
+  const dndSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(TouchSensor,   { activationConstraint: { delay: 150, tolerance: 6 } })
+  );
+  function handleDragEnd(evt) {
+    const { active, over } = evt;
+    if (!over || active.id === over.id) return;
+    const oldIndex = groups.findIndex(g => g.id === active.id);
+    const newIndex = groups.findIndex(g => g.id === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
+    save(arrayMove(groups, oldIndex, newIndex));
   }
 
   const done = groups.filter(g => g.done).length;
@@ -114,14 +160,18 @@ export default function Photos() {
 
         {/* Photo groups */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {groups.map(group => {
-            const groupGuests = group.guests.map(id => guests.find(g => g.id === id)).filter(Boolean);
-            const availableToAdd = guests.filter(g => g.status === 'confirmed' && !group.guests.includes(g.id));
-            const isEditing = editGroup === group.id;
-
-            return (
-              <div key={group.id} className="card" style={{ borderLeft: `4px solid ${PRIO_COLORS[group.priority]}`, opacity: group.done ? 0.65 : 1 }}>
+          <DndContext sensors={dndSensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+            <SortableContext items={groups.map(g => g.id)} strategy={verticalListSortingStrategy}>
+              {groups.map(group => {
+                const groupGuests = group.guests.map(id => guests.find(g => g.id === id)).filter(Boolean);
+                const availableToAdd = guests.filter(g => g.status === 'confirmed' && !group.guests.includes(g.id));
+                const isEditing = editGroup === group.id;
+                return (
+                  <SortablePhotoGroup key={group.id} id={group.id} priorityColor={PRIO_COLORS[group.priority]} done={group.done}>
+                    {(dragHandle) => (
+                <>
                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                  {dragHandle}
                   {/* Done checkbox */}
                   <div onClick={() => toggleDone(group.id)} style={{ width: 22, height: 22, borderRadius: '50%', border: `2px solid ${group.done ? 'var(--sage)' : 'var(--sand)'}`, background: group.done ? 'var(--sage)' : '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0, marginTop: 2 }}>
                     {group.done && <IconCheck size={12} stroke={3} style={{ color: '#fff' }} />}
@@ -197,9 +247,13 @@ export default function Photos() {
                   <IconUsers size={12} stroke={1.5} />
                   {groupGuests.length} {groupGuests.length === 1 ? 'Person' : 'Personen'}
                 </div>
-              </div>
-            );
-          })}
+                </>
+                    )}
+                  </SortablePhotoGroup>
+                );
+              })}
+            </SortableContext>
+          </DndContext>
         </div>
       </div>
 
