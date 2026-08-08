@@ -96,9 +96,6 @@ export default function Dashboard() {
       <div className="topbar">
         <div>
           <h1>Übersicht</h1>
-          <div className="topbar-sub">
-            {wedding.venue || 'Hochzeitsplanung'}
-          </div>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           <a href={guestUrl} target="_blank" rel="noopener" className="btn btn-secondary btn-sm">
