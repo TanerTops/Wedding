@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { getMusicWishes, getRegistry, upsertRegistryItem, deleteRegistryItem, getPlaylistSongs, upsertPlaylistSong, deletePlaylistSong } from '../lib/db';
 import { supabase, hasSupabase } from '../lib/supabase';
 import { loadState, saveState } from '../data/store';
+import Moodboard from '../components/Moodboard';
 
 const DEFAULT_SONGS = [
   { id: 1, title: "Can't Help Falling in Love", artist: 'Elvis Presley', type: 'Eröffnungstanz', addedBy: 'Brautpaar' },
@@ -264,6 +265,8 @@ export function VenuePage() {
             )}
           </div>
         )}
+
+        <Moodboard page="venue" title="Moodboard" />
       </div>
     </>
   );
