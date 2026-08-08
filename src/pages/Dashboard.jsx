@@ -1,13 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import {
   IconUsers, IconWallet, IconCheckbox, IconLayoutColumns,
-  IconArrowRight, IconExternalLink, IconPlus, IconBell,
+  IconArrowRight, IconExternalLink, IconPlus, IconBell, IconX,
   IconBuildingStore, IconClock, IconMapPin, IconMusic, IconGift,
   IconNotes, IconWorldWww, IconPhoto, IconCamera, IconSettings,
 } from '@tabler/icons-react';
 import { loadState, defaultWedding, makeSlug, QUICK_ACTION_CATALOG, DEFAULT_QUICK_ACTIONS } from '../data/store';
-import { getWedding, getGuests, getBudgetItems, getTasks, getRSVPs, getPhotos, getMusicWishes } from '../lib/db';
+import { getWedding, getGuests, getBudgetItems, getTasks, getRSVPs, getPhotos, getMusicWishes, uploadCouplePhoto, removeCouplePhoto } from '../lib/db';
 import Onboarding from './Onboarding';
 
 const QA_ICON_MAP = {
@@ -31,6 +31,28 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [showOnboarding, setShowOnboarding] = useState(() => !loadState('onboardingDismissed', false));
   const [quickActions] = useState(() => loadState('quickActions', DEFAULT_QUICK_ACTIONS));
+  const [coupleUploading, setCoupleUploading] = useState(false);
+  const coupleFileRef = useRef(null);
+
+  async function handleCouplePhotoUpload(file) {
+    if (!file) return;
+    setCoupleUploading(true);
+    const { data: result, error } = await uploadCouplePhoto(file);
+    if (!error && result) {
+      setData(d => ({ ...d, wedding: { ...d.wedding, couple_photo_url: result.url, couple_photo_path: result.path } }));
+      window.dispatchEvent(new Event('weddingUpdated'));
+    }
+    setCoupleUploading(false);
+    if (coupleFileRef.current) coupleFileRef.current.value = '';
+  }
+
+  async function handleCouplePhotoRemove(e) {
+    e.stopPropagation();
+    if (!confirm('Foto entfernen?')) return;
+    await removeCouplePhoto(data.wedding.couple_photo_path);
+    setData(d => ({ ...d, wedding: { ...d.wedding, couple_photo_url: '', couple_photo_path: '' } }));
+    window.dispatchEvent(new Event('weddingUpdated'));
+  }
 
   useEffect(() => {
     Promise.all([
@@ -116,13 +138,41 @@ export default function Dashboard() {
           <div style={{ position: 'absolute', right: -20, top: -20, width: 160, height: 160, borderRadius: '50%', background: 'rgba(196,149,106,0.08)', pointerEvents: 'none' }} />
           <div style={{ position: 'absolute', right: 40, bottom: -40, width: 100, height: 100, borderRadius: '50%', background: 'rgba(168,181,160,0.1)', pointerEvents: 'none' }} />
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
-            <div>
-              <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 38, fontStyle: 'italic', color: 'var(--espresso)', lineHeight: 1.1 }}>
-                {days > 0 ? `Noch ${days} Tage` : days === 0 ? '🎉 Heute!' : `Vor ${Math.abs(days)} Tagen`}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+              {/* Couple photo upload zone */}
+              <div
+                onClick={() => !coupleUploading && coupleFileRef.current?.click()}
+                title={wedding.couple_photo_url ? 'Foto ändern' : 'Foto hochladen'}
+                style={{ position: 'relative', width: 84, height: 84, flexShrink: 0, cursor: coupleUploading ? 'default' : 'pointer' }}
+              >
+                <div style={{ width: '100%', height: '100%', borderRadius: '50%', overflow: 'hidden', border: '3px solid #fff', boxShadow: '0 2px 10px rgba(91,61,30,0.15)', background: wedding.couple_photo_url ? 'transparent' : 'var(--warm)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  {wedding.couple_photo_url ? (
+                    <img src={wedding.couple_photo_url} alt="Brautpaar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ) : coupleUploading ? (
+                    <div style={{ fontSize: 9, color: 'var(--mocha)' }}>Lädt…</div>
+                  ) : (
+                    <IconCamera size={22} stroke={1.5} style={{ color: 'var(--taupe)' }} />
+                  )}
+                </div>
+                <div style={{ position: 'absolute', bottom: -2, right: -2, width: 24, height: 24, borderRadius: '50%', background: 'var(--brown)', border: '2px solid #fff', display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
+                  <IconCamera size={11} stroke={2} style={{ color: '#fff' }} />
+                </div>
+                {wedding.couple_photo_url && (
+                  <button onClick={handleCouplePhotoRemove} title="Foto entfernen"
+                    style={{ position: 'absolute', top: -4, left: -4, width: 18, height: 18, borderRadius: '50%', background: 'rgba(0,0,0,0.6)', color: '#fff', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+                    <IconX size={10} stroke={2} />
+                  </button>
+                )}
+                <input ref={coupleFileRef} type="file" accept="image/*" hidden onChange={e => handleCouplePhotoUpload(e.target.files?.[0])} />
               </div>
-              <div style={{ fontSize: 13, color: 'var(--mocha)', marginTop: 6 }}>
-                {new Date(wedding.date).toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
-                {wedding.venue && ` · ${wedding.venue}`}
+              <div>
+                <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 38, fontStyle: 'italic', color: 'var(--espresso)', lineHeight: 1.1 }}>
+                  {days > 0 ? `Noch ${days} Tage` : days === 0 ? '🎉 Heute!' : `Vor ${Math.abs(days)} Tagen`}
+                </div>
+                <div style={{ fontSize: 13, color: 'var(--mocha)', marginTop: 6 }}>
+                  {new Date(wedding.date).toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+                  {wedding.venue && ` · ${wedding.venue}`}
+                </div>
               </div>
             </div>
             <div style={{ display: 'flex', gap: 12 }}>
