@@ -120,9 +120,6 @@ export default function Dashboard() {
           <div style={{ position: 'absolute', right: 40, bottom: -40, width: 100, height: 100, borderRadius: '50%', background: 'rgba(168,181,160,0.1)', pointerEvents: 'none' }} />
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
             <div>
-              <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 14, color: 'var(--mocha)', letterSpacing: 2, textTransform: 'uppercase', marginBottom: 4 }}>
-                {wedding.bride} & {wedding.groom}
-              </div>
               <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 38, fontStyle: 'italic', color: 'var(--espresso)', lineHeight: 1.1 }}>
                 {days > 0 ? `Noch ${days} Tage` : days === 0 ? '🎉 Heute!' : `Vor ${Math.abs(days)} Tagen`}
               </div>
