@@ -1,3 +1,25 @@
+// Catalog of pages that can be shown as a "Schnellaktion" (quick action)
+// shortcut tile on the dashboard. iconName refers to a @tabler/icons-react
+// export — resolved via ICON_MAP where it's used (Dashboard.jsx, Settings.jsx).
+export const QUICK_ACTION_CATALOG = [
+  { id: 'guests',     to: '/guests',     label: 'Gäste',         iconName: 'IconUsers' },
+  { id: 'budget',     to: '/budget',     label: 'Budget',        iconName: 'IconWallet' },
+  { id: 'vendors',    to: '/vendors',    label: 'Dienstleister', iconName: 'IconBuildingStore' },
+  { id: 'tasks',      to: '/tasks',      label: 'Aufgaben',      iconName: 'IconCheckbox' },
+  { id: 'timeline',   to: '/timeline',   label: 'Zeitplan',      iconName: 'IconClock' },
+  { id: 'seating',    to: '/seating',    label: 'Sitzordnung',   iconName: 'IconLayoutColumns' },
+  { id: 'venue',      to: '/venue',      label: 'Location',      iconName: 'IconMapPin' },
+  { id: 'music',      to: '/music',      label: 'Musik',         iconName: 'IconMusic' },
+  { id: 'registry',   to: '/registry',   label: 'Geschenke',     iconName: 'IconGift' },
+  { id: 'notes',      to: '/notes',      label: 'Notizen',       iconName: 'IconNotes' },
+  { id: 'guest-page', to: '/guest-page', label: 'Gästeseite',    iconName: 'IconWorldWww' },
+  { id: 'memories',   to: '/memories',   label: 'Erinnerungen',  iconName: 'IconPhoto' },
+  { id: 'photos',     to: '/photos',     label: 'Fotoplanung',   iconName: 'IconCamera' },
+  { id: 'settings',   to: '/settings',   label: 'Einstellungen', iconName: 'IconSettings' },
+];
+
+export const DEFAULT_QUICK_ACTIONS = ['guests', 'budget', 'tasks', 'seating'];
+
 // Default wedding data
 export const defaultWedding = {
   bride: 'Sarah',
