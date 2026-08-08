@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
-import { IconPhoto, IconUpload, IconTrash, IconEye, IconEyeOff, IconX, IconPlus, IconTag, IconEdit } from '@tabler/icons-react';
-import { loadState, saveState } from '../data/store';
+import { IconPhoto, IconUpload, IconTrash, IconEye, IconEyeOff, IconX, IconPlus, IconTag, IconEdit, IconLink, IconCopy, IconCheck, IconExternalLink } from '@tabler/icons-react';
+import { loadState, saveState, defaultWedding, makeSlug } from '../data/store';
 import { getPhotos, updatePhoto, deletePhoto as dbDeletePhoto, uploadPhoto } from '../lib/db';
 
 const DEFAULT_CATEGORIES = [
@@ -45,10 +45,17 @@ export default function Memories() {
   const [addCatModal, setAddCatModal] = useState(false);
   const [newCat, setNewCat] = useState({ label: '', emoji: '📷', color: '#C4956A' });
   const [uploading, setUploading] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const wedding = loadState('wedding', defaultWedding);
+  const galleryUrl = `${window.location.origin}/memories/${makeSlug(wedding)}`;
   const fileRef = useRef();
 
   function savePhotos(p) { setPhotos(p); saveState('memories', p); }
   function saveCats(c) { setCategories(c); saveState('memoryCategories', c); }
+  function copyGalleryLink() {
+    navigator.clipboard.writeText(galleryUrl);
+    setCopied(true); setTimeout(() => setCopied(false), 2000);
+  }
 
   async function toggleApproved(id) {
     const photo = photos.find(p => p.id === id);
@@ -139,6 +146,28 @@ export default function Memories() {
       </div>
 
       <div className="page-body">
+        {/* Share link — public gallery page for approved photos */}
+        <div className="card" style={{ marginBottom: 18 }}>
+          <div className="section-title" style={{ marginBottom: 10 }}>
+            <IconLink size={14} stroke={1.5} style={{ verticalAlign: -2, marginRight: 6 }} />
+            Link zur Foto-Galerie
+          </div>
+          <div style={{ fontSize: 12, color: 'var(--mocha)', marginBottom: 10 }}>
+            Teilt diesen Link mit euren Gästen — sie sehen nur die freigegebenen Fotos, sortiert nach Kategorie (z.B. Trauung, Feier).
+          </div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <div style={{ flex: '1 1 200px', padding: '8px 12px', background: 'var(--warm)', borderRadius: 10, border: '1px solid var(--sand)', fontSize: 12, color: 'var(--mocha)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {galleryUrl}
+            </div>
+            <button className="btn btn-secondary btn-sm" onClick={copyGalleryLink} style={{ flexShrink: 0 }}>
+              {copied ? <><IconCheck size={13} stroke={2} /> Kopiert!</> : <><IconCopy size={13} stroke={1.5} /> Kopieren</>}
+            </button>
+            <a href={galleryUrl} target="_blank" rel="noopener" className="btn btn-primary btn-sm" style={{ flexShrink: 0 }}>
+              <IconExternalLink size={13} stroke={1.5} /> Öffnen
+            </a>
+          </div>
+        </div>
+
         {loading && (
           <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--mocha)' }}>
             <div style={{ fontSize: 24, marginBottom: 8 }}>📷</div>
