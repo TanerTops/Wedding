@@ -2,11 +2,19 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
   IconUsers, IconWallet, IconCheckbox, IconLayoutColumns,
-  IconArrowRight, IconExternalLink, IconPlus, IconBell
+  IconArrowRight, IconExternalLink, IconPlus, IconBell,
+  IconBuildingStore, IconClock, IconMapPin, IconMusic, IconGift,
+  IconNotes, IconWorldWww, IconPhoto, IconCamera, IconSettings,
 } from '@tabler/icons-react';
-import { loadState, defaultWedding, makeSlug } from '../data/store';
+import { loadState, defaultWedding, makeSlug, QUICK_ACTION_CATALOG, DEFAULT_QUICK_ACTIONS } from '../data/store';
 import { getWedding, getGuests, getBudgetItems, getTasks, getRSVPs, getPhotos, getMusicWishes } from '../lib/db';
 import Onboarding from './Onboarding';
+
+const QA_ICON_MAP = {
+  IconUsers, IconWallet, IconBuildingStore, IconCheckbox, IconClock,
+  IconLayoutColumns, IconMapPin, IconMusic, IconGift, IconNotes,
+  IconWorldWww, IconPhoto, IconCamera, IconSettings,
+};
 
 export default function Dashboard() {
   const [data, setData] = useState({
@@ -22,6 +30,7 @@ export default function Dashboard() {
   });
   const [loading, setLoading] = useState(true);
   const [showOnboarding, setShowOnboarding] = useState(() => !loadState('onboardingDismissed', false));
+  const [quickActions] = useState(() => loadState('quickActions', DEFAULT_QUICK_ACTIONS));
 
   useEffect(() => {
     Promise.all([
@@ -210,21 +219,22 @@ export default function Dashboard() {
           <div className="card-warm">
             <div className="section-title">Schnellaktionen</div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-              {[
-                { to: '/guests',  Icon: IconUsers,         l: 'Gäste' },
-                { to: '/budget',  Icon: IconWallet,         l: 'Budget' },
-                { to: '/tasks',   Icon: IconCheckbox,       l: 'Aufgaben' },
-                { to: '/seating', Icon: IconLayoutColumns,  l: 'Sitzordnung' },
-              ].map(({ to, Icon, l }) => (
-                <Link key={to} to={to} style={{ textDecoration: 'none' }}>
-                  <div style={{ padding: 12, background: 'var(--cream)', border: '1px solid var(--sand)', borderRadius: 12, cursor: 'pointer', transition: 'all .15s', textAlign: 'center' }}
-                    onMouseEnter={e => e.currentTarget.style.background = 'var(--sand)'}
-                    onMouseLeave={e => e.currentTarget.style.background = 'var(--cream)'}>
-                    <Icon size={20} stroke={1.5} style={{ color: 'var(--terra)', marginBottom: 4 }} />
-                    <div style={{ fontSize: 12.5, fontWeight: 500, color: 'var(--brown)' }}>{l}</div>
-                  </div>
-                </Link>
-              ))}
+              {quickActions
+                .map(id => QUICK_ACTION_CATALOG.find(a => a.id === id))
+                .filter(Boolean)
+                .map(({ to, iconName, label }) => {
+                  const Icon = QA_ICON_MAP[iconName] || IconUsers;
+                  return (
+                    <Link key={to} to={to} style={{ textDecoration: 'none' }}>
+                      <div style={{ padding: 12, background: 'var(--cream)', border: '1px solid var(--sand)', borderRadius: 12, cursor: 'pointer', transition: 'all .15s', textAlign: 'center' }}
+                        onMouseEnter={e => e.currentTarget.style.background = 'var(--sand)'}
+                        onMouseLeave={e => e.currentTarget.style.background = 'var(--cream)'}>
+                        <Icon size={20} stroke={1.5} style={{ color: 'var(--terra)', marginBottom: 4 }} />
+                        <div style={{ fontSize: 12.5, fontWeight: 500, color: 'var(--brown)' }}>{label}</div>
+                      </div>
+                    </Link>
+                  );
+                })}
             </div>
           </div>
 
