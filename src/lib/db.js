@@ -156,6 +156,41 @@ export async function saveWedding(wedding) {
   }
 }
 
+export async function uploadCouplePhoto(file) {
+  if (!hasSupabase()) {
+    const url = URL.createObjectURL(file);
+    const wedding = loadState('wedding', defaultWedding);
+    saveState('wedding', { ...wedding, couple_photo_url: url, couple_photo_path: '' });
+    return { data: { url, path: '' }, error: null };
+  }
+  const ext = file.name.split('.').pop();
+  const path = `couple/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+  const { error: uploadError } = await supabase.storage.from('wedding-photos').upload(path, file);
+  if (uploadError) return { data: null, error: uploadError };
+  const { data: { publicUrl } } = supabase.storage.from('wedding-photos').getPublicUrl(path);
+  const userId = await getUserId();
+  const existing = await supabase.from('weddings').select('id').eq('user_id', userId).limit(1).single();
+  if (existing.data?.id) {
+    await supabase.from('weddings').update({ couple_photo_url: publicUrl, couple_photo_path: path }).eq('id', existing.data.id);
+  }
+  return { data: { url: publicUrl, path }, error: null };
+}
+
+export async function removeCouplePhoto(storagePath) {
+  if (!hasSupabase()) {
+    const wedding = loadState('wedding', defaultWedding);
+    saveState('wedding', { ...wedding, couple_photo_url: '', couple_photo_path: '' });
+    return { error: null };
+  }
+  if (storagePath) await supabase.storage.from('wedding-photos').remove([storagePath]);
+  const userId = await getUserId();
+  const existing = await supabase.from('weddings').select('id').eq('user_id', userId).limit(1).single();
+  if (existing.data?.id) {
+    await supabase.from('weddings').update({ couple_photo_url: '', couple_photo_path: '' }).eq('id', existing.data.id);
+  }
+  return { error: null };
+}
+
 // ── Guests ───────────────────────────────────────────────────────
 export async function getGuests() {
   if (!hasSupabase()) return { data: loadState('guests', []), error: null };
