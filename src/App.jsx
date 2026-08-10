@@ -65,6 +65,10 @@ function MobileNav({ onLogout }) {
       )}
       <div style={{ position:'fixed', left:0, right:0, zIndex:300, background:'var(--warm)', borderTop:'1px solid var(--sand)', borderRadius:'20px 20px 0 0', padding:'16px 16px 8px', boxShadow:'0 -4px 24px rgba(91,61,30,0.12)', transform:open?'translateY(0)':'translateY(110%)', transition:'transform 0.3s cubic-bezier(.32,.72,0,1)', bottom:57 }}>
         <div style={{ width:36, height:4, borderRadius:2, background:'var(--sand)', margin:'0 auto 14px' }} />
+        <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:14 }}>
+          <img src="/logo-mark.png" alt="Wedding Buddy" style={{ width:24, height:24, flexShrink:0 }} />
+          <span style={{ fontFamily:"'Cormorant Garamond', serif", fontSize:16, fontStyle:'italic', color:'var(--espresso)' }}>Wedding Buddy</span>
+        </div>
         <div style={{ fontSize:11, fontWeight:600, color:'var(--mocha)', textTransform:'uppercase', letterSpacing:'0.5px', marginBottom:10 }}>Alle Bereiche</div>
         <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
           {NAV_MORE.map(({ to, icon: Icon, label }) => {
@@ -130,7 +134,8 @@ export default function App() {
     return (
       <div style={{ minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', background:'linear-gradient(160deg, #FDF8F0 0%, #F0E8D8 50%, #EAE0D0 100%)' }}>
         <div style={{ textAlign:'center' }}>
-          <div style={{ fontFamily:"'Cormorant Garamond', serif", fontSize:32, fontStyle:'italic', color:'var(--espresso)', marginBottom:8 }}>Vince</div>
+          <img src="/logo-mark.png" alt="Wedding Buddy" style={{ width:64, height:64, display:'block', margin:'0 auto 10px' }} />
+          <div style={{ fontFamily:"'Cormorant Garamond', serif", fontSize:32, fontStyle:'italic', color:'var(--espresso)', marginBottom:8 }}>Wedding Buddy</div>
           <div style={{ fontSize:12, color:'var(--mocha)' }}>Wird geladen...</div>
         </div>
       </div>
