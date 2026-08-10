@@ -17,9 +17,9 @@ function makeICS(task) {
   return [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
-    'PRODID:-//Vince//Hochzeitsplaner//DE',
+    'PRODID:-//WeddingBuddy//Hochzeitsplaner//DE',
     'BEGIN:VEVENT',
-    `UID:${task.id}@vince`,
+    `UID:${task.id}@weddingbuddy`,
     `DTSTAMP:${now}`,
     `DTSTART;VALUE=DATE:${due}`,
     `DTEND;VALUE=DATE:${due}`,
