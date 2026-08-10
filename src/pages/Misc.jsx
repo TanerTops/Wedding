@@ -28,7 +28,7 @@ export function MusicPage() {
       if (error) {
         // Table not reachable yet (e.g. migration not run) — keep showing
         // whatever is in localStorage instead of wiping the list.
-        console.warn('[Vince] playlist_songs not available yet, staying on local data:', error.message || error);
+        console.warn('[WeddingBuddy] playlist_songs not available yet, staying on local data:', error.message || error);
         return;
       }
       if (data && data.length > 0) {
