@@ -297,9 +297,23 @@ export default function GuestPage() {
                         ))}
                       </div>
                     </div>
-                    <button className="btn btn-primary" style={{ width: '100%', justifyContent: 'center', marginTop: 6 }} onClick={() => rsvpData.name && rsvpData.attending && setRsvpStep(2)}>
+                    <button
+                      className="btn btn-primary"
+                      style={{ width: '100%', justifyContent: 'center', marginTop: 6 }}
+                      onClick={() => setRsvpStep(2)}
+                      disabled={!rsvpData.name || !rsvpData.attending}
+                    >
                       Weiter <IconArrowRight size={15} stroke={2} />
                     </button>
+                    {(!rsvpData.name || !rsvpData.attending) && (
+                      <div style={{ fontSize: 11.5, color: 'var(--mocha)', marginTop: 8, textAlign: 'center' }}>
+                        {!rsvpData.name && !rsvpData.attending
+                          ? 'Bitte Namen und Teilnahme angeben'
+                          : !rsvpData.name
+                            ? 'Bitte euren Namen angeben'
+                            : 'Bitte angeben, ob ihr dabei seid'}
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -628,7 +642,11 @@ export default function GuestPage() {
                   <button className="btn btn-secondary btn-sm" onClick={() => setSongs([...songs, { title:'', artist:'' }])}>
                     <IconPlus size={13} stroke={2} /> Weiterer Song
                   </button>
-                  <button className="btn btn-primary" style={{ flex: 1, justifyContent: 'center' }} onClick={async () => {
+                  <button
+                    className="btn btn-primary"
+                    style={{ flex: 1, justifyContent: 'center' }}
+                    disabled={!songs.some(s => s.title.trim())}
+                    onClick={async () => {
                     const validSongs = songs.filter(s => s.title.trim());
                     if (!validSongs.length) return;
                     setMusicError('');
@@ -640,6 +658,9 @@ export default function GuestPage() {
                     Absenden <IconMusic size={14} stroke={1.5} />
                   </button>
                 </div>
+                {!songs.some(s => s.title.trim()) && (
+                  <div style={{ fontSize: 11.5, color: 'var(--mocha)', marginTop: 8, textAlign: 'center' }}>Bitte mindestens einen Songtitel eintragen</div>
+                )}
                 {musicError && <div style={{ fontSize: 12, color: '#E57373', marginTop: 10, textAlign: 'center' }}>{musicError}</div>}
               </div>
             )}
