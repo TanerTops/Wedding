@@ -6,7 +6,7 @@ import {
   IconBuildingStore, IconClock, IconMapPin, IconMusic, IconGift,
   IconNotes, IconWorldWww, IconPhoto, IconCamera, IconSettings,
 } from '@tabler/icons-react';
-import { loadState, defaultWedding, makeSlug, QUICK_ACTION_CATALOG, DEFAULT_QUICK_ACTIONS } from '../data/store';
+import { loadState, defaultWedding, makeSlug, QUICK_ACTION_CATALOG, DEFAULT_QUICK_ACTIONS, hasFullAccess, FULL_ACCESS_PRICE, STRIPE_PAYMENT_LINK } from '../data/store';
 import { getWedding, getGuests, getBudgetItems, getTasks, getRSVPs, getPhotos, getMusicWishes, uploadCouplePhoto, removeCouplePhoto } from '../lib/db';
 import Onboarding from './Onboarding';
 
@@ -81,6 +81,8 @@ export default function Dashboard() {
   }, []);
 
   const { wedding, guests, budgetItems, tasks, rsvps, pendingPhotos } = data;
+  const purchased = hasFullAccess(wedding);
+  const [showUpsell, setShowUpsell] = useState(true);
 
   const days         = Math.ceil((new Date(wedding.date) - new Date()) / 86400000);
   const confirmed    = guests.filter(g => g.status === 'confirmed').length;
@@ -132,6 +134,28 @@ export default function Dashboard() {
       <div className="page-body">
         {/* Onboarding */}
         {showOnboarding && <Onboarding onDismiss={() => setShowOnboarding(false)} />}
+
+        {/* Upsell banner — freemium accounts only, dismissible */}
+        {!purchased && showUpsell && (
+          <div className="card-warm" style={{ marginBottom: 16, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+            <div style={{ fontSize: 20 }}>🔓</div>
+            <div style={{ flex: 1, minWidth: 200 }}>
+              <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--espresso)' }}>Ihr nutzt gerade die kostenlose Version</div>
+              <div style={{ fontSize: 12, color: 'var(--mocha)', marginTop: 2 }}>
+                Schaltet Zeitplan, Sitzordnung, Location, Musik, Gästeseite & mehr frei — einmalig {FULL_ACCESS_PRICE} €.
+              </div>
+            </div>
+            <a
+              href={wedding?.user_id ? `${STRIPE_PAYMENT_LINK}?client_reference_id=${encodeURIComponent(wedding.user_id)}` : STRIPE_PAYMENT_LINK}
+              target="_blank" rel="noopener" className="btn btn-primary btn-sm" style={{ flexShrink: 0 }}
+            >
+              Jetzt freischalten
+            </a>
+            <button onClick={() => setShowUpsell(false)} className="btn-icon" style={{ flexShrink: 0 }} title="Ausblenden">
+              <IconX size={14} stroke={1.5} />
+            </button>
+          </div>
+        )}
 
         {/* Beautiful countdown hero */}
         <div className="card" style={{ marginBottom: 16, padding: '28px 24px', background: 'linear-gradient(135deg, #FDF8F0 0%, #F5EDE0 100%)', border: '1px solid var(--sand)', overflow: 'hidden', position: 'relative' }}>
