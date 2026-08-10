@@ -71,10 +71,6 @@ export default function PhotographerPage() {
     setSaving(false);
   }
 
-  async function updateGroups(updated) {
-    setGroups(updated);
-  }
-
   async function toggleDone(id) {
     const group = groups.find(g => g.id === id);
     if (!group) return;
