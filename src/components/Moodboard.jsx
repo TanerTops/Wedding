@@ -20,12 +20,15 @@ export default function Moodboard({ page, title = 'Moodboard' }) {
   async function handleFiles(files) {
     if (!files || !files.length) return;
     setUploading(true);
+    const errors = [];
     for (const file of Array.from(files)) {
       const { data, error } = await uploadMoodboardImage(file, page);
       if (!error && data) setItems(prev => [...prev, data]);
+      else if (error) errors.push(error.message || 'Fehler beim Hochladen.');
     }
     setUploading(false);
     if (fileRef.current) fileRef.current.value = '';
+    if (errors.length) alert(errors.join('\n'));
   }
 
   async function handleAddLink(e) {
