@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { loadState, defaultWedding, defaultTimeline } from '../data/store';
 import { submitRSVP, uploadPhoto, submitScheduleRequest, submitMusicWish, getGuestPageData, upsertRegistryItem, verifyGuestCode } from '../lib/db';
+import { checkRateLimit } from '../lib/rateLimit';
 import {
   IconCalendar, IconMapPin, IconMusic, IconGift, IconShirt,
   IconChevronDown, IconCheck, IconArrowRight, IconHeart, IconPlus, IconUpload, IconLock
@@ -62,6 +63,9 @@ export default function GuestPage() {
   const [reservedItems, setReservedItems] = useState([]);
   const [reservingId, setReservingId] = useState(null);
   const [scheduleForm, setScheduleForm] = useState({ name: '', slotId: '', type: '', description: '', duration: '' });
+  const [scheduleError, setScheduleError] = useState('');
+  const [musicError, setMusicError] = useState('');
+  const [uploadErrorMsg, setUploadErrorMsg] = useState('');
   const [inviteCode, setInviteCode] = useState('');
   const [codeError, setCodeError] = useState('');
   const [codeChecking, setCodeChecking] = useState(false);
@@ -133,6 +137,12 @@ export default function GuestPage() {
     // Code nur erzwingen, wenn das Paar "Einladungscode erforderlich" aktiviert hat.
     if (config?.requireCode && !codeVerified) {
       setCodeError('Bitte zuerst euren Einladungscode bestätigen.');
+      return;
+    }
+    // Rate-Limit: verhindert Flooding des öffentlichen RSVP-Formulars.
+    const allowed = await checkRateLimit('rsvp');
+    if (!allowed) {
+      setCodeError('Zu viele Anfragen von deinem Netzwerk — bitte versucht es in ein paar Minuten nochmal.');
       return;
     }
     const { error } = await submitRSVP({
@@ -478,6 +488,9 @@ export default function GuestPage() {
                     style={{ width: '100%', justifyContent: 'center', marginTop: 4 }}
                     onClick={async () => {
                       if (!scheduleForm.name.trim()) return;
+                      setScheduleError('');
+                      const allowed = await checkRateLimit('schedule');
+                      if (!allowed) { setScheduleError('Zu viele Anfragen — bitte versucht es in ein paar Minuten nochmal.'); return; }
                       const slot = (config?.scheduleSlots||[]).find(s => s.id === scheduleForm.slotId);
                       await submitScheduleRequest({
                         name: scheduleForm.name,
@@ -493,6 +506,7 @@ export default function GuestPage() {
                   >
                     Anfrage senden 🎊
                   </button>
+                  {scheduleError && <div style={{ fontSize: 12, color: '#E57373', marginTop: 10, textAlign: 'center' }}>{scheduleError}</div>}
                 </div>
               </div>
             )}
@@ -617,12 +631,16 @@ export default function GuestPage() {
                   <button className="btn btn-primary" style={{ flex: 1, justifyContent: 'center' }} onClick={async () => {
                     const validSongs = songs.filter(s => s.title.trim());
                     if (!validSongs.length) return;
+                    setMusicError('');
+                    const allowed = await checkRateLimit('music');
+                    if (!allowed) { setMusicError('Zu viele Anfragen — bitte versucht es in ein paar Minuten nochmal.'); return; }
                     const { error } = await submitMusicWish({ sender_name: senderName, songs: validSongs, userId: wedding?.user_id || '' });
                     if (!error) setSongSent(true);
                   }}>
                     Absenden <IconMusic size={14} stroke={1.5} />
                   </button>
                 </div>
+                {musicError && <div style={{ fontSize: 12, color: '#E57373', marginTop: 10, textAlign: 'center' }}>{musicError}</div>}
               </div>
             )}
           </div>
@@ -677,8 +695,8 @@ export default function GuestPage() {
                 <div style={{ textAlign: 'center', padding: '24px 0' }}>
                   <div style={{ fontSize: 36, marginBottom: 10 }}>😕</div>
                   <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 20, color: 'var(--espresso)' }}>Leider hat das nicht geklappt</div>
-                  <div style={{ fontSize: 13, color: 'var(--mocha)', marginTop: 6, marginBottom: 16 }}>Bitte prüft, ob es sich um Bilddateien handelt, und versucht es nochmal.</div>
-                  <button className="btn btn-secondary btn-sm" onClick={() => setUploadDone(false)}>Nochmal versuchen</button>
+                  <div style={{ fontSize: 13, color: 'var(--mocha)', marginTop: 6, marginBottom: 16 }}>{uploadErrorMsg || 'Bitte prüft, ob es sich um Bilddateien handelt, und versucht es nochmal.'}</div>
+                  <button className="btn btn-secondary btn-sm" onClick={() => { setUploadDone(false); setUploadErrorMsg(''); }}>Nochmal versuchen</button>
                 </div>
               ) : uploadDone === true ? (
                 <div style={{ textAlign: 'center', padding: '24px 0' }}>
@@ -710,6 +728,13 @@ export default function GuestPage() {
                     onClick={async () => {
                     if (!uploads.length) return;
                     setUploadDone('uploading');
+                    setUploadErrorMsg('');
+                    const allowed = await checkRateLimit('photo');
+                    if (!allowed) {
+                      setUploadErrorMsg('Zu viele Uploads von deinem Netzwerk — bitte versucht es in ein paar Minuten nochmal.');
+                      setUploadDone('error');
+                      return;
+                    }
                     let success = true;
                     for (const file of uploads) {
                       const { error } = await uploadPhoto(file, uploadName || 'Gast', 'guest');
