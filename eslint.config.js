@@ -18,4 +18,13 @@ export default defineConfig([
       parserOptions: { ecmaFeatures: { jsx: true } },
     },
   },
+  // Netlify Functions laufen serverseitig in Node, nicht im Browser — process,
+  // Buffer & Co. sind hier gültige Globals. Ohne diesen Block meldet ESLint
+  // fälschlich "process is not defined" für jede Function-Datei.
+  {
+    files: ['netlify/functions/**/*.js'],
+    languageOptions: {
+      globals: { ...globals.browser, ...globals.node },
+    },
+  },
 ])
