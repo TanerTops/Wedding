@@ -54,18 +54,12 @@ export default function GuestPageSettings() {
   const [copied, setCopied] = useState(false);
   const [activeTab, setActiveTab] = useState('sections');
 
-  function buildShareUrl() {
-    const tl  = loadState('timeline', []);
-    const reg = loadState('registry', []);
-    const memories = loadState('memories', []).filter(p => p.approved);
-    const memCats  = loadState('memoryCategories', []);
-    const payload  = { wedding, config, timeline: tl, registry: reg, memories, memoryCategories: memCats };
-    try {
-      const b64 = btoa(encodeURIComponent(JSON.stringify(payload)));
-      return `${window.location.origin}/guest/${makeSlug(wedding)}#data=${b64}`;
-    } catch { return `${window.location.origin}/guest/${makeSlug(wedding)}`; }
-  }
-  const guestUrl = buildShareUrl();
+  // Sicherheits-Fix: früher enthielt der geteilte Link die komplette
+  // Gästeliste + RSVP-Stände Base64-kodiert direkt in der URL (#data=...).
+  // Die Seite hat dieses Hash-Fragment nie ausgelesen (die Daten kamen immer
+  // ohnehin server-seitig über den Slug) — der Link war also nur ein
+  // unnötiges Datenleck ohne jeden Nutzen. Jetzt wird überall nur noch der
+  // saubere Link ohne eingebettete Daten verwendet.
   const cleanGuestUrl = `${window.location.origin}/guest/${makeSlug(wedding)}`;
   const memoriesUrl = `${window.location.origin}/memories/${makeSlug(wedding)}`;
 
@@ -78,7 +72,7 @@ export default function GuestPageSettings() {
     setSaved(true); setTimeout(() => setSaved(false), 2000);
   }
   function copyLink() {
-    navigator.clipboard.writeText(guestUrl);
+    navigator.clipboard.writeText(cleanGuestUrl);
     setCopied(true); setTimeout(() => setCopied(false), 2000);
   }
 
@@ -112,7 +106,7 @@ export default function GuestPageSettings() {
           <div className="topbar-sub">{activeCount} Bereiche aktiv</div>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
-          <a href={guestUrl} target="_blank" rel="noopener" className="btn btn-secondary btn-sm">
+          <a href={cleanGuestUrl} target="_blank" rel="noopener" className="btn btn-secondary btn-sm">
             <IconExternalLink size={14} stroke={1.5} /> Vorschau
           </a>
           <button className="btn btn-secondary btn-sm" onClick={async () => {
@@ -141,12 +135,12 @@ export default function GuestPageSettings() {
             <button className="btn btn-secondary btn-sm" onClick={copyLink} style={{ flexShrink: 0 }}>
               {copied ? <><IconCheck size={13} stroke={2} /> Kopiert!</> : <><IconCopy size={13} stroke={1.5} /> Kopieren</>}
             </button>
-            <a href={guestUrl} target="_blank" rel="noopener" className="btn btn-primary btn-sm" style={{ flexShrink: 0 }}>
+            <a href={cleanGuestUrl} target="_blank" rel="noopener" className="btn btn-primary btn-sm" style={{ flexShrink: 0 }}>
               <IconExternalLink size={13} stroke={1.5} /> Öffnen
             </a>
           </div>
           <div style={{ fontSize: 11, color: 'var(--mocha)', marginTop: 8 }}>
-            ℹ️ Der Link enthält alle Daten — Gäste sehen die Seite auch auf anderen Geräten korrekt.
+            ℹ️ Der Link funktioniert auf jedem Gerät — Daten werden direkt beim Öffnen sicher geladen.
           </div>
         </div>
 
@@ -361,7 +355,7 @@ export default function GuestPageSettings() {
 
         {/* Save button at bottom */}
         <div style={{ marginTop: 20, display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-          <a href={guestUrl} target="_blank" rel="noopener" className="btn btn-secondary">
+          <a href={cleanGuestUrl} target="_blank" rel="noopener" className="btn btn-secondary">
             <IconExternalLink size={14} stroke={1.5} /> Gästeseite öffnen
           </a>
           <button className="btn btn-primary" onClick={saveConfig}>
