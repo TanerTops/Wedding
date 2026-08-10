@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { IconPlus, IconTrash, IconX, IconUsers, IconCheck, IconClock, IconMapPin, IconCamera, IconGripVertical } from '@tabler/icons-react';
+import { IconPlus, IconTrash, IconUsers, IconCheck, IconClock, IconMapPin, IconGripVertical } from '@tabler/icons-react';
 import { DndContext, closestCenter, PointerSensor, TouchSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
