@@ -1,3 +1,17 @@
+// ── Freemium / Vollversion (Monetarisierung) ──────────────────────
+// Gratis nutzbar: Übersicht, Gäste, Fotoplanung, Einstellungen, und
+// Budget (nur der Budgetrechner-Tab). Alles andere ist Teil der
+// Vollversion und wird über UpgradeGate / RequireAccess gesperrt.
+//
+// STRIPE_PAYMENT_LINK: Nach dem Anlegen eures Payment Links in Stripe
+// (siehe ANLEITUNG.md) hier die echte URL eintragen.
+export const STRIPE_PAYMENT_LINK = 'https://buy.stripe.com/REPLACE_ME';
+export const FULL_ACCESS_PRICE = 150;
+
+export function hasFullAccess(wedding) {
+  return !!(wedding && wedding.purchased);
+}
+
 // Catalog of pages that can be shown as a "Schnellaktion" (quick action)
 // shortcut tile on the dashboard. iconName refers to a @tabler/icons-react
 // export — resolved via ICON_MAP where it's used (Dashboard.jsx, Settings.jsx).
