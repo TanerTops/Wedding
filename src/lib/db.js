@@ -85,7 +85,7 @@ export async function initializeUser(customWedding = null) {
 
   if (profile?.initialized) return;
 
-  console.log('[Vince] First login — initializing with template data...');
+  console.log('[WeddingBuddy] First login — initializing with template data...');
 
   const pendingWedding = (() => {
     try { const d = localStorage.getItem('vince_pending_wedding'); return d ? JSON.parse(d) : null; } catch { return null; }
@@ -135,7 +135,7 @@ export async function initializeUser(customWedding = null) {
       })));
     }
   }
-  console.log('[Vince] Initialization complete');
+  console.log('[WeddingBuddy] Initialization complete');
 }
 
 // ── Wedding ──────────────────────────────────────────────────────
@@ -633,7 +633,7 @@ export async function syncLocalToSupabase() {
       vendor: e.vendor || false, user_id: userId,
     })));
   }
-  console.log('[Vince] Sync complete');
+  console.log('[WeddingBuddy] Sync complete');
 }
 
 // ── Account deletion ─────────────────────────────────────────────
