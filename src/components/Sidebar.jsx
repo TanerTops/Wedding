@@ -49,14 +49,13 @@ export default function Sidebar({ onLogout }) {
   return (
     <aside className="sidebar">
       <div className="sidebar-logo">
-        <img src="/logo-mark.png" alt="Wedding Buddy" style={{ width: 40, height: 40, display: 'block', margin: '0 auto 6px' }} />
         <h2>Wedding Buddy</h2>
         <p>Hochzeitsplaner</p>
         <div className="divider" />
       </div>
 
       <div className="wedding-card">
-        <div className="emoji">🌿</div>
+        <img src="/logo-mark.png" alt="Wedding Buddy" style={{ width: 28, height: 28, display: 'block', margin: '0 auto 6px' }} />
         <div className="couple">{wedding.bride} & {wedding.groom}</div>
         <div className="wdate">{new Date(wedding.date).toLocaleDateString('de-DE', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
         <div className="countdown">{days > 0 ? `${days} Tage noch 🌸` : '🎉 Heute!'}</div>
