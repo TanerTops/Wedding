@@ -1,7 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
-import { IconPlus, IconTrash, IconEdit, IconX, IconDownload, IconAlertCircle, IconClock } from '@tabler/icons-react';
+import { IconPlus, IconTrash, IconEdit, IconX, IconDownload, IconAlertCircle, IconClock, IconLock } from '@tabler/icons-react';
 import { getBudgetItems, upsertBudgetItem, deleteBudgetItem, getWedding, saveWedding } from '../lib/db';
-import { loadState, saveState, defaultBudgetItems, defaultBudgetCategories, defaultWedding } from '../data/store';
+import { loadState, saveState, defaultBudgetItems, defaultBudgetCategories, defaultWedding, hasFullAccess } from '../data/store';
+import UpgradeGate from '../components/UpgradeGate';
 
 const fEU = n => Number(n).toLocaleString('de-DE') + ' €';
 const fDE = d => { try { return new Date(d).toLocaleDateString('de-DE', { day:'numeric', month:'long', year:'numeric' }); } catch { return d; }};
@@ -57,9 +58,15 @@ export default function Budget() {
       if (data) setItems(data.map(i => ({ ...i, desc: i.description || i.desc })));
     });
     getWedding().then(({ data }) => {
-      if (data) setWedding(data);
+      if (data) {
+        setWedding(data);
+        // Freemium: nur der Budgetrechner ist frei nutzbar
+        if (!hasFullAccess(data)) setTab('calculator');
+      }
     });
   }, []);
+
+  const purchased = hasFullAccess(wedding);
 
   function saveItems(u) { setItems(u); saveState('budgetItems', u); }
   function saveCats(u)  { setCats(u);  saveState('budgetCategories', u); }
@@ -276,13 +283,19 @@ export default function Budget() {
 
         {/* ── Tabs ── */}
         <div className="tabs" style={{marginBottom:18}}>
-          {TABS.map(t=>(
-            <button key={t.id} className={`tab${tab===t.id?' active':''}`} onClick={()=>setTab(t.id)}>{t.label}</button>
-          ))}
+          {TABS.map(t=>{
+            const locked = !purchased && t.id !== 'calculator';
+            return (
+              <button key={t.id} className={`tab${tab===t.id?' active':''}`} onClick={()=>setTab(t.id)}>
+                {t.label}{locked && <IconLock size={10} stroke={2} style={{ marginLeft: 4, verticalAlign: -1 }} />}
+              </button>
+            );
+          })}
         </div>
 
         {/* ── OVERVIEW TAB ── */}
         {tab==='overview' && (
+          !purchased ? <UpgradeGate feature="Budget-Übersicht" wedding={wedding} compact /> :
           <>
             {/* Big progress bar */}
             <div className="card" style={{marginBottom:16}}>
@@ -323,6 +336,7 @@ export default function Budget() {
 
         {/* ── EXPENSES TAB ── */}
         {tab==='expenses' && (
+          !purchased ? <UpgradeGate feature="Ausgaben" wedding={wedding} compact /> :
           <div className="card" style={{padding:0,overflow:'hidden'}}>
             <div style={{padding:'10px 16px',background:'var(--warm)',borderBottom:'1px solid var(--sand)',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
               <span style={{fontSize:13,fontWeight:600,color:'var(--espresso)'}}>{fEU(totalSpent)} bezahlt von {fEU(totalCom)}</span>
@@ -398,6 +412,7 @@ export default function Budget() {
 
         {/* ── CATEGORIES TAB ── */}
         {tab==='categories' && (
+          !purchased ? <UpgradeGate feature="Budget-Kategorien" wedding={wedding} compact /> :
           <>
             <div style={{display:'flex',justifyContent:'flex-end',marginBottom:14}}>
               <button className="btn btn-secondary btn-sm" onClick={()=>setCatModal(true)}>
