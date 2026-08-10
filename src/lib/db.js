@@ -250,6 +250,9 @@ export async function submitRSVP(rsvpData) {
     saveState('rsvp_responses', [...rsvps, { ...rsvpData, id: Date.now(), submitted_at: new Date().toISOString() }]);
     return { error: null };
   }
+  // user_id kommt vom slug-aufgelösten Wedding-Datensatz (public Guest Page kennt
+  // keine Session) — Pflicht, damit RSVPs sauber pro Hochzeit getrennt bleiben und
+  // nicht plattformweit vermischt werden (Sicherheits-Fix, siehe getRSVPs unten).
   const { error } = await supabase.from('rsvp_responses').insert({
     name:         rsvpData.name,
     email:        rsvpData.email,
@@ -259,26 +262,43 @@ export async function submitRSVP(rsvpData) {
     companions:   rsvpData.companions || '',
     message:      rsvpData.message,
     submitted_at: new Date().toISOString(),
+    user_id:      rsvpData.userId || null,
   });
 
-  if (!error && rsvpData.inviteCode) {
+  if (!error && rsvpData.inviteCode && rsvpData.userId) {
     const { data: guests } = await supabase
       .from('guests')
       .select('id')
-      .eq('invite_code', rsvpData.inviteCode.toUpperCase());
+      .eq('invite_code', rsvpData.inviteCode.toUpperCase())
+      .eq('user_id', rsvpData.userId);
     if (guests && guests.length > 0) {
       await supabase.from('guests').update({
         status: rsvpData.attending === 'yes' ? 'confirmed' : 'declined',
         menu:   rsvpData.menu || '',
-      }).eq('invite_code', rsvpData.inviteCode.toUpperCase());
+      }).eq('invite_code', rsvpData.inviteCode.toUpperCase()).eq('user_id', rsvpData.userId);
     }
   }
   return { error };
 }
 
+// Serverseitige Prüfung eines Einladungscodes — gibt NUR Name + Menü des einen
+// passenden Gasts zurück, nie die komplette Gästeliste (Sicherheits-Fix).
+export async function verifyGuestCode(userId, code) {
+  const cleanCode = (code || '').trim().toUpperCase();
+  if (!cleanCode) return { data: null, error: null };
+  if (!hasSupabase()) {
+    const guests = loadState('guests', []);
+    const match = guests.find(g => (g.inviteCode || g.invite_code || '').toUpperCase() === cleanCode);
+    return { data: match ? { name: match.name, menu: match.menu || '' } : null, error: null };
+  }
+  const { data, error } = await supabase.rpc('verify_guest_code', { p_user_id: userId, p_code: cleanCode });
+  return { data: (data && data[0]) || null, error };
+}
+
 export async function getRSVPs() {
   if (!hasSupabase()) return { data: loadState('rsvp_responses', []), error: null };
-  const { data, error } = await supabase.from('rsvp_responses').select('*').order('submitted_at', { ascending: false });
+  const userId = await getUserId();
+  const { data, error } = await supabase.from('rsvp_responses').select('*').eq('user_id', userId).order('submitted_at', { ascending: false });
   return { data: data || [], error };
 }
 
@@ -457,29 +477,26 @@ export async function getGuestPageData(slug) {
     };
   }
 
-  const { data: weddings } = await supabase.from('weddings').select('*');
+  // Sicherheits-Fix: früher wurde die KOMPLETTE weddings-Tabelle (alle Paare,
+  // inkl. Budget/Notizen) ungefiltert an jeden Besucher der Gästeseite
+  // geschickt, nur um die eine passende Hochzeit per Slug zu finden. Jetzt
+  // übernimmt eine serverseitige Funktion (SECURITY DEFINER) die Auflösung
+  // und gibt nur die öffentlich nötigen Felder der EINEN passenden Hochzeit
+  // zurück — kein Budget, keine Notizen, kein Kaufstatus, keine anderen Paare.
   let wedding = null;
-  if (weddings && slug) {
-    const clean = s => s.toLowerCase().replace(/ä/g,'ae').replace(/ö/g,'oe').replace(/ü/g,'ue').replace(/ß/g,'ss').replace(/[^a-z0-9]/g,'-').replace(/-+/g,'-').replace(/^-|-$/g,'');
-    wedding = weddings.find(w => `${clean(w.bride)}-${clean(w.groom)}` === slug);
+  if (slug) {
+    const { data } = await supabase.rpc('find_wedding_by_slug', { p_slug: slug });
+    wedding = (data && data[0]) || null;
   }
-  if (!wedding && weddings?.length > 0) wedding = weddings[0];
   const userId = wedding?.user_id;
 
-  const [config, timeline, guests] = await Promise.all([
+  const [config, timeline] = await Promise.all([
     userId ? supabase.from('guest_page_config').select('config').eq('user_id', userId).limit(1).single() : Promise.resolve({ data: null }),
     userId ? supabase.from('timeline').select('*').eq('user_id', userId).order('time') : Promise.resolve({ data: [] }),
-    userId ? supabase.from('guests').select('id, name, invite_code, menu, status, is_companion, parent_id').eq('user_id', userId) : Promise.resolve({ data: [] }),
   ]);
 
   const timelineData  = (timeline.data?.length > 0) ? timeline.data.map(e => ({ ...e, endTime: e.end_time, desc: e.description })) : loadState('timeline', []);
   const mergedConfig  = config.data?.config || loadState('guestPageConfig', {});
-  const guestData     = (guests.data || []).map(g => ({
-    ...g,
-    inviteCode:   g.invite_code,
-    is_companion: g.is_companion === true,
-    parent_id:    g.parent_id || null,
-  }));
 
   return {
     data: {
@@ -487,7 +504,6 @@ export async function getGuestPageData(slug) {
       config:           mergedConfig,
       timeline:         timelineData,
       registry:         loadState('registry', []),
-      guests:           guestData,
     },
     error: null,
   };
@@ -506,13 +522,13 @@ export async function getMemoriesPageData(slug) {
     };
   }
 
-  const { data: weddings } = await supabase.from('weddings').select('*');
+  // Gleicher Sicherheits-Fix wie in getGuestPageData: Auflösung per RPC statt
+  // ungefilterter Abfrage der kompletten weddings-Tabelle.
   let wedding = null;
-  if (weddings && slug) {
-    const clean = s => s.toLowerCase().replace(/ä/g,'ae').replace(/ö/g,'oe').replace(/ü/g,'ue').replace(/ß/g,'ss').replace(/[^a-z0-9]/g,'-').replace(/-+/g,'-').replace(/^-|-$/g,'');
-    wedding = weddings.find(w => `${clean(w.bride)}-${clean(w.groom)}` === slug);
+  if (slug) {
+    const { data } = await supabase.rpc('find_wedding_by_slug', { p_slug: slug });
+    wedding = (data && data[0]) || null;
   }
-  if (!wedding && weddings?.length > 0) wedding = weddings[0];
   const userId = wedding?.user_id;
 
   const { data: photos } = userId
