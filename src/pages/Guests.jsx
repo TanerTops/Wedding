@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { IconPlus, IconTrash, IconEdit, IconX, IconSearch, IconCheck, IconBell, IconKey, IconCopy, IconChevronDown, IconChevronRight, IconUserPlus } from '@tabler/icons-react';
-import { loadState, saveState, defaultGuests, makeInviteCode, makeSlug } from '../data/store';
+import { IconPlus, IconTrash, IconEdit, IconX, IconSearch, IconCheck, IconKey, IconCopy, IconChevronDown, IconChevronRight, IconUserPlus } from '@tabler/icons-react';
+import { loadState, saveState, makeInviteCode, makeSlug } from '../data/store';
 import { getRSVPs, upsertGuest, deleteGuest as dbDeleteGuest, getGuests } from '../lib/db';
 
 const GROUPS = ['Familie Braut', 'Familie Bräutigam', 'Freunde', 'Arbeit', 'Dienstleister', 'Sonstige'];
@@ -303,7 +303,7 @@ export default function Guests() {
                         </tr>
 
                         {/* Companion rows — shown when expanded */}
-                        {isOpen && comps.map((c, ci) => (
+                        {isOpen && comps.map((c) => (
                           <tr key={c.id} style={{ background:'#FAF7F2' }}>
                             <td></td>
                             <td>
