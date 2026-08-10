@@ -9,22 +9,32 @@ import {
 import { loadState, defaultWedding, makeSlug, hasFullAccess } from '../data/store';
 import { getWedding, getTasks } from '../lib/db';
 
-const NAV = [
-  { to: '/', icon: IconLayoutDashboard, label: 'Übersicht' },
-  { to: '/guests', icon: IconUsers, label: 'Gäste' },
-  { to: '/budget', icon: IconWallet, label: 'Budget' },
-  { to: '/vendors', icon: IconBuildingStore, label: 'Dienstleister', premium: true },
-  { to: '/tasks', icon: IconCheckbox, label: 'Aufgaben', premium: true },
-  { to: '/timeline', icon: IconClock, label: 'Zeitplan', premium: true },
-  { to: '/seating', icon: IconLayoutColumns, label: 'Sitzordnung', premium: true },
-  { to: '/venue', icon: IconMapPin, label: 'Location', premium: true },
-  { to: '/music', icon: IconMusic, label: 'Musik', premium: true },
-  { to: '/registry', icon: IconGift, label: 'Geschenke', premium: true },
-  { to: '/notes', icon: IconNotes, label: 'Notizen', premium: true },
-  { to: '/guest-page', icon: IconWorldWww, label: 'Gästeseite', premium: true },
-  { to: '/memories', icon: IconPhoto, label: 'Erinnerungen', premium: true },
-  { to: '/photos', icon: IconCamera, label: 'Fotoplanung' },
-  { to: '/settings', icon: IconSettings, label: 'Einstellungen' },
+// In Gruppen aufgeteilt statt einer flachen 14-Punkte-Liste — leichter zu
+// scannen. Übersicht bleibt bewusst ohne Gruppen-Header ganz oben.
+const NAV_GROUPS = [
+  { group: null, items: [
+    { to: '/', icon: IconLayoutDashboard, label: 'Übersicht' },
+  ] },
+  { group: 'Planung', items: [
+    { to: '/guests', icon: IconUsers, label: 'Gäste' },
+    { to: '/budget', icon: IconWallet, label: 'Budget' },
+    { to: '/vendors', icon: IconBuildingStore, label: 'Dienstleister', premium: true },
+    { to: '/tasks', icon: IconCheckbox, label: 'Aufgaben', premium: true },
+    { to: '/timeline', icon: IconClock, label: 'Zeitplan', premium: true },
+    { to: '/seating', icon: IconLayoutColumns, label: 'Sitzordnung', premium: true },
+    { to: '/venue', icon: IconMapPin, label: 'Location', premium: true },
+  ] },
+  { group: 'Gästeseite', items: [
+    { to: '/guest-page', icon: IconWorldWww, label: 'Gästeseite', premium: true },
+    { to: '/music', icon: IconMusic, label: 'Musik', premium: true },
+    { to: '/registry', icon: IconGift, label: 'Geschenke', premium: true },
+    { to: '/memories', icon: IconPhoto, label: 'Erinnerungen', premium: true },
+  ] },
+  { group: 'Verwaltung', items: [
+    { to: '/notes', icon: IconNotes, label: 'Notizen', premium: true },
+    { to: '/photos', icon: IconCamera, label: 'Fotoplanung' },
+    { to: '/settings', icon: IconSettings, label: 'Einstellungen' },
+  ] },
 ];
 
 export default function Sidebar({ onLogout }) {
@@ -70,12 +80,21 @@ export default function Sidebar({ onLogout }) {
       </div>
 
       <nav className="sidebar-nav">
-        {NAV.map(({ to, icon: Icon, label, premium }) => (
-          <NavLink key={to} to={to} end={to === '/'} className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>
-            <Icon size={15} stroke={1.5} />
-            {label}
-            {premium && !purchased && <IconLock size={11} stroke={2} style={{ marginLeft: 'auto', color: 'var(--taupe)' }} />}
-          </NavLink>
+        {NAV_GROUPS.map((g, gi) => (
+          <div key={gi}>
+            {g.group && (
+              <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--mocha)', textTransform: 'uppercase', letterSpacing: '0.4px', padding: '10px 12px 4px' }}>
+                {g.group}
+              </div>
+            )}
+            {g.items.map(({ to, icon: Icon, label, premium }) => (
+              <NavLink key={to} to={to} end={to === '/'} className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>
+                <Icon size={15} stroke={1.5} />
+                {label}
+                {premium && !purchased && <IconLock size={11} stroke={2} style={{ marginLeft: 'auto', color: 'var(--taupe)' }} />}
+              </NavLink>
+            ))}
+          </div>
         ))}
         <a href={guestUrl} target="_blank" rel="noopener noreferrer" className="nav-item"
           style={{ marginTop: 8, borderTop: '1px solid var(--sand)', paddingTop: 12, color: 'var(--terra)' }}>
