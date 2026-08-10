@@ -55,8 +55,6 @@ export default function Auth({ onAuth }) {
     } finally { setLoading(false); }
   }
 
-  const inputStyle = { marginBottom: 0 };
-
   return (
     <div style={{
       minHeight: '100vh',
