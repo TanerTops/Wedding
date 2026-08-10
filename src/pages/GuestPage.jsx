@@ -14,10 +14,12 @@ const defaultConfig = {
   heroSubtitle: 'Wir freuen uns, mit euch zu feiern.',
   heroImageUrl: '',
   heroImagePosition: 'center',
-  sections: { rsvp: true, timeline: true, location: true, dresscode: true, music: true, registry: true },
+  sections: { rsvp: true, timeline: true, location: true, dresscode: true, music: true, registry: true, info: true },
   dresscodeStyle: 'Elegant & Boho',
   dresscodeText: 'Wir wünschen uns elegante Kleidung in warmen Erdtönen. Da wir auch im Freien feiern, gerne mit bequemen Schuhen.',
   dresscodeColors: ['#C4956A','#C4B5A5','#A8B5A0','#D4C4A8','#B8A9C9'],
+  generalInfoTitle: 'Gut zu wissen',
+  generalInfoText: '',
   rsvpDeadlineOffset: 30,
 };
 
@@ -34,6 +36,7 @@ const SECTION_NAV = [
   { id: 'rsvp', label: 'RSVP' },
   { id: 'timeline', label: 'Ablauf' },
   { id: 'location', label: 'Location' },
+  { id: 'info', label: 'Infos' },
   { id: 'dresscode', label: 'Dresscode' },
   { id: 'music', label: 'Musik' },
   { id: 'registry', label: 'Geschenke' },
@@ -514,6 +517,18 @@ export default function GuestPage() {
                   </div>
                 )}
               </div>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* GENERAL INFO */}
+      {config?.sections?.['info'] !== false && config?.generalInfoText && (
+        <section id="info" style={{ background: '#fff' }}>
+          <div className="guest-section">
+            <SectionHeader title={config?.generalInfoTitle || 'Gut zu wissen'} sub="Alles Wichtige auf einen Blick" />
+            <div className="card" style={{ maxWidth: 640, margin: '0 auto', padding: '32px 36px' }}>
+              <p style={{ fontSize: 14.5, color: 'var(--espresso)', lineHeight: 1.9, whiteSpace: 'pre-wrap', margin: 0 }}>{config.generalInfoText}</p>
             </div>
           </div>
         </section>
