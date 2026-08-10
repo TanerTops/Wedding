@@ -69,7 +69,8 @@ export default function Auth({ onAuth }) {
 
       <div style={{ width: '100%', maxWidth: 460, position: 'relative', zIndex: 1 }}>
         <div style={{ textAlign: 'center', marginBottom: 28 }}>
-          <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 44, fontStyle: 'italic', color: 'var(--espresso)', lineHeight: 1 }}>Vince</div>
+          <img src="/logo-mark.png" alt="Wedding Buddy" style={{ width: 56, height: 56, display: 'block', margin: '0 auto 10px' }} />
+          <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 44, fontStyle: 'italic', color: 'var(--espresso)', lineHeight: 1 }}>Wedding Buddy</div>
           <div style={{ fontSize: 13, color: 'var(--mocha)', marginTop: 6, letterSpacing: 1 }}>Hochzeitsplaner</div>
         </div>
 
