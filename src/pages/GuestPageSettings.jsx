@@ -13,11 +13,13 @@ const defaultConfig = {
   heroImageUrl: '', heroImagePosition: 'center',
   sections: {
     rsvp: true, timeline: true, location: true, dresscode: true,
-    music: true, registry: true, memories: true, schedule: true,
+    music: true, registry: true, memories: true, schedule: true, info: true,
   },
   dresscodeStyle: 'Elegant & Boho',
   dresscodeText: 'Wir wünschen uns elegante Kleidung in warmen Erdtönen. Da wir auch im Freien feiern, gerne mit bequemen Schuhen.',
   dresscodeColors: ['#C4956A', '#C4B5A5', '#A8B5A0', '#D4C4A8', '#B8A9C9'],
+  generalInfoTitle: 'Gut zu wissen',
+  generalInfoText: '',
   rsvpDeadlineOffset: 30,
   scheduleTitle: 'Programmwünsche',
   scheduleSubtitle: 'Habt ihr eine Rede, einen Auftritt oder eine Überraschung geplant? Meldet euch hier!',
@@ -33,6 +35,7 @@ const SECTIONS_META = [
   { id: 'timeline',  label: 'Tagesablauf',            sub: 'Ablauf des Tages' },
   { id: 'location',  label: 'Location & Anfahrt',     sub: 'Adresse & Karte' },
   { id: 'dresscode', label: 'Dresscode',              sub: 'Kleidungsempfehlung' },
+  { id: 'info',      label: 'Allgemeine Infos',       sub: 'Freitext für Gäste' },
   { id: 'schedule',  label: 'Programmwünsche',        sub: 'Zeitslots anfragen' },
   { id: 'music',     label: 'Musikwünsche',           sub: 'Songs vorschlagen' },
   { id: 'registry',  label: 'Geschenkeliste',         sub: 'Wunschliste' },
@@ -98,6 +101,7 @@ export default function GuestPageSettings() {
     { id: 'hero',     label: 'Hero' },
     { id: 'schedule', label: 'Programm' },
     { id: 'dresscode',label: 'Dresscode' },
+    { id: 'info',     label: 'Infos' },
   ];
 
   return (
@@ -333,6 +337,24 @@ export default function GuestPageSettings() {
                   <div key={i} title={col} style={{ width: 34, height: 34, borderRadius: '50%', background: col, border: '2px solid var(--sand)' }} />
                 ))}
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── ALLGEMEINE INFOS TAB ── */}
+        {activeTab === 'info' && (
+          <div className="card">
+            <div className="section-title" style={{ marginBottom: 14 }}>Allgemeine Infos</div>
+            <div style={{ fontSize: 12, color: 'var(--mocha)', marginBottom: 14 }}>
+              Freitext für alles, was Gäste sonst noch wissen sollten — z.B. Parkmöglichkeiten, Übernachtung, Anreise, Kinderbetreuung, Wetter-Hinweise.
+            </div>
+            <div className="form-group">
+              <label className="form-label">Überschrift</label>
+              <input className="input" value={config.generalInfoTitle || ''} onChange={e => update('generalInfoTitle', e.target.value)} placeholder="z.B. Gut zu wissen" />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Text</label>
+              <textarea className="input" rows={6} value={config.generalInfoText || ''} onChange={e => update('generalInfoText', e.target.value)} style={{ resize: 'vertical' }} placeholder="z.B. Parkplätze sind direkt vor der Location verfügbar. Die nächste Übernachtungsmöglichkeit ist das Hotel XY, 5 Gehminuten entfernt. Für Kinder gibt es eine Betreuung ab 15 Uhr..." />
             </div>
           </div>
         )}
