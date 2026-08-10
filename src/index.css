@@ -345,6 +345,12 @@ h1, h2, h3, h4 { font-family: 'Cormorant Garamond', serif; font-weight: 400; }
   }
 
   .page-body { padding: 14px 16px; }
+  /* Upsell-Banner ("kostenlose Version") auf Mobil ganz nach oben — vor das
+     Onboarding-Widget, das auf kleinen Screens sonst viel Platz einnimmt
+     und den Banner unter die Fold schiebt. Desktop-Reihenfolge bleibt
+     unverändert (page-body ist dort weiterhin normaler Block-Fluss). */
+  .page-body { display: flex; flex-direction: column; }
+  .upsell-banner { order: -1; }
   /* Space for the fixed notification bell (top:14 right:18) — was only
      reserved on desktop, so right-aligned topbar buttons on mobile sat
      underneath the bell. Pages with two buttons (Budget, Timeline, etc.)
