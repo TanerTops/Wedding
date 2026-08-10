@@ -1,7 +1,6 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
-import { IconPlus, IconTrash, IconX, IconRotateClockwise, IconCheck } from '@tabler/icons-react';
+import { useState, useRef } from 'react';
+import { IconPlus, IconTrash, IconX, IconCheck } from '@tabler/icons-react';
 import { loadState, saveState, defaultSeating, defaultGuests } from '../data/store';
-import { getGuests, saveSeating, getSeating } from '../lib/db';
 
 const AV_COLORS = ['#C4956A','#A8B5A0','#C4B5A5','#8B9E7A','#B8A9C9','#C9A884','#9B8EA0','#B5A88A'];
 const ini = n => {
@@ -25,7 +24,6 @@ const avc = id => AV_COLORS[hashId(id) % AV_COLORS.length];
 const CANVAS_W = 820, CANVAS_H = 540;
 const SEAT_R = 13;
 const BLOCKED_COLOR = '#EAE0D0';
-const PROXIMITY = 4;
 
 function deg2rad(d) { return d * Math.PI / 180; }
 
@@ -44,12 +42,6 @@ function getSeatPositionsLocal(shape, seats, rx, ry) {
       pos.push({ lx: r * Math.cos(a), ly: r * Math.sin(a), sideAngle: a });
     }
   } else {
-    const sides = [
-      { name: 'top',    normal: -Math.PI/2 },
-      { name: 'bottom', normal:  Math.PI/2 },
-      { name: 'left',   normal:  Math.PI   },
-      { name: 'right',  normal:  0         },
-    ];
     const perSide = [
       Math.round(seats * (rx / (2*(rx+ry)))),
       Math.round(seats * (rx / (2*(rx+ry)))),
@@ -95,44 +87,6 @@ function getWorldSeats(table) {
     const r = rotatePoint(s.lx, s.ly, rot);
     return { ...s, wx: table.x + r.x, wy: table.y + r.y, worldAngle: s.sideAngle + rot };
   });
-}
-
-function getTableCorners(table) {
-  const { rx, ry } = getTableDims(table.shape, table.seats);
-  const rot = deg2rad(table.rotation || 0);
-  const corners = [[-rx,-ry],[rx,-ry],[rx,ry],[-rx,ry]];
-  return corners.map(([lx,ly]) => {
-    const r = rotatePoint(lx, ly, rot);
-    return { x: table.x + r.x, y: table.y + r.y };
-  });
-}
-
-function projectOntoAxis(corners, ax, ay) {
-  const dots = corners.map(c => c.x * ax + c.y * ay);
-  return { min: Math.min(...dots), max: Math.max(...dots) };
-}
-
-function overlaps(a, b) { return a.max >= b.min && b.max >= a.min; }
-
-function getOBBSeparation(t1, t2) {
-  const corners1 = getTableCorners(t1);
-  const corners2 = getTableCorners(t2);
-  const rot1 = deg2rad(t1.rotation||0), rot2 = deg2rad(t2.rotation||0);
-  const axes = [
-    { ax: Math.cos(rot1),  ay: Math.sin(rot1)  },
-    { ax: -Math.sin(rot1), ay: Math.cos(rot1)  },
-    { ax: Math.cos(rot2),  ay: Math.sin(rot2)  },
-    { ax: -Math.sin(rot2), ay: Math.cos(rot2)  },
-  ];
-  let minSep = Infinity, minAxis = null;
-  for (const { ax, ay } of axes) {
-    const p1 = projectOntoAxis(corners1, ax, ay);
-    const p2 = projectOntoAxis(corners2, ax, ay);
-    if (!overlaps(p1, p2)) return { separated: true, gap: 0 };
-    const sep = Math.min(p1.max - p2.min, p2.max - p1.min);
-    if (sep < minSep) { minSep = sep; minAxis = { ax, ay }; }
-  }
-  return { separated: false, gap: -minSep, axis: minAxis };
 }
 
 function getBlockedSeats(tables) {
@@ -232,7 +186,7 @@ export default function Seating() {
       }))
     };
   });
-  const [guests, setGuests] = useState(() => loadState('guests', defaultGuests).filter(g => g.status === 'confirmed'));
+  const [guests] = useState(() => loadState('guests', defaultGuests).filter(g => g.status === 'confirmed'));
   const [panel, setPanel] = useState(null);
   const [editTable, setEditTable] = useState(null);
   const [draggingTable, setDraggingTable] = useState(null);
@@ -277,15 +231,6 @@ export default function Seating() {
     const pt = svg.createSVGPoint();
     pt.x = touch.clientX; pt.y = touch.clientY;
     return pt.matrixTransform(svg.getScreenCTM().inverse());
-  }
-
-  function onTableTouchStart(e, tableId) {
-    e.stopPropagation();
-    const touch = e.touches[0];
-    const p = getSVGPointFromTouch(touch);
-    const t = seating.tables.find(t => t.id === tableId);
-    setDraggingTable({ id: tableId, offX: p.x - t.x, offY: p.y - t.y });
-    setSelectedTable(tableId);
   }
 
   function onSvgTouchMove(e) {
@@ -963,7 +908,8 @@ function MobileSeating({ seating, guests, blockedSeats, invisibleSeats, seatOffs
   const [activeTableId, setActiveTableId] = useState(null);
   const [assignGuest, setAssignGuest] = useState('');
   // For inline seat count editing in tableMenu
-  const [editingSeatCount, setEditingSeatCount] = useState(false);
+  // Wert wird aktuell nirgends gelesen (kein UI-Zweig hängt daran) — Setter bleibt für spätere Nutzung
+  const [, setEditingSeatCount] = useState(false);
   const [seatCountInput, setSeatCountInput] = useState(8);
 
   const confirmedGuests = guests.filter(g => g.status === 'confirmed');
