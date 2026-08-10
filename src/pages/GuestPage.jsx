@@ -4,7 +4,7 @@ import { loadState, defaultWedding, defaultTimeline } from '../data/store';
 import { submitRSVP, uploadPhoto, submitScheduleRequest, submitMusicWish, getGuestPageData, upsertRegistryItem, verifyGuestCode } from '../lib/db';
 import { checkRateLimit } from '../lib/rateLimit';
 import {
-  IconCalendar, IconMapPin, IconMusic, IconGift, IconShirt,
+  IconCalendar, IconMapPin, IconMusic,
   IconChevronDown, IconCheck, IconArrowRight, IconHeart, IconPlus, IconUpload, IconLock
 } from '@tabler/icons-react';
 
@@ -22,15 +22,6 @@ const defaultConfig = {
   generalInfoTitle: 'Gut zu wissen',
   generalInfoText: '',
   rsvpDeadlineOffset: 30,
-};
-
-const TYPE_COLORS = {
-  ceremony: '#C4956A', photo: '#A8B5A0', reception: '#C9A884',
-  dinner: '#B5A88A', speech: '#B8A9C9', dance: '#C4B5A5', party: '#9B8EA0',
-};
-const TYPE_LABELS = {
-  ceremony: 'Zeremonie', photo: 'Fotos', reception: 'Empfang',
-  dinner: 'Dinner', speech: 'Reden', dance: 'Tanz', party: 'Party',
 };
 
 const SECTION_NAV = [
