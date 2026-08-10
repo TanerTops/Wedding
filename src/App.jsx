@@ -7,11 +7,12 @@ import {
 } from '@tabler/icons-react';
 import { useState, useEffect } from 'react';
 import { supabase } from './lib/supabase';
-import { initializeUser } from './lib/db';
-import { loadState } from './data/store';
+import { initializeUser, getWedding } from './lib/db';
+import { loadState, defaultWedding, hasFullAccess } from './data/store';
 import Sidebar from './components/Sidebar';
 import NotificationCenter from './components/NotificationCenter';
 import OnboardingWizard from './components/OnboardingWizard';
+import UpgradeGate from './components/UpgradeGate';
 import PhotographerPage from './pages/PhotographerPage';
 import Auth from './pages/Auth';
 import Dashboard from './pages/Dashboard';
@@ -157,23 +158,28 @@ export default function App() {
 
 function AdminLayout({ onLogout }) {
   const [error, setError]           = useState(null);
-  const [wedding, setWedding]       = useState(null);
+  const [wedding, setWedding]       = useState(() => loadState('wedding', defaultWedding));
   const [showWizard, setShowWizard] = useState(false);
+  const [accessChecked, setAccessChecked] = useState(false);
 
   useEffect(() => {
-    // Check if wizard has been completed
-    const done = loadState('onboardingWizardDone', false);
-    if (done) return;
-    // Load wedding to prefill wizard
-    import('./lib/db').then(({ getWedding }) => {
-      getWedding().then(({ data }) => {
-        setWedding(data);
-        // Show wizard only for fresh accounts (bride still template name or empty)
+    getWedding().then(({ data }) => {
+      if (data) setWedding(data);
+      setAccessChecked(true);
+      // Onboarding wizard: only for fresh accounts, only if not already dismissed
+      const done = loadState('onboardingWizardDone', false);
+      if (!done) {
         const isFresh = !data || !data.bride || data.bride === 'Sarah' || data.bride === '';
         if (isFresh) setShowWizard(true);
-      });
+      }
     });
   }, []);
+
+  const purchased = hasFullAccess(wedding);
+  const gate = (feature, element) => {
+    if (!accessChecked) return <div style={{ padding: 60, textAlign: 'center', color: 'var(--mocha)' }}>Wird geladen…</div>;
+    return purchased ? element : <UpgradeGate feature={feature} wedding={wedding} />;
+  };
 
   if (error) {
     return (
@@ -216,21 +222,23 @@ function AdminLayout({ onLogout }) {
 
       <main className="main-content">
         <Routes>
+          {/* Freemium: Übersicht, Gäste, Budget (nur Budgetrechner), Fotoplanung, Einstellungen */}
           <Route path="/"           element={<Dashboard />} />
           <Route path="/guests"     element={<Guests />} />
           <Route path="/budget"     element={<Budget />} />
-          <Route path="/vendors"    element={<Vendors />} />
-          <Route path="/tasks"      element={<Tasks />} />
-          <Route path="/timeline"   element={<Timeline />} />
-          <Route path="/seating"    element={<Seating />} />
-          <Route path="/venue"      element={<VenuePage />} />
-          <Route path="/music"      element={<MusicPage />} />
-          <Route path="/registry"   element={<RegistryPage />} />
-          <Route path="/notes"      element={<NotesPage />} />
-          <Route path="/guest-page" element={<GuestPageSettings />} />
-          <Route path="/memories"   element={<Memories />} />
           <Route path="/photos"     element={<Photos />} />
           <Route path="/settings"   element={<Settings />} />
+          {/* Vollversion — gesperrt ohne Kauf */}
+          <Route path="/vendors"    element={gate('Dienstleister', <Vendors />)} />
+          <Route path="/tasks"      element={gate('Aufgaben', <Tasks />)} />
+          <Route path="/timeline"   element={gate('Zeitplan', <Timeline />)} />
+          <Route path="/seating"    element={gate('Sitzordnung', <Seating />)} />
+          <Route path="/venue"      element={gate('Location', <VenuePage />)} />
+          <Route path="/music"      element={gate('Musik', <MusicPage />)} />
+          <Route path="/registry"   element={gate('Geschenke', <RegistryPage />)} />
+          <Route path="/notes"      element={gate('Notizen', <NotesPage />)} />
+          <Route path="/guest-page" element={gate('Gästeseite', <GuestPageSettings />)} />
+          <Route path="/memories"   element={gate('Erinnerungen', <Memories />)} />
         </Routes>
         <MobileNav onLogout={onLogout} />
       </main>
