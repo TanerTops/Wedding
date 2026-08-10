@@ -1,56 +1,46 @@
-/**
- * imageUtils.js — Client-seitige Bildkomprimierung + Validierung vor dem
- * Upload. Verhindert, dass unkomprimierte Handyfotos (oft 3–8 MB) das
- * Supabase-Storage-Kontingent unnötig belasten. Nutzt nur die Browser-
- * eigene Canvas-API, keine zusätzliche Abhängigkeit nötig.
- */
+import { describe, it, expect } from 'vitest';
+import { validateImageFile } from './imageUtils';
 
-const MAX_DIMENSION = 1920;
-const JPEG_QUALITY = 0.8;
-const SKIP_BELOW_BYTES = 400 * 1024; // Kleine Dateien nicht anfassen
-
-/**
- * Prüft Dateityp und Maximalgröße vor dem Upload. Gibt eine Fehlermeldung
- * (string) zurück, oder null wenn alles ok ist.
- */
-export function validateImageFile(file, maxSizeMB = 20) {
-  if (!file) return 'Keine Datei ausgewählt.';
-  if (!file.type || !file.type.startsWith('image/')) return 'Bitte nur Bilddateien hochladen.';
-  if (file.size > maxSizeMB * 1024 * 1024) return `Datei ist zu groß (max. ${maxSizeMB} MB).`;
-  return null;
+// Kern-Smoke-Test für "Foto-Upload" (Checkliste Punkt 12). Diese Prüfung
+// läuft vor jedem Upload auf der öffentlichen Gästeseite — verhindert
+// falsche Dateitypen und zu große Dateien, bevor überhaupt zu Supabase
+// hochgeladen wird.
+function makeFakeFile({ type = 'image/jpeg', sizeBytes = 1024 } = {}) {
+  // jsdom/node haben kein echtes File mit variabler .size — ein einfaches
+  // Objekt mit denselben Feldern reicht für validateImageFile() aus, die
+  // nur .type und .size liest.
+  return { type, size: sizeBytes };
 }
 
-/**
- * Skaliert ein Bild auf max. `maxDimension` px (längste Kante) herunter und
- * komprimiert es als JPEG. Fällt bei jedem Fehler (z.B. Format ohne
- * Browser-Unterstützung) auf die Originaldatei zurück, statt den Upload
- * komplett scheitern zu lassen — das ist wichtiger als die Komprimierung
- * selbst, gerade bei Gästen auf einer Hochzeit.
- */
-export async function compressImage(file, { maxDimension = MAX_DIMENSION, quality = JPEG_QUALITY } = {}) {
-  if (!file || !file.type || !file.type.startsWith('image/') || file.type === 'image/svg+xml') return file;
-  if (file.size < SKIP_BELOW_BYTES) return file;
-  if (typeof createImageBitmap === 'undefined' || typeof document === 'undefined') return file;
+describe('validateImageFile', () => {
+  it('lehnt fehlende Datei ab', () => {
+    expect(validateImageFile(null)).toBe('Keine Datei ausgewählt.');
+    expect(validateImageFile(undefined)).toBe('Keine Datei ausgewählt.');
+  });
 
-  try {
-    const bitmap = await createImageBitmap(file);
-    const scale = Math.min(1, maxDimension / Math.max(bitmap.width, bitmap.height));
-    const w = Math.max(1, Math.round(bitmap.width * scale));
-    const h = Math.max(1, Math.round(bitmap.height * scale));
+  it('lehnt Nicht-Bild-Dateien ab', () => {
+    const file = makeFakeFile({ type: 'application/pdf' });
+    expect(validateImageFile(file)).toBe('Bitte nur Bilddateien hochladen.');
+  });
 
-    const canvas = document.createElement('canvas');
-    canvas.width = w;
-    canvas.height = h;
-    const ctx = canvas.getContext('2d');
-    ctx.drawImage(bitmap, 0, 0, w, h);
-    bitmap.close?.();
+  it('lehnt Dateien ohne erkennbaren Typ ab', () => {
+    const file = makeFakeFile({ type: '' });
+    expect(validateImageFile(file)).toBe('Bitte nur Bilddateien hochladen.');
+  });
 
-    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', quality));
-    if (!blob || blob.size >= file.size) return file; // Komprimierung hat nichts gebracht
+  it('lehnt zu große Dateien ab (Standard-Limit 20 MB)', () => {
+    const tooBig = makeFakeFile({ sizeBytes: 21 * 1024 * 1024 });
+    expect(validateImageFile(tooBig)).toMatch(/zu groß/);
+  });
 
-    const newName = file.name.replace(/\.[^.]+$/, '') + '.jpg';
-    return new File([blob], newName, { type: 'image/jpeg' });
-  } catch {
-    return file;
-  }
-}
+  it('akzeptiert ein normales Foto innerhalb des Limits', () => {
+    const normal = makeFakeFile({ sizeBytes: 4 * 1024 * 1024 });
+    expect(validateImageFile(normal)).toBeNull();
+  });
+
+  it('respektiert ein individuelles Größenlimit', () => {
+    const file = makeFakeFile({ sizeBytes: 6 * 1024 * 1024 });
+    expect(validateImageFile(file, 5)).toMatch(/zu groß/);
+    expect(validateImageFile(file, 10)).toBeNull();
+  });
+});
