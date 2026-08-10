@@ -49,7 +49,8 @@ export default function Sidebar({ onLogout }) {
   return (
     <aside className="sidebar">
       <div className="sidebar-logo">
-        <h2>Vince</h2>
+        <img src="/logo-mark.png" alt="Wedding Buddy" style={{ width: 40, height: 40, display: 'block', margin: '0 auto 6px' }} />
+        <h2>Wedding Buddy</h2>
         <p>Hochzeitsplaner</p>
         <div className="divider" />
       </div>
