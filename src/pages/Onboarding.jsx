@@ -97,7 +97,7 @@ export default function Onboarding({ onDismiss }) {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <div>
             <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 22, color: 'var(--espresso)', marginBottom: 4 }}>
-              Willkommen bei Vince!
+              Willkommen bei Wedding Buddy!
             </div>
             <div style={{ fontSize: 13, color: 'var(--mocha)' }}>
               {done.length === STEPS.length
