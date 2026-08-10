@@ -23,10 +23,11 @@ import { createHash } from 'node:crypto';
 // Supabase SQL Editor ausführen (legt Tabelle + Funktion an).
 
 const LIMITS = {
-  rsvp:     { max: 5,  windowSeconds: 600 }, // 5 RSVPs / 10 Min pro IP
-  photo:    { max: 20, windowSeconds: 600 }, // 20 Foto-Uploads / 10 Min
-  music:    { max: 10, windowSeconds: 600 }, // 10 Musikwünsche / 10 Min
-  schedule: { max: 10, windowSeconds: 600 }, // 10 Programmwünsche / 10 Min
+  rsvp:     { max: 5,  windowSeconds: 600 }, // 5 RSVPs / 10 Min pro IP — vorab, zeitlich verteilt, enges Limit ok
+  photo:    { max: 60, windowSeconds: 600 }, // 60 Foto-Uploads / 10 Min — viele Gäste live auf demselben Venue-WLAN;
+                                              // Missbrauch ohnehin durch manuelle Freischaltung abgefedert
+  music:    { max: 30, windowSeconds: 600 }, // 30 Musikwünsche / 10 Min — gleiche Live-Party-Situation
+  schedule: { max: 10, windowSeconds: 600 }, // 10 Programmwünsche / 10 Min — meist vorab geplant
 };
 
 export default async (req) => {
