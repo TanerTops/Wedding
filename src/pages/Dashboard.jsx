@@ -41,6 +41,8 @@ export default function Dashboard() {
     if (!error && result) {
       setData(d => ({ ...d, wedding: { ...d.wedding, couple_photo_url: result.url, couple_photo_path: result.path } }));
       window.dispatchEvent(new Event('weddingUpdated'));
+    } else if (error) {
+      alert(error.message || 'Fehler beim Hochladen.');
     }
     setCoupleUploading(false);
     if (coupleFileRef.current) coupleFileRef.current.value = '';
