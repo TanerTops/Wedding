@@ -4,25 +4,25 @@ import {
   IconLayoutDashboard, IconUsers, IconWallet, IconCheckbox,
   IconClock, IconLayoutColumns, IconMapPin, IconMusic,
   IconGift, IconNotes, IconSettings, IconExternalLink, IconWorldWww,
-  IconPhoto, IconCamera, IconLogout, IconBuildingStore
+  IconPhoto, IconCamera, IconLogout, IconBuildingStore, IconLock
 } from '@tabler/icons-react';
-import { loadState, defaultWedding, makeSlug } from '../data/store';
+import { loadState, defaultWedding, makeSlug, hasFullAccess } from '../data/store';
 import { getWedding, getTasks } from '../lib/db';
 
 const NAV = [
   { to: '/', icon: IconLayoutDashboard, label: 'Übersicht' },
   { to: '/guests', icon: IconUsers, label: 'Gäste' },
   { to: '/budget', icon: IconWallet, label: 'Budget' },
-  { to: '/vendors', icon: IconBuildingStore, label: 'Dienstleister' },
-  { to: '/tasks', icon: IconCheckbox, label: 'Aufgaben' },
-  { to: '/timeline', icon: IconClock, label: 'Zeitplan' },
-  { to: '/seating', icon: IconLayoutColumns, label: 'Sitzordnung' },
-  { to: '/venue', icon: IconMapPin, label: 'Location' },
-  { to: '/music', icon: IconMusic, label: 'Musik' },
-  { to: '/registry', icon: IconGift, label: 'Geschenke' },
-  { to: '/notes', icon: IconNotes, label: 'Notizen' },
-  { to: '/guest-page', icon: IconWorldWww, label: 'Gästeseite' },
-  { to: '/memories', icon: IconPhoto, label: 'Erinnerungen' },
+  { to: '/vendors', icon: IconBuildingStore, label: 'Dienstleister', premium: true },
+  { to: '/tasks', icon: IconCheckbox, label: 'Aufgaben', premium: true },
+  { to: '/timeline', icon: IconClock, label: 'Zeitplan', premium: true },
+  { to: '/seating', icon: IconLayoutColumns, label: 'Sitzordnung', premium: true },
+  { to: '/venue', icon: IconMapPin, label: 'Location', premium: true },
+  { to: '/music', icon: IconMusic, label: 'Musik', premium: true },
+  { to: '/registry', icon: IconGift, label: 'Geschenke', premium: true },
+  { to: '/notes', icon: IconNotes, label: 'Notizen', premium: true },
+  { to: '/guest-page', icon: IconWorldWww, label: 'Gästeseite', premium: true },
+  { to: '/memories', icon: IconPhoto, label: 'Erinnerungen', premium: true },
   { to: '/photos', icon: IconCamera, label: 'Fotoplanung' },
   { to: '/settings', icon: IconSettings, label: 'Einstellungen' },
 ];
@@ -41,6 +41,7 @@ export default function Sidebar({ onLogout }) {
   }, []);
 
   const days = Math.ceil((new Date(wedding?.date || Date.now()) - new Date()) / 86400000);
+  const purchased = hasFullAccess(wedding);
   const done = tasks.filter(t => t.done).length;
   const pct = tasks.length ? Math.round(done / tasks.length * 100) : 0;
   const guestUrl = `/guest/${makeSlug(wedding)}`;
@@ -69,10 +70,11 @@ export default function Sidebar({ onLogout }) {
       </div>
 
       <nav className="sidebar-nav">
-        {NAV.map(({ to, icon: Icon, label }) => (
+        {NAV.map(({ to, icon: Icon, label, premium }) => (
           <NavLink key={to} to={to} end={to === '/'} className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>
             <Icon size={15} stroke={1.5} />
             {label}
+            {premium && !purchased && <IconLock size={11} stroke={2} style={{ marginLeft: 'auto', color: 'var(--taupe)' }} />}
           </NavLink>
         ))}
         <a href={guestUrl} target="_blank" rel="noopener noreferrer" className="nav-item"
