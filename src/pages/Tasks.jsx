@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { IconPlus, IconTrash, IconX, IconCheck, IconCalendar, IconEdit } from '@tabler/icons-react';
-import { loadState, saveState, defaultTasks } from '../data/store';
+import { saveState } from '../data/store';
 import { getTasks, upsertTask, deleteTask as dbDeleteTask, getWedding } from '../lib/db';
 
 const CATEGORIES = ['Dienstleister', 'Catering', 'Gäste', 'Floristik', 'Musik', 'Outfit', 'Sonstiges'];
@@ -64,13 +64,6 @@ export default function Tasks() {
     ...(wedding.witness_bride ? [{ id: 'witness_bride', label: wedding.witness_bride, color: AV[2] }] : []),
     ...(wedding.witness_groom ? [{ id: 'witness_groom', label: wedding.witness_groom, color: AV[3] }] : []),
   ] : [];
-
-  function assigneeLabel(id) {
-    return assignees.find(a => a.id === id)?.label || id || '—';
-  }
-  function assigneeColor(id) {
-    return assignees.find(a => a.id === id)?.color || 'var(--mocha)';
-  }
 
   function saveLocal(updated) { setTasks(updated); saveState('tasks', updated); }
 
@@ -214,7 +207,6 @@ export default function Tasks() {
             </div>
             <div className="card" style={{ padding:0, overflow:'hidden' }}>
               {catTasks.map((task, i) => {
-                const hasAssignee = task.assignee && task.assignee !== 'unassigned';
                 const overdue     = task.due && !task.done && new Date(task.due) < new Date();
                 return (
                   <div key={task.id} style={{ display:'flex', alignItems:'center', gap:12, padding:'12px 16px', borderBottom: i < catTasks.length-1 ? '1px solid var(--warm)' : 'none', background: task.done ? 'var(--warm)' : '#fff', transition:'background .15s' }}>
