@@ -137,9 +137,11 @@ export default function Dashboard() {
         {/* Onboarding */}
         {showOnboarding && <Onboarding onDismiss={() => setShowOnboarding(false)} />}
 
-        {/* Upsell banner — freemium accounts only, dismissible */}
+        {/* Upsell banner — freemium accounts only, dismissible.
+            "upsell-banner" class: auf Mobil per CSS (index.css) ganz nach
+            oben (order:-1) vor das Onboarding-Widget gestellt. */}
         {!purchased && showUpsell && (
-          <div className="card-warm" style={{ marginBottom: 16, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <div className="card-warm upsell-banner" style={{ marginBottom: 16, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
             <div style={{ fontSize: 20 }}>🔓</div>
             <div style={{ flex: 1, minWidth: 200 }}>
               <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--espresso)' }}>Ihr nutzt gerade die kostenlose Version</div>
