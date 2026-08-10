@@ -32,15 +32,20 @@ import Photos from './pages/Photos';
 import { MusicPage, VenuePage, RegistryPage, NotesPage } from './pages/Misc';
 
 // ── Bottom nav ────────────────────────────────────────────────────
+// Fotoplanung statt Aufgaben in der Hauptleiste: Aufgaben ist ein
+// Premium-Feature — ohne Kauf würde einer der 4 wertvollsten mobilen
+// Nav-Plätze ungefragt in der Kaufsperre landen. Fotoplanung ist frei
+// nutzbar für alle.
 const NAV_MAIN = [
   { to: '/',        icon: IconLayoutDashboard, label: 'Übersicht' },
   { to: '/guests',  icon: IconUsers,           label: 'Gäste'    },
   { to: '/budget',  icon: IconWallet,          label: 'Budget'   },
-  { to: '/tasks',   icon: IconCheckbox,        label: 'Aufgaben' },
+  { to: '/photos',  icon: IconCamera,          label: 'Fotos'    },
 ];
 
 const NAV_MORE = [
   { to: '/vendors',    icon: IconBuildingStore, label: 'Dienstleister' },
+  { to: '/tasks',      icon: IconCheckbox,      label: 'Aufgaben'      },
   { to: '/seating',    icon: IconLayoutColumns, label: 'Sitzordnung'   },
   { to: '/timeline',   icon: IconClock,         label: 'Zeitplan'      },
   { to: '/venue',      icon: IconMapPin,        label: 'Location'      },
@@ -49,7 +54,6 @@ const NAV_MORE = [
   { to: '/notes',      icon: IconNotes,         label: 'Notizen'       },
   { to: '/guest-page', icon: IconWorldWww,      label: 'Gästeseite'    },
   { to: '/memories',   icon: IconPhoto,         label: 'Erinnerungen'  },
-  { to: '/photos',     icon: IconCamera,        label: 'Fotoplanung'   },
   { to: '/settings',   icon: IconSettings,      label: 'Einstellungen' },
 ];
 
