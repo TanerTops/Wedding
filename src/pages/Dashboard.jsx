@@ -28,7 +28,7 @@ export default function Dashboard() {
     recentPhotos: [],
     recentWishes: [],
   });
-  const [loading, setLoading] = useState(true);
+  const [, setLoading] = useState(true); // wird gesetzt, aber aktuell nirgends als Ladeanzeige gerendert
   const [showOnboarding, setShowOnboarding] = useState(() => !loadState('onboardingDismissed', false));
   const [quickActions] = useState(() => loadState('quickActions', DEFAULT_QUICK_ACTIONS));
   const [coupleUploading, setCoupleUploading] = useState(false);
