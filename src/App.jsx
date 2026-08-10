@@ -5,7 +5,7 @@ import {
   IconGift, IconNotes, IconSettings, IconWorldWww, IconX, IconMenu2,
   IconPhoto, IconCamera, IconLogout, IconBuildingStore
 } from '@tabler/icons-react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import { supabase } from './lib/supabase';
 import { initializeUser, getWedding } from './lib/db';
 import { loadState, defaultWedding, hasFullAccess } from './data/store';
@@ -13,23 +13,52 @@ import Sidebar from './components/Sidebar';
 import NotificationCenter from './components/NotificationCenter';
 import OnboardingWizard from './components/OnboardingWizard';
 import UpgradeGate from './components/UpgradeGate';
-import PhotographerPage from './pages/PhotographerPage';
-import Auth from './pages/Auth';
-import Dashboard from './pages/Dashboard';
-import Guests from './pages/Guests';
-import Budget from './pages/Budget';
-import Vendors from './pages/Vendors';
-import Tasks from './pages/Tasks';
-import Timeline from './pages/Timeline';
-import Seating from './pages/Seating';
-import Settings from './pages/Settings';
-import GuestPage from './pages/GuestPage';
-import MemoriesSharePage from './pages/MemoriesSharePage';
-import GuestPageSettings from './pages/GuestPageSettings';
-import { Impressum, Datenschutz } from './pages/Legal';
-import Memories from './pages/Memories';
-import Photos from './pages/Photos';
-import { MusicPage, VenuePage, RegistryPage, NotesPage } from './pages/Misc';
+
+// ── Code-Splitting (Punkt 11 der Checkliste) ────────────────────────
+// Jede Seite ist ein eigener JS-Chunk, der erst beim tatsächlichen
+// Aufruf der Route geladen wird — statt allem in einem ~850KB-Bundle.
+// Am wichtigsten für die öffentlichen, nicht eingeloggten Seiten
+// (Gästeseite, Foto-Galerie, Fotograf-Link), die oft auf fremden
+// Handys im Location-WLAN aufgerufen werden.
+const PhotographerPage  = lazy(() => import('./pages/PhotographerPage'));
+const Auth              = lazy(() => import('./pages/Auth'));
+const Dashboard         = lazy(() => import('./pages/Dashboard'));
+const Guests            = lazy(() => import('./pages/Guests'));
+const Budget            = lazy(() => import('./pages/Budget'));
+const Vendors           = lazy(() => import('./pages/Vendors'));
+const Tasks             = lazy(() => import('./pages/Tasks'));
+const Timeline          = lazy(() => import('./pages/Timeline'));
+const Seating           = lazy(() => import('./pages/Seating'));
+const Settings          = lazy(() => import('./pages/Settings'));
+const GuestPage         = lazy(() => import('./pages/GuestPage'));
+const MemoriesSharePage = lazy(() => import('./pages/MemoriesSharePage'));
+const GuestPageSettings = lazy(() => import('./pages/GuestPageSettings'));
+// Named exports: lazy() braucht ein Modul mit `default`, deshalb hier
+// jeweils auf den benannten Export gemappt.
+const Impressum    = lazy(() => import('./pages/Legal').then(m => ({ default: m.Impressum })));
+const Datenschutz  = lazy(() => import('./pages/Legal').then(m => ({ default: m.Datenschutz })));
+const Memories     = lazy(() => import('./pages/Memories'));
+const Photos       = lazy(() => import('./pages/Photos'));
+const MusicPage    = lazy(() => import('./pages/Misc').then(m => ({ default: m.MusicPage })));
+const VenuePage    = lazy(() => import('./pages/Misc').then(m => ({ default: m.VenuePage })));
+const RegistryPage = lazy(() => import('./pages/Misc').then(m => ({ default: m.RegistryPage })));
+const NotesPage    = lazy(() => import('./pages/Misc').then(m => ({ default: m.NotesPage })));
+
+// Platzhalter während ein Seiten-Chunk lädt — meist nur für einen
+// kurzen Moment sichtbar, dank Netzwerk-Caching v.a. beim ersten Besuch.
+function PageLoading({ full }) {
+  if (full) {
+    return (
+      <div style={{ minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', background:'linear-gradient(160deg, #FDF8F0 0%, #F0E8D8 50%, #EAE0D0 100%)' }}>
+        <div style={{ textAlign:'center' }}>
+          <img src="/logo-mark.png" alt="Wedding Buddy" style={{ width:64, height:64, display:'block', margin:'0 auto 10px' }} />
+          <div style={{ fontSize:12, color:'var(--mocha)' }}>Wird geladen...</div>
+        </div>
+      </div>
+    );
+  }
+  return <div style={{ padding: 60, textAlign: 'center', color: 'var(--mocha)' }}>Wird geladen…</div>;
+}
 
 // ── Bottom nav ────────────────────────────────────────────────────
 // Fotoplanung statt Aufgaben in der Hauptleiste: Aufgaben ist ein
@@ -148,19 +177,21 @@ export default function App() {
 
   return (
     <BrowserRouter>
-      <Routes>
-        <Route path="/guest/:slug"        element={<GuestPage />} />
-        <Route path="/memories/:slug"     element={<MemoriesSharePage />} />
-        <Route path="/photographer/:token" element={<PhotographerPage />} />
-        <Route path="/impressum"           element={<Impressum />} />
-        <Route path="/datenschutz"         element={<Datenschutz />} />
-        <Route path="/login"        element={!session && supabase ? <Auth onAuth={setSession} /> : <Navigate to="/" />} />
-        <Route path="/*"            element={
-          supabase && !session
-            ? <Navigate to="/login" />
-            : <AdminLayout onLogout={handleLogout} />
-        } />
-      </Routes>
+      <Suspense fallback={<PageLoading full />}>
+        <Routes>
+          <Route path="/guest/:slug"        element={<GuestPage />} />
+          <Route path="/memories/:slug"     element={<MemoriesSharePage />} />
+          <Route path="/photographer/:token" element={<PhotographerPage />} />
+          <Route path="/impressum"           element={<Impressum />} />
+          <Route path="/datenschutz"         element={<Datenschutz />} />
+          <Route path="/login"        element={!session && supabase ? <Auth onAuth={setSession} /> : <Navigate to="/" />} />
+          <Route path="/*"            element={
+            supabase && !session
+              ? <Navigate to="/login" />
+              : <AdminLayout onLogout={handleLogout} />
+          } />
+        </Routes>
+      </Suspense>
     </BrowserRouter>
   );
 }
@@ -230,25 +261,27 @@ function AdminLayout({ onLogout }) {
       </div>
 
       <main className="main-content">
-        <Routes>
-          {/* Freemium: Übersicht, Gäste, Budget (nur Budgetrechner), Fotoplanung, Einstellungen */}
-          <Route path="/"           element={<Dashboard />} />
-          <Route path="/guests"     element={<Guests />} />
-          <Route path="/budget"     element={<Budget />} />
-          <Route path="/photos"     element={<Photos />} />
-          <Route path="/settings"   element={<Settings />} />
-          {/* Vollversion — gesperrt ohne Kauf */}
-          <Route path="/vendors"    element={gate('Dienstleister', <Vendors />)} />
-          <Route path="/tasks"      element={gate('Aufgaben', <Tasks />)} />
-          <Route path="/timeline"   element={gate('Zeitplan', <Timeline />)} />
-          <Route path="/seating"    element={gate('Sitzordnung', <Seating />)} />
-          <Route path="/venue"      element={gate('Location', <VenuePage />)} />
-          <Route path="/music"      element={gate('Musik', <MusicPage />)} />
-          <Route path="/registry"   element={gate('Geschenke', <RegistryPage />)} />
-          <Route path="/notes"      element={gate('Notizen', <NotesPage />)} />
-          <Route path="/guest-page" element={gate('Gästeseite', <GuestPageSettings />)} />
-          <Route path="/memories"   element={gate('Erinnerungen', <Memories />)} />
-        </Routes>
+        <Suspense fallback={<PageLoading />}>
+          <Routes>
+            {/* Freemium: Übersicht, Gäste, Budget (nur Budgetrechner), Fotoplanung, Einstellungen */}
+            <Route path="/"           element={<Dashboard />} />
+            <Route path="/guests"     element={<Guests />} />
+            <Route path="/budget"     element={<Budget />} />
+            <Route path="/photos"     element={<Photos />} />
+            <Route path="/settings"   element={<Settings />} />
+            {/* Vollversion — gesperrt ohne Kauf */}
+            <Route path="/vendors"    element={gate('Dienstleister', <Vendors />)} />
+            <Route path="/tasks"      element={gate('Aufgaben', <Tasks />)} />
+            <Route path="/timeline"   element={gate('Zeitplan', <Timeline />)} />
+            <Route path="/seating"    element={gate('Sitzordnung', <Seating />)} />
+            <Route path="/venue"      element={gate('Location', <VenuePage />)} />
+            <Route path="/music"      element={gate('Musik', <MusicPage />)} />
+            <Route path="/registry"   element={gate('Geschenke', <RegistryPage />)} />
+            <Route path="/notes"      element={gate('Notizen', <NotesPage />)} />
+            <Route path="/guest-page" element={gate('Gästeseite', <GuestPageSettings />)} />
+            <Route path="/memories"   element={gate('Erinnerungen', <Memories />)} />
+          </Routes>
+        </Suspense>
         <MobileNav onLogout={onLogout} />
       </main>
     </div>
