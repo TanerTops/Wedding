@@ -570,36 +570,44 @@ export async function saveGuestPageConfig(config) {
 }
 
 // ── Schedule requests ────────────────────────────────────────────
+// Sicherheits-Fix: fehlte bisher komplett an user_id-Scoping — jedes Paar
+// sah beim Laden ALLE Programmwünsche ALLER Hochzeiten vermischt (exakt
+// dasselbe Muster wie der bereits behobene RSVP-Bug, siehe submitRSVP).
 export async function submitScheduleRequest(request) {
   if (!hasSupabase()) {
     const reqs = loadState('schedule_requests', []);
     saveState('schedule_requests', [...reqs, { ...request, id: Date.now(), status: 'pending', submitted_at: new Date().toISOString() }]);
     return { error: null };
   }
-  const { error } = await supabase.from('schedule_requests').insert({ ...request, status: 'pending', submitted_at: new Date().toISOString() });
+  const { userId, ...rest } = request;
+  const { error } = await supabase.from('schedule_requests').insert({ ...rest, status: 'pending', submitted_at: new Date().toISOString(), user_id: userId || null });
   return { error };
 }
 
 export async function getScheduleRequests() {
   if (!hasSupabase()) return { data: loadState('schedule_requests', []), error: null };
-  const { data, error } = await supabase.from('schedule_requests').select('*').order('submitted_at', { ascending: false });
+  const userId = await getUserId();
+  const { data, error } = await supabase.from('schedule_requests').select('*').eq('user_id', userId).order('submitted_at', { ascending: false });
   return { data: data || [], error };
 }
 
 // ── Music wishes ─────────────────────────────────────────────────
+// Gleicher Sicherheits-Fix wie bei den Programmwünschen (siehe oben).
 export async function submitMusicWish(wish) {
   if (!hasSupabase()) {
     const wishes = loadState('music_wishes', []);
     saveState('music_wishes', [...wishes, { ...wish, id: Date.now(), submitted_at: new Date().toISOString() }]);
     return { error: null };
   }
-  const { error } = await supabase.from('music_wishes').insert({ ...wish, submitted_at: new Date().toISOString() });
+  const { userId, ...rest } = wish;
+  const { error } = await supabase.from('music_wishes').insert({ ...rest, submitted_at: new Date().toISOString(), user_id: userId || null });
   return { error };
 }
 
 export async function getMusicWishes() {
   if (!hasSupabase()) return { data: loadState('music_wishes', []), error: null };
-  const { data, error } = await supabase.from('music_wishes').select('*').order('submitted_at', { ascending: false });
+  const userId = await getUserId();
+  const { data, error } = await supabase.from('music_wishes').select('*').eq('user_id', userId).order('submitted_at', { ascending: false });
   return { data: data || [], error };
 }
 
