@@ -27,10 +27,13 @@ export default function PhotographerPage() {
   async function load() {
     setLoading(true);
     try {
-      // Find wedding by token
+      // Find wedding by token. Sicherheits-Fix: früher wurde die komplette
+      // Zeile (inkl. Budget, Notizen, Kaufstatus, Stripe-Session-ID) geladen
+      // — nur eine begrenzte, öffentlich unbedenkliche Spaltenauswahl nötig,
+      // gleiches Prinzip wie bei getGuestPageData/getMemoriesPageData in db.js.
       const { data: weddingData, error: wErr } = await supabase
         .from('weddings')
-        .select('*')
+        .select('id, user_id, bride, groom, date, venue, venue_address, venue_notes, photographer_token')
         .eq('photographer_token', token)
         .single();
 
