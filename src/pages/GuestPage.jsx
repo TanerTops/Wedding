@@ -327,6 +327,13 @@ export default function GuestPage() {
                     <div className="form-group">
                       <label className="form-label">Nachricht ans Brautpaar</label>
                       <textarea className="input" rows={3} placeholder="Wir freuen uns so sehr! ..." value={rsvpData.message} onChange={e => setRsvpData(d => ({ ...d, message: e.target.value }))} style={{ resize: 'vertical' }} />
+                      {/* DSGVO Art. 9: falls hier freiwillig Gesundheitsdaten (z.B. Allergien) genannt
+                          werden, macht dieser Hinweis Freiwilligkeit + Zweckbindung transparent —
+                          das ist die Grundlage für die Einwilligung nach Art. 9 Abs. 2 lit. a DSGVO. */}
+                      <div style={{ fontSize: 11, color: 'var(--mocha)', marginTop: 4 }}>
+                        Freiwillige Angabe, z.B. für Allergien/Unverträglichkeiten bei der
+                        Essensplanung. Wird nur für die Organisation eurer Hochzeit verwendet.
+                      </div>
                     </div>
                     <div style={{ display: 'flex', gap: 8 }}>
                       <button className="btn btn-secondary" onClick={() => setRsvpStep(1)}>← Zurück</button>
