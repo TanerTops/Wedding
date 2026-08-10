@@ -1,9 +1,9 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState } from 'react';
 import { loadState, saveState, defaultWedding, makeSlug } from '../data/store';
 import { saveGuestPageConfig, syncLocalToSupabase } from '../lib/db';
 import {
   IconExternalLink, IconCopy, IconCheck,
-  IconToggleRight, IconToggleLeft, IconPlus, IconTrash, IconX
+  IconToggleRight, IconToggleLeft, IconPlus, IconTrash
 } from '@tabler/icons-react';
 import QrCodeCard from '../components/QrCodeCard';
 
