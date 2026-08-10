@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { IconPlus, IconTrash, IconEdit, IconX, IconDownload, IconAlertCircle, IconClock, IconLock } from '@tabler/icons-react';
 import { getBudgetItems, upsertBudgetItem, deleteBudgetItem, getWedding, saveWedding } from '../lib/db';
-import { loadState, saveState, defaultBudgetItems, defaultBudgetCategories, defaultWedding, hasFullAccess } from '../data/store';
+import { loadState, saveState, defaultWedding, hasFullAccess } from '../data/store';
 import UpgradeGate from '../components/UpgradeGate';
 
 const fEU = n => Number(n).toLocaleString('de-DE') + ' €';
