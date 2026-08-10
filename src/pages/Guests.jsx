@@ -524,7 +524,13 @@ export default function Guests() {
                 {MENUS.map(m=><option key={m} value={m}>{m||'– kein –'}</option>)}
               </select>
             </div>
-            <div className="form-group"><label className="form-label">Notiz</label><input className="input" placeholder="z.B. Beeinträchtigungen, Unverträglichkeiten, Allergien..." value={form.note||''} onChange={e=>setForm(f=>({...f,note:e.target.value}))}/></div>
+            <div className="form-group"><label className="form-label">Notiz</label><input className="input" placeholder="z.B. Allergien/Unverträglichkeiten (nur was der Gast selbst mitteilt)" value={form.note||''} onChange={e=>setForm(f=>({...f,note:e.target.value}))}/>
+              {/* DSGVO Art. 9: hier landen ggf. Gesundheitsdaten — Hinweis erinnert daran, nur
+                  das einzutragen, was der Gast selbst freiwillig mitgeteilt hat. */}
+              <div style={{ fontSize: 11, color: 'var(--mocha)', marginTop: 4 }}>
+                Bitte nur eintragen, was der Gast euch freiwillig mitgeteilt hat.
+              </div>
+            </div>
             <div style={{ display:'flex', gap:8, justifyContent:'flex-end' }}>
               <button className="btn btn-secondary" onClick={()=>setModal(null)}>Abbrechen</button>
               <button className="btn btn-primary" onClick={handleSave}>
