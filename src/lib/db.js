@@ -3,7 +3,7 @@
  * Falls back to localStorage when Supabase is not configured.
  */
 import { supabase, hasSupabase } from './supabase';
-import { loadState, saveState, defaultWedding, defaultGuests, defaultBudgetItems, defaultTimeline, makeInviteCode } from '../data/store';
+import { loadState, saveState, defaultWedding, makeInviteCode } from '../data/store';
 import { compressImage, validateImageFile } from './imageUtils';
 
 // ── Default template data for new users ──────────────────────────
