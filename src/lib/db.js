@@ -50,9 +50,11 @@ const TEMPLATE_REGISTRY = [
 const TEMPLATE_CONFIG = {
   heroTitle: '', heroSubtitle: 'Wir freuen uns, mit euch zu feiern.',
   heroImageUrl: '', heroImagePosition: 'center',
-  sections: { rsvp: true, timeline: true, location: true, dresscode: true, music: true, registry: true, memories: true, schedule: true },
+  sections: { rsvp: true, timeline: true, location: true, dresscode: true, music: true, registry: true, memories: true, schedule: true, info: true },
   dresscodeStyle: 'Elegant & Boho',
   dresscodeText: 'Wir wünschen uns elegante Kleidung in warmen Erdtönen.',
+  generalInfoTitle: 'Gut zu wissen',
+  generalInfoText: '',
   dresscodeColors: ['#C4956A', '#C4B5A5', '#A8B5A0', '#D4C4A8', '#B8A9C9'],
   rsvpDeadlineOffset: 30,
   scheduleSlots: [
