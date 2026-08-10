@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { loadState, defaultWedding, defaultTimeline } from '../data/store';
-import { submitRSVP, uploadPhoto, submitScheduleRequest, submitMusicWish, getGuestPageData, upsertRegistryItem } from '../lib/db';
+import { submitRSVP, uploadPhoto, submitScheduleRequest, submitMusicWish, getGuestPageData, upsertRegistryItem, verifyGuestCode } from '../lib/db';
 import {
   IconCalendar, IconMapPin, IconMusic, IconGift, IconShirt,
-  IconChevronDown, IconCheck, IconArrowRight, IconHeart, IconPlus, IconUpload
+  IconChevronDown, IconCheck, IconArrowRight, IconHeart, IconPlus, IconUpload, IconLock
 } from '@tabler/icons-react';
 
 // Guest page loads data from Supabase (or localStorage fallback)
@@ -64,6 +64,8 @@ export default function GuestPage() {
   const [scheduleForm, setScheduleForm] = useState({ name: '', slotId: '', type: '', description: '', duration: '' });
   const [inviteCode, setInviteCode] = useState('');
   const [codeError, setCodeError] = useState('');
+  const [codeChecking, setCodeChecking] = useState(false);
+  const [codeVerified, setCodeVerified] = useState(false);
 
   // ── Data loading ─────────────────────────────────────────────────
   const [pageData, setPageData] = useState(null);
@@ -85,8 +87,6 @@ export default function GuestPage() {
     { id: 2, title: 'Küchenmaschine',      desc: 'KitchenAid, Farbe: Creme',          amount: 399, type: 'item' },
     { id: 3, title: 'Abendessen zu zweit', desc: 'Ein schöner Restaurant-Abend',      amount: 120, type: 'item' },
   ]);
-  const guestList = pageData?.guests || loadState('guests', []);
-
   const heroTitle    = config?.heroTitle || `${wedding?.bride || ''} & ${wedding?.groom || ''}`;
   const days         = Math.ceil((new Date(wedding?.date || Date.now()) - new Date()) / 86400000);
   const deadline     = new Date(new Date(wedding?.date || Date.now()).getTime() - ((config?.rsvpDeadlineOffset || 30) * 86400000));
@@ -105,14 +105,18 @@ export default function GuestPage() {
 
   function scrollTo(id) { document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' }); }
 
-  function verifyCode() {
-    const code = inviteCode.trim().toUpperCase();
+  async function verifyCode() {
+    const code = inviteCode.trim();
     if (!code) { setCodeError('Bitte Code eingeben.'); return; }
-    const match = guestList.find(g => (g.inviteCode || g.invite_code || '').toUpperCase() === code);
+    setCodeChecking(true);
+    const { data: match } = await verifyGuestCode(wedding?.user_id, code);
+    setCodeChecking(false);
     if (match) {
       setCodeError('');
+      setCodeVerified(true);
       setRsvpData(d => ({ ...d, name: match.name, menu: match.menu || '' }));
     } else {
+      setCodeVerified(false);
       setCodeError('Code nicht gefunden. Bitte prüfe deine Einladung.');
     }
   }
@@ -126,15 +130,17 @@ export default function GuestPage() {
   }
 
   async function handleFinalSubmit() {
-    const code = inviteCode.trim().toUpperCase();
-    if (!code) { setCodeError('Bitte Code eingeben.'); return; }
-    const match = guestList.find(g => (g.inviteCode || g.invite_code || '').toUpperCase() === code);
-    if (!match) { setCodeError('Code nicht gefunden. Bitte prüfe deine Einladung.'); return; }
+    // Code nur erzwingen, wenn das Paar "Einladungscode erforderlich" aktiviert hat.
+    if (config?.requireCode && !codeVerified) {
+      setCodeError('Bitte zuerst euren Einladungscode bestätigen.');
+      return;
+    }
     const { error } = await submitRSVP({
       ...rsvpData,
       plus_one: !!(rsvpData.companions?.trim()),
       companions: rsvpData.companions || '',
-      inviteCode: inviteCode.trim().toUpperCase(),
+      inviteCode: inviteCode.trim() ? inviteCode.trim().toUpperCase() : '',
+      userId: wedding?.user_id || '',
     });
     if (!error) setRsvpDone(true);
     else setCodeError('Fehler beim Absenden. Bitte nochmal versuchen.');
@@ -229,6 +235,28 @@ export default function GuestPage() {
               </div>
             ) : (
               <div className="rsvp-form" style={{ maxWidth: 520, margin: '0 auto' }}>
+                {config?.requireCode && !codeVerified ? (
+                  <div style={{ textAlign: 'center', padding: '20px 0' }}>
+                    <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'var(--warm)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
+                      <IconLock size={20} stroke={1.5} style={{ color: 'var(--terra)' }} />
+                    </div>
+                    <h4 style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 20, color: 'var(--espresso)', marginBottom: 6 }}>Euer Einladungscode</h4>
+                    <p style={{ fontSize: 13, color: 'var(--mocha)', marginBottom: 18 }}>Den findet ihr auf eurer Einladung.</p>
+                    <div style={{ display: 'flex', gap: 8, maxWidth: 320, margin: '0 auto' }}>
+                      <input
+                        className="input" placeholder="z.B. MUELLER2026" value={inviteCode}
+                        onChange={e => { setInviteCode(e.target.value); setCodeError(''); }}
+                        onKeyDown={e => e.key === 'Enter' && verifyCode()}
+                        style={{ flex: 1, textAlign: 'center', textTransform: 'uppercase' }}
+                      />
+                      <button className="btn btn-primary" onClick={verifyCode} disabled={codeChecking}>
+                        {codeChecking ? '…' : 'Bestätigen'}
+                      </button>
+                    </div>
+                    {codeError && <div style={{ fontSize: 12, color: '#E57373', marginTop: 10 }}>{codeError}</div>}
+                  </div>
+                ) : (
+                <>
                 {/* Steps */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 24 }}>
                   {[1,2,3,4].map((s, i) => (
@@ -300,6 +328,7 @@ export default function GuestPage() {
                         <span style={{ color: 'var(--espresso)', fontWeight: 500, maxWidth: '60%', textAlign: 'right' }}>{v}</span>
                       </div>
                     ))}
+                    {codeError && <div style={{ fontSize: 12, color: '#E57373', marginBottom: 10 }}>{codeError}</div>}
                     <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
                       <button className="btn btn-secondary" onClick={() => setRsvpStep(2)}>← Zurück</button>
                       <button className="btn btn-primary" style={{ flex: 1, justifyContent: 'center' }} onClick={handleFinalSubmit}>
@@ -307,6 +336,8 @@ export default function GuestPage() {
                       </button>
                     </div>
                   </div>
+                )}
+                </>
                 )}
 
               </div>
