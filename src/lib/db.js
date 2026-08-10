@@ -4,6 +4,7 @@
  */
 import { supabase, hasSupabase } from './supabase';
 import { loadState, saveState, defaultWedding, defaultGuests, defaultBudgetItems, defaultTimeline, makeInviteCode } from '../data/store';
+import { compressImage, validateImageFile } from './imageUtils';
 
 // ── Default template data for new users ──────────────────────────
 const TEMPLATE_WEDDING = {
@@ -159,15 +160,18 @@ export async function saveWedding(wedding) {
 }
 
 export async function uploadCouplePhoto(file) {
+  const invalid = validateImageFile(file);
+  if (invalid) return { data: null, error: new Error(invalid) };
   if (!hasSupabase()) {
     const url = URL.createObjectURL(file);
     const wedding = loadState('wedding', defaultWedding);
     saveState('wedding', { ...wedding, couple_photo_url: url, couple_photo_path: '' });
     return { data: { url, path: '' }, error: null };
   }
-  const ext = file.name.split('.').pop();
+  const compressed = await compressImage(file);
+  const ext = compressed.name.split('.').pop();
   const path = `couple/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-  const { error: uploadError } = await supabase.storage.from('wedding-photos').upload(path, file);
+  const { error: uploadError } = await supabase.storage.from('wedding-photos').upload(path, compressed);
   if (uploadError) return { data: null, error: uploadError };
   const { data: { publicUrl } } = supabase.storage.from('wedding-photos').getPublicUrl(path);
   const userId = await getUserId();
@@ -375,15 +379,18 @@ export async function getPhotos() {
 }
 
 export async function uploadPhoto(file, uploaderName, uploadedBy = 'guest') {
+  const invalid = validateImageFile(file);
+  if (invalid) return { data: null, error: new Error(invalid) };
   if (!hasSupabase()) {
     const url = URL.createObjectURL(file);
     const photo = { id: Date.now(), url, thumb: url, name: file.name.replace(/\.[^.]+$/, ''), uploader: uploaderName, uploaded_by: uploadedBy, approved: uploadedBy === 'admin', category: 'other', created_at: new Date().toISOString() };
     saveState('memories', [...loadState('memories', []), photo]);
     return { data: photo, error: null };
   }
-  const ext = file.name.split('.').pop();
+  const compressed = await compressImage(file);
+  const ext = compressed.name.split('.').pop();
   const path = `photos/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-  const { error: uploadError } = await supabase.storage.from('wedding-photos').upload(path, file);
+  const { error: uploadError } = await supabase.storage.from('wedding-photos').upload(path, compressed);
   if (uploadError) return { data: null, error: uploadError };
   const { data: { publicUrl } } = supabase.storage.from('wedding-photos').getPublicUrl(path);
   const userId = await getUserId();
@@ -421,6 +428,8 @@ export async function getMoodboardItems(page) {
 }
 
 export async function uploadMoodboardImage(file, page) {
+  const invalid = validateImageFile(file);
+  if (invalid) return { data: null, error: new Error(invalid) };
   if (!hasSupabase()) {
     const url = URL.createObjectURL(file);
     const item = { id: crypto.randomUUID(), page, type: 'upload', url, caption: '', created_at: new Date().toISOString() };
@@ -428,9 +437,10 @@ export async function uploadMoodboardImage(file, page) {
     saveState(`moodboard_${page}`, [...items, item]);
     return { data: item, error: null };
   }
-  const ext = file.name.split('.').pop();
+  const compressed = await compressImage(file);
+  const ext = compressed.name.split('.').pop();
   const path = `moodboard/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-  const { error: uploadError } = await supabase.storage.from('wedding-photos').upload(path, file);
+  const { error: uploadError } = await supabase.storage.from('wedding-photos').upload(path, compressed);
   if (uploadError) return { data: null, error: uploadError };
   const { data: { publicUrl } } = supabase.storage.from('wedding-photos').getPublicUrl(path);
   const userId = await getUserId();
