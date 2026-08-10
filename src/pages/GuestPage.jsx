@@ -671,7 +671,14 @@ export default function GuestPage() {
               <p style={{ fontSize: 13, color: 'var(--mocha)', marginBottom: 16, lineHeight: 1.6 }}>
                 Ladet eure Fotos hoch — wir prüfen sie und schalten die schönsten für alle sichtbar.
               </p>
-              {uploadDone ? (
+              {uploadDone === 'error' ? (
+                <div style={{ textAlign: 'center', padding: '24px 0' }}>
+                  <div style={{ fontSize: 36, marginBottom: 10 }}>😕</div>
+                  <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 20, color: 'var(--espresso)' }}>Leider hat das nicht geklappt</div>
+                  <div style={{ fontSize: 13, color: 'var(--mocha)', marginTop: 6, marginBottom: 16 }}>Bitte prüft, ob es sich um Bilddateien handelt, und versucht es nochmal.</div>
+                  <button className="btn btn-secondary btn-sm" onClick={() => setUploadDone(false)}>Nochmal versuchen</button>
+                </div>
+              ) : uploadDone === true ? (
                 <div style={{ textAlign: 'center', padding: '24px 0' }}>
                   <div style={{ fontSize: 36, marginBottom: 10 }}>🌸</div>
                   <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 20, color: 'var(--espresso)' }}>Vielen Dank!</div>
