@@ -64,12 +64,13 @@ export function Datenschutz() {
       <P><strong>Bei der Registrierung:</strong> E-Mail-Adresse und Passwort (verschlüsselt gespeichert).</P>
       <P><strong>Bei der Nutzung:</strong> Von Ihnen eingegebene Hochzeitsplanungsdaten (Gäste, Budget, Zeitplan etc.), Fotos die Sie hochladen, sowie technische Zugriffsdaten (IP-Adresse, Browser, Betriebssystem).</P>
       <P><strong>Von Gästen:</strong> RSVP-Angaben (Name, E-Mail, Menüwahl, Nachricht), Musikwünsche und hochgeladene Fotos.</P>
+      <P>Im freiwilligen Nachrichtenfeld des RSVP-Formulars sowie im internen Notizfeld der Gästeliste können Gäste bzw. das Brautpaar freiwillig gesundheitsbezogene Angaben hinterlegen (z.B. Allergien oder Unverträglichkeiten für die Essensplanung). Diese Angaben zählen nach Art. 9 DSGVO zu einer besonderen Kategorie personenbezogener Daten.</P>
 
       <H2>4. Wie wir Ihre Daten nutzen</H2>
       <P>Ihre Daten werden ausschließlich zur Bereitstellung des Hochzeitsplanungs-Services verwendet. Wir geben Ihre Daten nicht an Dritte weiter, mit Ausnahme unserer technischen Dienstleister (siehe Punkt 6).</P>
 
       <H2>5. Rechtsgrundlage</H2>
-      <P>Die Verarbeitung erfolgt auf Grundlage von Art. 6 Abs. 1 lit. b DSGVO (Vertragserfüllung) sowie Art. 6 Abs. 1 lit. a DSGVO (Einwilligung bei optionalen Angaben).</P>
+      <P>Die Verarbeitung erfolgt auf Grundlage von Art. 6 Abs. 1 lit. b DSGVO (Vertragserfüllung) sowie Art. 6 Abs. 1 lit. a DSGVO (Einwilligung bei optionalen Angaben). Für freiwillig mitgeteilte gesundheitsbezogene Angaben (siehe Punkt 3) ist Rechtsgrundlage die ausdrückliche Einwilligung nach Art. 9 Abs. 2 lit. a DSGVO, die durch die freiwillige Eingabe im entsprechend gekennzeichneten Feld erteilt wird.</P>
 
       <H2>6. Technische Dienstleister</H2>
       <P><strong>Supabase (Supabase Inc., USA):</strong> Datenbankhosting und Authentifizierung. Daten werden in der EU (Frankfurt) gespeichert. Datenschutzerklärung: supabase.com/privacy</P>
@@ -88,7 +89,7 @@ export function Datenschutz() {
       <H2>10. Cookies</H2>
       <P>Diese App verwendet technisch notwendige Cookies ausschließlich für die Authentifizierung (Session-Management). Es werden keine Tracking- oder Marketing-Cookies eingesetzt.</P>
 
-      <P style={{ marginTop: 40, fontSize: 12, color: 'var(--mocha)' }}>Stand: Juni 2026</P>
+      <P style={{ marginTop: 40, fontSize: 12, color: 'var(--mocha)' }}>Stand: August 2026</P>
     </LegalLayout>
   );
 }
