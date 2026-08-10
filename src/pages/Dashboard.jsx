@@ -142,7 +142,7 @@ export default function Dashboard() {
             oben (order:-1) vor das Onboarding-Widget gestellt. */}
         {!purchased && showUpsell && (
           <div className="card-warm upsell-banner" style={{ marginBottom: 16, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-            <div style={{ fontSize: 20 }}>🔓</div>
+            <div style={{ fontSize: 20 }}>🔒</div>
             <div style={{ flex: 1, minWidth: 200 }}>
               <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--espresso)' }}>Ihr nutzt gerade die kostenlose Version</div>
               <div style={{ fontSize: 12, color: 'var(--mocha)', marginTop: 2 }}>
