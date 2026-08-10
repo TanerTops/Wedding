@@ -5,7 +5,7 @@
 //
 // STRIPE_PAYMENT_LINK: Nach dem Anlegen eures Payment Links in Stripe
 // (siehe ANLEITUNG.md) hier die echte URL eintragen.
-export const STRIPE_PAYMENT_LINK = 'https://buy.stripe.com/REPLACE_ME';
+export const STRIPE_PAYMENT_LINK = 'https://buy.stripe.com/test_aFa3cvcYbcWj2jgfyi14400';
 export const FULL_ACCESS_PRICE = 150;
 
 export function hasFullAccess(wedding) {
