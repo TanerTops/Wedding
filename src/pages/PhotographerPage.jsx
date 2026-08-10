@@ -62,12 +62,28 @@ export default function PhotographerPage() {
     setLoading(false);
   }
 
+  // Sicherheits-Fix: Fotografen sind nie über Supabase Auth eingeloggt (nur
+  // per Token-Link), deshalb kann Row-Level-Security ihre Berechtigung nicht
+  // prüfen — jede offene Schreib-Policy auf photo_groups wäre für JEDEN im
+  // Internet nutzbar, nicht nur für Leute mit gültigem Link. Schreibzugriffe
+  // laufen deshalb jetzt über eine Netlify Function, die den Token serverseitig
+  // gegen die weddings-Tabelle prüft, bevor irgendetwas gespeichert wird
+  // (gleiches Prinzip wie schon bei check-rate-limit.js).
   async function saveGroup(group) {
     setSaving(true);
-    const { error } = await supabase
-      .from('photo_groups')
-      .upsert({ ...group, user_id: wedding.user_id });
-    if (error) console.error('Save error:', error);
+    try {
+      const res = await fetch('/api/photographer-groups', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, action: 'save', group }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        console.error('Save error:', body.error || res.status);
+      }
+    } catch (e) {
+      console.error('Save error:', e.message);
+    }
     setSaving(false);
   }
 
@@ -133,7 +149,16 @@ export default function PhotographerPage() {
   async function deleteGroup(id) {
     if (!confirm('Gruppe löschen?')) return;
     setGroups(groups.filter(g => g.id !== id));
-    await supabase.from('photo_groups').delete().eq('id', id);
+    try {
+      const res = await fetch('/api/photographer-groups', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, action: 'delete', groupId: id }),
+      });
+      if (!res.ok) console.error('Delete error:', res.status);
+    } catch (e) {
+      console.error('Delete error:', e.message);
+    }
   }
 
   // ── Render states ──
