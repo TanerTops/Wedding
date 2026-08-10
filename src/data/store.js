@@ -139,5 +139,9 @@ export function loadState(key, defaultValue) {
 export function saveState(key, value) {
   try {
     localStorage.setItem(`vince_${key}`, JSON.stringify(value));
-  } catch {}
+  } catch (err) {
+    // z.B. Speicher voll oder privates Surfen — nicht kritisch, aber nicht
+    // mehr stillschweigend verschluckt.
+    console.warn('[WeddingBuddy] saveState fehlgeschlagen:', key, err.message);
+  }
 }
