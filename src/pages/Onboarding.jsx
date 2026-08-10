@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { IconCheck, IconArrowRight, IconX } from '@tabler/icons-react';
+import { IconCheck, IconArrowRight, IconX, IconChevronDown, IconChevronUp } from '@tabler/icons-react';
 import { loadState, saveState } from '../data/store';
 
 // ── Custom SVG icons — thin stroke, warm/boho style ──────────────
@@ -76,6 +76,13 @@ const STEPS = [
 
 export default function Onboarding({ onDismiss }) {
   const [done, setDone] = useState(() => loadState('onboardingDone', []));
+  const [collapsed, setCollapsed] = useState(() => loadState('onboardingCollapsed', false));
+
+  function toggleCollapsed() {
+    const next = !collapsed;
+    setCollapsed(next);
+    saveState('onboardingCollapsed', next);
+  }
 
   function toggle(id) {
     const updated = done.includes(id) ? done.filter(d => d !== id) : [...done, id];
@@ -92,10 +99,10 @@ export default function Onboarding({ onDismiss }) {
 
   return (
     <div style={{ background: '#fff', borderRadius: 16, border: '1px solid var(--sand)', marginBottom: 20, overflow: 'hidden' }}>
-      {/* Header */}
-      <div style={{ background: 'linear-gradient(135deg, #FDF8F0 0%, #F5EDE0 100%)', padding: '20px 20px 16px', borderBottom: '1px solid var(--sand)' }}>
+      {/* Header — Klick auf Titel/Fortschritt klappt die Schritte ein/aus */}
+      <div style={{ background: 'linear-gradient(135deg, #FDF8F0 0%, #F5EDE0 100%)', padding: '20px 20px 16px', borderBottom: collapsed ? 'none' : '1px solid var(--sand)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <div>
+          <div onClick={toggleCollapsed} style={{ cursor: 'pointer', flex: 1 }}>
             <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 22, color: 'var(--espresso)', marginBottom: 4 }}>
               Willkommen bei Wedding Buddy!
             </div>
@@ -105,16 +112,22 @@ export default function Onboarding({ onDismiss }) {
                 : `${done.length} von ${STEPS.length} Schritten erledigt`}
             </div>
           </div>
-          <button onClick={dismiss} className="btn-icon" style={{ flexShrink: 0 }}>
-            <IconX size={15} stroke={2} />
-          </button>
+          <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+            <button onClick={toggleCollapsed} className="btn-icon" title={collapsed ? 'Aufklappen' : 'Einklappen'}>
+              {collapsed ? <IconChevronDown size={15} stroke={2} /> : <IconChevronUp size={15} stroke={2} />}
+            </button>
+            <button onClick={dismiss} className="btn-icon">
+              <IconX size={15} stroke={2} />
+            </button>
+          </div>
         </div>
         <div style={{ height: 6, background: 'var(--sand)', borderRadius: 10, marginTop: 12, overflow: 'hidden' }}>
           <div style={{ width: `${pct}%`, height: '100%', background: 'var(--sage)', borderRadius: 10, transition: 'width .3s' }} />
         </div>
       </div>
 
-      {/* Steps */}
+      {/* Steps — nur gerendert wenn nicht eingeklappt */}
+      {!collapsed && (
       <div style={{ padding: '8px 0' }}>
         {STEPS.map((step, i) => {
           const isDone = done.includes(step.id);
@@ -170,6 +183,7 @@ export default function Onboarding({ onDismiss }) {
           );
         })}
       </div>
+      )}
     </div>
   );
 }
