@@ -6,7 +6,7 @@ import {
 import { DndContext, closestCenter, PointerSensor, TouchSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { loadState, saveState, defaultTimeline } from '../data/store';
+import { saveState } from '../data/store';
 import { getTimeline, upsertTimelineEvent, deleteTimelineEvent, getScheduleRequests, getGuests, getSeating, getWedding } from '../lib/db';
 
 const TYPES = [
@@ -140,8 +140,6 @@ function SortableTimelineRow({ ev, type, duration, isLast, disabled, openEdit, d
 
 // Parse "HH:MM" → minutes
 const toMin = t => { try { const [h,m]=t.split(':').map(Number); return h*60+m; } catch { return 0; } };
-// Minutes → "HH:MM"
-const toTime = m => `${String(Math.floor(m/60)).padStart(2,'0')}:${String(m%60).padStart(2,'0')}`;
 // Format "HH:MM" nicely
 const fmt = t => { try { const [h,m]=t.split(':'); const d=new Date(2000,0,1,+h,+m); return d.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'}); } catch { return t; } };
 
@@ -253,27 +251,10 @@ export default function Timeline() {
     a.download = 'zeitplan.txt'; a.click();
   }
 
-  // Build visual timeline rows
-  // Detect parallels: events that overlap in time
-  function buildRows(evs) {
-    const rows = [];
-    for (const ev of evs) {
-      const start = toMin(ev.time);
-      const end   = ev.endTime ? toMin(ev.endTime) : start + 60;
-      let placed = false;
-      for (const row of rows) {
-        const last = row[row.length - 1];
-        const lastEnd = last.endTime ? toMin(last.endTime) : toMin(last.time) + 60;
-        if (start >= lastEnd) { row.push(ev); placed = true; break; }
-      }
-      if (!placed) rows.push([ev]);
-    }
-    return rows;
-  }
-
   const [scheduleRequests, setScheduleRequests] = useState([]);
   const [allGuests, setAllGuests] = useState([]);
-  const [seatingData, setSeatingData] = useState(null);
+  // seatingData wird aktuell nirgends gelesen — Setter bleibt für spätere Nutzung
+  const [, setSeatingData] = useState(null);
 
   useEffect(() => {
     getScheduleRequests().then(({ data }) => { if (data) setScheduleRequests(data); });
@@ -330,7 +311,6 @@ export default function Timeline() {
                 {(() => {
                   const s = sorted;
                   const first = s[0], last = s[s.length-1];
-                  const totalH = last && first ? ((parseInt((last.endTime||last.time).split(':')[0])*60+parseInt((last.endTime||last.time).split(':')[1]||0)) - (parseInt(first.time.split(':')[0])*60+parseInt(first.time.split(':')[1]||0))) : 0;
                   return <>
                     <div style={{ background: 'var(--warm)', borderRadius: 10, padding: '8px 14px', textAlign: 'center', border: '1px solid var(--sand)' }}>
                       <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--espresso)' }}>{first ? first.time : '—'}</div>
