@@ -484,6 +484,7 @@ export default function GuestPage() {
                         slot_label: slot?.label || scheduleForm.type || '',
                         description: scheduleForm.description,
                         duration: parseInt(scheduleForm.duration) || 5,
+                        userId: wedding?.user_id || '',
                       });
                       setScheduleSubmitted(true);
                     }}
@@ -615,7 +616,7 @@ export default function GuestPage() {
                   <button className="btn btn-primary" style={{ flex: 1, justifyContent: 'center' }} onClick={async () => {
                     const validSongs = songs.filter(s => s.title.trim());
                     if (!validSongs.length) return;
-                    const { error } = await submitMusicWish({ sender_name: senderName, songs: validSongs });
+                    const { error } = await submitMusicWish({ sender_name: senderName, songs: validSongs, userId: wedding?.user_id || '' });
                     if (!error) setSongSent(true);
                   }}>
                     Absenden <IconMusic size={14} stroke={1.5} />
