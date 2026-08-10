@@ -3,12 +3,12 @@ import {
   IconCopy, IconCheck, IconCamera, IconGripVertical, IconX,
   IconUsers, IconWallet, IconBuildingStore, IconCheckbox, IconClock,
   IconLayoutColumns, IconMapPin, IconMusic, IconGift, IconNotes,
-  IconWorldWww, IconPhoto, IconSettings,
+  IconWorldWww, IconPhoto, IconSettings, IconSparkles, IconExternalLink,
 } from '@tabler/icons-react';
 import { DndContext, closestCenter, PointerSensor, TouchSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { loadState, saveState, defaultWedding, QUICK_ACTION_CATALOG, DEFAULT_QUICK_ACTIONS } from '../data/store';
+import { loadState, saveState, defaultWedding, QUICK_ACTION_CATALOG, DEFAULT_QUICK_ACTIONS, hasFullAccess, FULL_ACCESS_PRICE, STRIPE_PAYMENT_LINK } from '../data/store';
 import { saveWedding, deleteAccount, syncLocalToSupabase, getWedding } from '../lib/db';
 import { supabase } from '../lib/supabase';
 
@@ -53,6 +53,7 @@ export default function Settings() {
   const [copied,        setCopied]        = useState(false);
   const [generatingToken, setGeneratingToken] = useState(false);
   const [quickActions, setQuickActions] = useState(() => loadState('quickActions', DEFAULT_QUICK_ACTIONS));
+  const purchased = hasFullAccess(wedding);
 
   function toggleQuickAction(id) {
     const updated = quickActions.includes(id)
@@ -161,6 +162,33 @@ export default function Settings() {
       </div>
 
       <div className="page-body">
+
+        {/* Vollversion / Freemium status */}
+        <div className="card" style={{ marginBottom:20, ...(purchased ? {} : { background: 'linear-gradient(135deg, #FDF8F0 0%, #F5EDE0 100%)' }) }}>
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:12 }}>
+            <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+              <div style={{ width:40, height:40, borderRadius:'50%', background: purchased ? 'var(--sage)' : 'var(--warm)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                <IconSparkles size={18} stroke={1.5} style={{ color: purchased ? '#fff' : 'var(--terra)' }} />
+              </div>
+              <div>
+                <div className="section-title" style={{ margin:0 }}>{purchased ? 'Vollversion aktiv' : 'Kostenlose Version'}</div>
+                <div style={{ fontSize:12.5, color:'var(--mocha)', marginTop:2 }}>
+                  {purchased
+                    ? 'Ihr habt vollen Zugriff auf alle Planungs-Tools.'
+                    : `Freemium: Übersicht, Gäste, Fotoplanung, Budgetrechner. Vollversion einmalig ${FULL_ACCESS_PRICE} €.`}
+                </div>
+              </div>
+            </div>
+            {!purchased && (
+              <a
+                href={wedding?.user_id ? `${STRIPE_PAYMENT_LINK}?client_reference_id=${encodeURIComponent(wedding.user_id)}` : STRIPE_PAYMENT_LINK}
+                target="_blank" rel="noopener" className="btn btn-primary btn-sm" style={{ flexShrink:0 }}
+              >
+                <IconExternalLink size={13} stroke={1.5} /> Jetzt freischalten
+              </a>
+            )}
+          </div>
+        </div>
 
         {/* Wedding data */}
         <div className="card" style={{ marginBottom:20 }}>
