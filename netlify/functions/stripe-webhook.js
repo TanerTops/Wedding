@@ -1,8 +1,14 @@
 import Stripe from 'stripe';
-import { createClient } from '@supabase/supabase-js';
 
 // Stripe webhook — listens for completed checkouts (Payment Link or Checkout
 // Session) and marks the matching wedding account as "purchased" in Supabase.
+//
+// Note: this talks to Supabase via a plain REST (PostgREST) call instead of
+// the @supabase/supabase-js client. The JS client always tries to spin up a
+// Realtime (WebSocket) client on construction, which crashes in Netlify's
+// Node 20 function runtime ("Node.js 20 detected without native WebSocket
+// support"). We don't need Realtime here, so a direct fetch avoids the bug
+// entirely and needs no extra dependency.
 //
 // Required Netlify environment variables (Site settings → Environment variables):
 //   STRIPE_SECRET_KEY         — from Stripe Dashboard → Developers → API keys
@@ -10,7 +16,7 @@ import { createClient } from '@supabase/supabase-js';
 //                                (the "Signing secret" of the endpoint you create)
 //   SUPABASE_URL              — same value as VITE_SUPABASE_URL
 //   SUPABASE_SERVICE_ROLE_KEY — from Supabase → Project Settings → API
-//                                (service_role key — never expose this to the frontend)
+//                                (service_role / secret key — never expose this to the frontend)
 //
 // Webhook endpoint URL to configure in Stripe: https://<your-site>/api/stripe-webhook
 // Event to subscribe to: checkout.session.completed
@@ -36,18 +42,27 @@ export default async (req) => {
     if (!userId) {
       console.warn('[stripe-webhook] checkout.session.completed without client_reference_id — cannot unlock account');
     } else {
-      const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
-      const { error } = await supabase
-        .from('weddings')
-        .update({
-          purchased: true,
-          purchased_at: new Date().toISOString(),
-          stripe_session_id: session.id,
-        })
-        .eq('user_id', userId);
+      const supabaseUrl  = process.env.SUPABASE_URL;
+      const serviceKey   = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-      if (error) {
-        console.error('[stripe-webhook] failed to unlock account:', error.message);
+      const res = await fetch(`${supabaseUrl}/rest/v1/weddings?user_id=eq.${encodeURIComponent(userId)}`, {
+        method: 'PATCH',
+        headers: {
+          'apikey':        serviceKey,
+          'Authorization': `Bearer ${serviceKey}`,
+          'Content-Type':  'application/json',
+          'Prefer':        'return=minimal',
+        },
+        body: JSON.stringify({
+          purchased:         true,
+          purchased_at:      new Date().toISOString(),
+          stripe_session_id: session.id,
+        }),
+      });
+
+      if (!res.ok) {
+        const text = await res.text();
+        console.error('[stripe-webhook] failed to unlock account:', res.status, text);
         return new Response('Database update failed', { status: 500 });
       }
       console.log(`[stripe-webhook] unlocked account for user_id=${userId}`);
