@@ -151,8 +151,9 @@ export default function GuestPage() {
     return (
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(160deg, #FDF8F0 0%, #F0E8D8 50%, #EAE0D0 100%)' }}>
         <div style={{ textAlign: 'center' }}>
+          <img src="/logo-mark.png" alt="Wedding Buddy" style={{ width: 56, height: 56, display: 'block', margin: '0 auto 10px' }} />
           <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 36, fontStyle: 'italic', color: 'var(--espresso)', marginBottom: 8 }}>
-            Vince
+            Wedding Buddy
           </div>
           <div style={{ fontSize: 13, color: 'var(--mocha)' }}>Wird geladen...</div>
         </div>
