@@ -4,7 +4,7 @@ const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-  console.warn('[Vince] Supabase env vars missing — localStorage-only mode');
+  console.warn('[WeddingBuddy] Supabase env vars missing — localStorage-only mode');
 }
 
 export const supabase = (SUPABASE_URL && SUPABASE_ANON_KEY)
