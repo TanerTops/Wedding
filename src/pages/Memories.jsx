@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { IconPhoto, IconUpload, IconTrash, IconEye, IconEyeOff, IconX, IconPlus, IconTag, IconEdit, IconLink, IconCopy, IconCheck, IconExternalLink } from '@tabler/icons-react';
+import { IconPhoto, IconUpload, IconTrash, IconEye, IconEyeOff, IconX, IconPlus, IconTag, IconLink, IconCopy, IconCheck, IconExternalLink } from '@tabler/icons-react';
 import { loadState, saveState, defaultWedding, makeSlug } from '../data/store';
 import { getPhotos, updatePhoto, deletePhoto as dbDeletePhoto, uploadPhoto } from '../lib/db';
 import QrCodeCard from '../components/QrCodeCard';
@@ -14,15 +14,6 @@ const DEFAULT_CATEGORIES = [
   { id: 'party',         label: 'Party',         emoji: '🎉', color: '#C4956A' },
   { id: 'details',       label: 'Details & Deko',emoji: '🌸', color: '#B5A88A' },
   { id: 'other',         label: 'Sonstiges',     emoji: '📷', color: '#A89880' },
-];
-
-const DEMO_PHOTOS = [
-  { id:1, url:'https://images.unsplash.com/photo-1519741497674-611481863552?w=600&q=80', thumb:'https://images.unsplash.com/photo-1519741497674-611481863552?w=300&q=70', name:'Getting Ready', uploader:'Sarah', uploadedBy:'admin', approved:true, date:'2026-10-15', category:'getting-ready' },
-  { id:2, url:'https://images.unsplash.com/photo-1519225421980-715cb0215aed?w=600&q=80', thumb:'https://images.unsplash.com/photo-1519225421980-715cb0215aed?w=300&q=70', name:'Die Zeremonie', uploader:'Tobias', uploadedBy:'admin', approved:true, date:'2026-10-15', category:'ceremony' },
-  { id:3, url:'https://images.unsplash.com/photo-1478146896981-b80fe463b330?w=600&q=80', thumb:'https://images.unsplash.com/photo-1478146896981-b80fe463b330?w=300&q=70', name:'Tischdekoration', uploader:'Anna L.', uploadedBy:'guest', approved:false, date:'2026-10-15', category:'details' },
-  { id:4, url:'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=600&q=80', thumb:'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=300&q=70', name:'Party & Tanzfläche', uploader:'Michael B.', uploadedBy:'guest', approved:false, date:'2026-10-16', category:'party' },
-  { id:5, url:'https://images.unsplash.com/photo-1511285560929-80b456fea0bc?w=600&q=80', thumb:'https://images.unsplash.com/photo-1511285560929-80b456fea0bc?w=300&q=70', name:'Brautstrauß', uploader:'Sophie W.', uploadedBy:'guest', approved:true, date:'2026-10-15', category:'details' },
-  { id:6, url:'https://images.unsplash.com/photo-1465495976277-4387d4b0b4c6?w=600&q=80', thumb:'https://images.unsplash.com/photo-1465495976277-4387d4b0b4c6?w=300&q=70', name:'Abendstimmung', uploader:'Klaus S.', uploadedBy:'guest', approved:false, date:'2026-10-15', category:'reception' },
 ];
 
 export default function Memories() {
@@ -97,7 +88,7 @@ export default function Memories() {
     setUploading(true);
     const category = activeTab !== 'all' && activeTab !== 'pending' && activeTab !== 'guest' ? activeTab : 'other';
     for (const file of files) {
-      const { data, error } = await uploadPhoto(file, 'Admin', 'admin');
+      const { data } = await uploadPhoto(file, 'Admin', 'admin');
       if (data) {
         const photo = { ...data, category, approved: true };
         await updatePhoto(data.id, { category, approved: true });
