@@ -23,17 +23,31 @@
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
+html {
+  overflow-x: hidden;
+}
+
 body {
   font-family: 'DM Sans', sans-serif;
   background: var(--cream);
   color: var(--dark);
   min-height: 100vh;
+  overflow-x: hidden;
 }
 
 h1, h2, h3, h4 { font-family: 'Cormorant Garamond', serif; font-weight: 400; }
 
 /* ── LAYOUT ─────────────────────────────────────────────────── */
 .app-layout { display: flex; min-height: 100vh; }
+
+/* Flex-Kinder haben per Default min-width:auto, d.h. sie weigern sich, unter
+   die Breite ihres breitesten (nicht umbrechenden) Inhalts zu schrumpfen.
+   Ohne min-width:0 kann JEDES einzelne Element irgendwo auf der Seite
+   .main-content und damit die ganze App breiter als der Bildschirm drücken —
+   selbst auf Seiten, deren einzelne Zeilen für sich genommen sauber gebaut
+   sind. Das war der eigentliche, seitenübergreifende Grund für die
+   abgeschnittenen Inhalte auf Budget/Gästeseite-Einstellungen/Erinnerungen. */
+.main-content { min-width: 0; }
 
 /* ── SIDEBAR ─────────────────────────────────────────────────── */
 .sidebar {
