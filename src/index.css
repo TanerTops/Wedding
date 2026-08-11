@@ -378,6 +378,21 @@ h1, h2, h3, h4 { font-family: 'Cormorant Garamond', serif; font-weight: 400; }
   .data-table th:nth-child(5),
   .data-table td:nth-child(5) { display: none; }
 
+  /* Budget-Tabelle (Ausgaben) hat eine andere Spaltenreihenfolge als die
+     generische .data-table-Regel oben annimmt — die würde sonst versehentlich
+     den Betrag (Spalte 4) statt Vendor/Kategorie/Fällig ausblenden, was bei
+     einer Budget-Liste die wichtigste Spalte ist. Zwei Klassen zusammen haben
+     höhere Spezifität als die generische Ein-Klassen-Regel oben, gewinnen
+     also automatisch, ganz ohne !important. */
+  .budget-table.data-table th:nth-child(2),
+  .budget-table.data-table td:nth-child(2),
+  .budget-table.data-table th:nth-child(3),
+  .budget-table.data-table td:nth-child(3),
+  .budget-table.data-table th:nth-child(5),
+  .budget-table.data-table td:nth-child(5) { display: none; }
+  .budget-table.data-table th:nth-child(4),
+  .budget-table.data-table td:nth-child(4) { display: table-cell; }
+
   .modal {
     max-width: 100%;
     border-radius: 20px 20px 0 0;
