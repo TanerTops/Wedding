@@ -9,6 +9,7 @@ import {
 import { loadState, defaultWedding, makeSlug, QUICK_ACTION_CATALOG, DEFAULT_QUICK_ACTIONS, hasFullAccess, FULL_ACCESS_PRICE, STRIPE_PAYMENT_LINK } from '../data/store';
 import { getWedding, getGuests, getBudgetItems, getTasks, getRSVPs, getPhotos, getMusicWishes, uploadCouplePhoto, removeCouplePhoto } from '../lib/db';
 import Onboarding from './Onboarding';
+import CheckoutConsentModal from '../components/CheckoutConsentModal';
 
 const QA_ICON_MAP = {
   IconUsers, IconWallet, IconBuildingStore, IconCheckbox, IconClock,
@@ -85,6 +86,10 @@ export default function Dashboard() {
   const { wedding, guests, budgetItems, tasks, rsvps, pendingPhotos } = data;
   const purchased = hasFullAccess(wedding);
   const [showUpsell, setShowUpsell] = useState(true);
+  const [showConsent, setShowConsent] = useState(false);
+  const checkoutUrl = wedding?.user_id
+    ? `${STRIPE_PAYMENT_LINK}?client_reference_id=${encodeURIComponent(wedding.user_id)}`
+    : STRIPE_PAYMENT_LINK;
 
   const days         = Math.ceil((new Date(wedding.date) - new Date()) / 86400000);
   const confirmed    = guests.filter(g => g.status === 'confirmed').length;
@@ -149,12 +154,12 @@ export default function Dashboard() {
                 Schaltet Zeitplan, Sitzordnung, Location, Musik, Gästeseite & mehr frei — einmalig {FULL_ACCESS_PRICE} €.
               </div>
             </div>
-            <a
-              href={wedding?.user_id ? `${STRIPE_PAYMENT_LINK}?client_reference_id=${encodeURIComponent(wedding.user_id)}` : STRIPE_PAYMENT_LINK}
-              target="_blank" rel="noopener" className="btn btn-primary btn-sm" style={{ flexShrink: 0 }}
+            <button
+              onClick={() => setShowConsent(true)}
+              className="btn btn-primary btn-sm" style={{ flexShrink: 0 }}
             >
               Jetzt freischalten
-            </a>
+            </button>
             <button onClick={() => setShowUpsell(false)} className="btn-icon" style={{ flexShrink: 0 }} title="Ausblenden">
               <IconX size={14} stroke={1.5} />
             </button>
@@ -354,6 +359,10 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+
+      {showConsent && (
+        <CheckoutConsentModal checkoutUrl={checkoutUrl} onClose={() => setShowConsent(false)} />
+      )}
     </>
   );
 }
