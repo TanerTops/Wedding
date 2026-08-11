@@ -11,6 +11,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { loadState, saveState, defaultWedding, QUICK_ACTION_CATALOG, DEFAULT_QUICK_ACTIONS, hasFullAccess, FULL_ACCESS_PRICE, STRIPE_PAYMENT_LINK } from '../data/store';
 import { saveWedding, deleteAccount, syncLocalToSupabase, getWedding } from '../lib/db';
 import { supabase } from '../lib/supabase';
+import CheckoutConsentModal from '../components/CheckoutConsentModal';
 
 const ICON_MAP = {
   IconUsers, IconWallet, IconBuildingStore, IconCheckbox, IconClock,
@@ -53,7 +54,11 @@ export default function Settings() {
   const [copied,        setCopied]        = useState(false);
   const [generatingToken, setGeneratingToken] = useState(false);
   const [quickActions, setQuickActions] = useState(() => loadState('quickActions', DEFAULT_QUICK_ACTIONS));
+  const [showConsent, setShowConsent] = useState(false);
   const purchased = hasFullAccess(wedding);
+  const checkoutUrl = wedding?.user_id
+    ? `${STRIPE_PAYMENT_LINK}?client_reference_id=${encodeURIComponent(wedding.user_id)}`
+    : STRIPE_PAYMENT_LINK;
 
   function toggleQuickAction(id) {
     const updated = quickActions.includes(id)
@@ -180,12 +185,12 @@ export default function Settings() {
               </div>
             </div>
             {!purchased && (
-              <a
-                href={wedding?.user_id ? `${STRIPE_PAYMENT_LINK}?client_reference_id=${encodeURIComponent(wedding.user_id)}` : STRIPE_PAYMENT_LINK}
-                target="_blank" rel="noopener" className="btn btn-primary btn-sm" style={{ flexShrink:0 }}
+              <button
+                onClick={() => setShowConsent(true)}
+                className="btn btn-primary btn-sm" style={{ flexShrink:0 }}
               >
                 <IconExternalLink size={13} stroke={1.5} /> Jetzt freischalten
-              </a>
+              </button>
             )}
           </div>
         </div>
@@ -382,6 +387,10 @@ export default function Settings() {
           </button>
         </div>
       </div>
+
+      {showConsent && (
+        <CheckoutConsentModal checkoutUrl={checkoutUrl} onClose={() => setShowConsent(false)} />
+      )}
     </>
   );
 }

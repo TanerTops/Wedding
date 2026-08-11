@@ -163,6 +163,7 @@ export default function Auth({ onAuth }) {
           <div style={{ marginTop: 6, display: 'flex', gap: 12, justifyContent: 'center' }}>
             <a href="/impressum" style={{ color: 'var(--taupe)', textDecoration: 'none' }}>Impressum</a>
             <a href="/datenschutz" style={{ color: 'var(--taupe)', textDecoration: 'none' }}>Datenschutz</a>
+            <a href="/widerruf" style={{ color: 'var(--taupe)', textDecoration: 'none' }}>Widerruf</a>
           </div>
         </div>
       </div>

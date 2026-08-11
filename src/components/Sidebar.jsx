@@ -116,6 +116,7 @@ export default function Sidebar({ onLogout }) {
         <div style={{ display: 'flex', gap: 12, justifyContent: 'center', fontSize: 11 }}>
           <a href="/impressum" style={{ color: 'var(--mocha)', textDecoration: 'none' }}>Impressum</a>
           <a href="/datenschutz" style={{ color: 'var(--mocha)', textDecoration: 'none' }}>Datenschutz</a>
+          <a href="/widerruf" style={{ color: 'var(--mocha)', textDecoration: 'none' }}>Widerruf</a>
         </div>
       </div>
     </aside>
