@@ -1,9 +1,12 @@
+import { useState } from 'react';
 import { IconLock } from '@tabler/icons-react';
 import { STRIPE_PAYMENT_LINK, FULL_ACCESS_PRICE } from '../data/store';
+import CheckoutConsentModal from './CheckoutConsentModal';
 
 // Shown instead of a locked page/section for accounts without full access.
 // `compact` renders a smaller inline version (used e.g. inside Budget tabs).
 export default function UpgradeGate({ feature, wedding, compact = false }) {
+  const [showConsent, setShowConsent] = useState(false);
   const userId = wedding?.user_id || '';
   const checkoutUrl = userId
     ? `${STRIPE_PAYMENT_LINK}?client_reference_id=${encodeURIComponent(userId)}`
@@ -27,9 +30,13 @@ export default function UpgradeGate({ feature, wedding, compact = false }) {
       <div style={{ fontSize: 11.5, color: 'var(--mocha)', marginBottom: 20 }}>
         Rabattcode? Einfach beim Bezahlen eingeben.
       </div>
-      <a href={checkoutUrl} target="_blank" rel="noopener" className="btn btn-primary" style={{ justifyContent: 'center' }}>
+      <button onClick={() => setShowConsent(true)} className="btn btn-primary" style={{ justifyContent: 'center' }}>
         Jetzt freischalten
-      </a>
+      </button>
+
+      {showConsent && (
+        <CheckoutConsentModal checkoutUrl={checkoutUrl} onClose={() => setShowConsent(false)} />
+      )}
     </div>
   );
 }
