@@ -381,6 +381,15 @@ h1, h2, h3, h4 { font-family: 'Cormorant Garamond', serif; font-weight: 400; }
   .topbar > *:last-child:not(:only-child) { margin-left: auto; }
   .topbar h1 { font-size: 20px; }
 
+  /* Tab-Leiste (z.B. Budget: Übersicht/Ausgaben/Kategorien/Budgetrechner) ist
+     eine Pille mit mehreren Buttons nebeneinander — bei 4 Tabs reicht die
+     Breite auf einem Handy nicht, ohne Schutz wird der letzte Tab abgeschnitten.
+     Wrap würde die Pillenform zerstören, deshalb stattdessen horizontal
+     scrollbar machen (Scrollbar dezent ausgeblendet, Funktion bleibt). */
+  .tabs { overflow-x: auto; flex-wrap: nowrap; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tab { flex-shrink: 0; }
+
   .stats-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 10px; }
   .grid-2 { grid-template-columns: 1fr !important; }
   .grid-3 { grid-template-columns: 1fr 1fr !important; }
