@@ -257,9 +257,9 @@ export default function Budget() {
               const d = daysUntil(item.due);
               const urgent = d <= 7;
               return (
-                <div key={item.id} style={{display:'flex',alignItems:'center',gap:14,padding:'14px 18px',borderBottom:'1px solid #F5EFE4'}}>
+                <div key={item.id} style={{display:'flex',alignItems:'center',gap:14,padding:'14px 18px',borderBottom:'1px solid #F5EFE4',flexWrap:'wrap'}}>
                   <div style={{width:4,alignSelf:'stretch',background:urgent?'var(--blush)':'var(--gold)',borderRadius:4,flexShrink:0}}/>
-                  <div style={{flex:1}}>
+                  <div style={{flex:'1 1 160px'}}>
                     <div style={{fontWeight:600,fontSize:14,color:'var(--espresso)'}}>{item.desc}</div>
                     {item.vendor&&<div style={{fontSize:12,color:'var(--mocha)',marginTop:1}}>🏢 {item.vendor}</div>}
                     <div style={{display:'flex',alignItems:'center',gap:6,marginTop:4,fontSize:12}}>
@@ -341,7 +341,13 @@ export default function Budget() {
             <div style={{padding:'10px 16px',background:'var(--warm)',borderBottom:'1px solid var(--sand)',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
               <span style={{fontSize:13,fontWeight:600,color:'var(--espresso)'}}>{fEU(totalSpent)} bezahlt von {fEU(totalCom)}</span>
             </div>
-            <table className="data-table">
+            {/* Mobil: Vendor/Kategorie/Fällig werden ausgeblendet (siehe
+                .budget-table Regel in index.css) — die generische
+                .data-table-Mobilregel würde sonst versehentlich den
+                Betrag verstecken, der bei einer Budget-Tabelle die
+                wichtigste Spalte ist. */}
+            <div style={{overflowX:'auto'}}>
+            <table className="data-table budget-table">
               <thead>
                 <tr>
                   <th>Beschreibung</th>
@@ -407,6 +413,7 @@ export default function Budget() {
                 </tr>
               </tfoot>
             </table>
+            </div>
           </div>
         )}
 
@@ -494,20 +501,25 @@ export default function Budget() {
                 const pct = totalBudget ? Math.round(cat.budget/totalBudget*100) : 0;
                 return (
                   <div key={cat.id} className="card" style={{padding:'12px 16px'}}>
-                    <div style={{display:'flex',alignItems:'center',gap:12}}>
+                    <div style={{display:'flex',alignItems:'center',gap:12,flexWrap:'wrap'}}>
                       <div style={{width:12,height:12,borderRadius:3,background:cat.color,flexShrink:0}}/>
-                      <span style={{flex:1,fontSize:13.5,fontWeight:500,color:'var(--espresso)'}}>{cat.name}</span>
-                      <span style={{fontSize:12,color:'var(--mocha)',width:48,textAlign:'right'}}>{pct}%</span>
-                      <div style={{position:'relative',width:120}}>
-                        <input
-                          type="number"
-                          min="0"
-                          className="input"
-                          style={{paddingRight:28,fontSize:13,textAlign:'right'}}
-                          value={cat.budget}
-                          onChange={e=>updateCatBudget(cat.id,e.target.value)}
-                        />
-                        <span style={{position:'absolute',right:10,top:'50%',transform:'translateY(-50%)',fontSize:12,color:'var(--mocha)',pointerEvents:'none'}}>€</span>
+                      <span style={{flex:'1 1 100px',fontSize:13.5,fontWeight:500,color:'var(--espresso)'}}>{cat.name}</span>
+                      {/* Prozent + Eingabefeld als ein Block, damit sie auf Mobil
+                          zusammen in eine neue Zeile umbrechen, statt sich mit
+                          dem Kategorienamen zu überlagern. */}
+                      <div style={{display:'flex',alignItems:'center',gap:12,flexShrink:0,marginLeft:'auto'}}>
+                        <span style={{fontSize:12,color:'var(--mocha)',width:38,textAlign:'right'}}>{pct}%</span>
+                        <div style={{position:'relative',width:110}}>
+                          <input
+                            type="number"
+                            min="0"
+                            className="input"
+                            style={{paddingRight:28,fontSize:13,textAlign:'right'}}
+                            value={cat.budget}
+                            onChange={e=>updateCatBudget(cat.id,e.target.value)}
+                          />
+                          <span style={{position:'absolute',right:10,top:'50%',transform:'translateY(-50%)',fontSize:12,color:'var(--mocha)',pointerEvents:'none'}}>€</span>
+                        </div>
                       </div>
                     </div>
                     <div style={{marginTop:8}}>
