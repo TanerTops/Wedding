@@ -333,17 +333,17 @@ export function RegistryPage() {
         )}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {items.map(item => (
-            <div key={item.id} className="card" style={{ display: 'flex', alignItems: 'center', gap: 14, opacity: item.reserved ? 0.7 : 1 }}>
+            <div key={item.id} className="card" style={{ display: 'flex', alignItems: 'center', gap: 14, opacity: item.reserved ? 0.7 : 1, flexWrap: 'wrap' }}>
               <div style={{ width: 46, height: 46, background: item.reserved ? '#E8F5E9' : 'var(--warm)', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0 }}>
                 {item.type === 'fund' ? '✈️' : '🎁'}
               </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ flex: '1 1 140px', minWidth: 0 }}>
                 <div style={{ fontWeight: 600, fontSize: 14, textDecoration: item.reserved ? 'line-through' : 'none', color: item.reserved ? 'var(--mocha)' : 'var(--espresso)' }}>{item.title}</div>
                 <div style={{ fontSize: 12, color: 'var(--mocha)', marginTop: 1 }}>{item.description || item.desc}</div>
                 {item.link && <a href={item.link} target="_blank" rel="noopener" style={{ fontSize: 11, color: 'var(--terra)' }}>🔗 Link</a>}
               </div>
               {item.amount > 0 && <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--espresso)', flexShrink: 0 }}>{item.amount.toLocaleString('de-DE')} €</div>}
-              <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+              <div style={{ display: 'flex', gap: 6, flexShrink: 0, marginLeft: 'auto' }}>
                 <button className={`btn btn-sm ${item.reserved ? 'btn-secondary' : 'btn-primary'}`} onClick={() => toggleReserved(item.id)}>
                   {item.reserved ? '↩ Freigeben' : '✓ Reservieren'}
                 </button>

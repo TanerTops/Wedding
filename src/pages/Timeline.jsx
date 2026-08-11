@@ -64,9 +64,12 @@ function SortableTimelineRow({ ev, type, duration, isLast, disabled, openEdit, d
       <div style={{ width: 4, flexShrink: 0, background: type.color, margin: '12px 0' }} />
 
       {/* Content */}
-      <div style={{ flex: 1, padding: '16px 16px 16px 14px' }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
-          <div style={{ flex: 1 }}>
+      <div style={{ flex: 1, padding: '16px 16px 16px 14px', minWidth: 0 }}>
+        {/* flexWrap + flex-basis auf dem Titel-Block: auf schmalen Screens
+            rutschen die Aktionen (Zuweisen-Select + Icons) sauber in eine
+            eigene Zeile, statt Titel/Badges zu zerquetschen. */}
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+          <div style={{ flex: '1 1 140px' }}>
             {/* Type badge */}
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: type.bg, border: `1px solid ${type.color}44`, borderRadius: 20, padding: '2px 9px', fontSize: 11, color: type.color, fontWeight: 600, marginBottom: 6 }}>
               <span style={{ fontSize: 12 }}>{type.emoji}</span> {type.label}
@@ -113,7 +116,7 @@ function SortableTimelineRow({ ev, type, duration, isLast, disabled, openEdit, d
           </div>
 
           {/* Actions */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0, marginLeft: 'auto' }}>
             {assignees.length > 0 && (
               <select
                 value={ev.assignee || ''}

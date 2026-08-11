@@ -23,17 +23,31 @@
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
+html {
+  overflow-x: hidden;
+}
+
 body {
   font-family: 'DM Sans', sans-serif;
   background: var(--cream);
   color: var(--dark);
   min-height: 100vh;
+  overflow-x: hidden;
 }
 
 h1, h2, h3, h4 { font-family: 'Cormorant Garamond', serif; font-weight: 400; }
 
 /* ── LAYOUT ─────────────────────────────────────────────────── */
 .app-layout { display: flex; min-height: 100vh; }
+
+/* Flex-Kinder haben per Default min-width:auto, d.h. sie weigern sich, unter
+   die Breite ihres breitesten (nicht umbrechenden) Inhalts zu schrumpfen.
+   Ohne min-width:0 kann JEDES einzelne Element irgendwo auf der Seite
+   .main-content und damit die ganze App breiter als der Bildschirm drücken —
+   selbst auf Seiten, deren einzelne Zeilen für sich genommen sauber gebaut
+   sind. Das war der eigentliche, seitenübergreifende Grund für die
+   abgeschnittenen Inhalte auf Budget/Gästeseite-Einstellungen/Erinnerungen. */
+.main-content { min-width: 0; }
 
 /* ── SIDEBAR ─────────────────────────────────────────────────── */
 .sidebar {
@@ -367,6 +381,15 @@ h1, h2, h3, h4 { font-family: 'Cormorant Garamond', serif; font-weight: 400; }
   .topbar > *:last-child:not(:only-child) { margin-left: auto; }
   .topbar h1 { font-size: 20px; }
 
+  /* Tab-Leiste (z.B. Budget: Übersicht/Ausgaben/Kategorien/Budgetrechner) ist
+     eine Pille mit mehreren Buttons nebeneinander — bei 4 Tabs reicht die
+     Breite auf einem Handy nicht, ohne Schutz wird der letzte Tab abgeschnitten.
+     Wrap würde die Pillenform zerstören, deshalb stattdessen horizontal
+     scrollbar machen (Scrollbar dezent ausgeblendet, Funktion bleibt). */
+  .tabs { overflow-x: auto; flex-wrap: nowrap; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tab { flex-shrink: 0; }
+
   .stats-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 10px; }
   .grid-2 { grid-template-columns: 1fr !important; }
   .grid-3 { grid-template-columns: 1fr 1fr !important; }
@@ -377,6 +400,21 @@ h1, h2, h3, h4 { font-family: 'Cormorant Garamond', serif; font-weight: 400; }
   .data-table td:nth-child(4),
   .data-table th:nth-child(5),
   .data-table td:nth-child(5) { display: none; }
+
+  /* Budget-Tabelle (Ausgaben) hat eine andere Spaltenreihenfolge als die
+     generische .data-table-Regel oben annimmt — die würde sonst versehentlich
+     den Betrag (Spalte 4) statt Vendor/Kategorie/Fällig ausblenden, was bei
+     einer Budget-Liste die wichtigste Spalte ist. Zwei Klassen zusammen haben
+     höhere Spezifität als die generische Ein-Klassen-Regel oben, gewinnen
+     also automatisch, ganz ohne !important. */
+  .budget-table.data-table th:nth-child(2),
+  .budget-table.data-table td:nth-child(2),
+  .budget-table.data-table th:nth-child(3),
+  .budget-table.data-table td:nth-child(3),
+  .budget-table.data-table th:nth-child(5),
+  .budget-table.data-table td:nth-child(5) { display: none; }
+  .budget-table.data-table th:nth-child(4),
+  .budget-table.data-table td:nth-child(4) { display: table-cell; }
 
   .modal {
     max-width: 100%;

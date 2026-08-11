@@ -209,7 +209,11 @@ export default function Tasks() {
               {catTasks.map((task, i) => {
                 const overdue     = task.due && !task.done && new Date(task.due) < new Date();
                 return (
-                  <div key={task.id} style={{ display:'flex', alignItems:'center', gap:12, padding:'12px 16px', borderBottom: i < catTasks.length-1 ? '1px solid var(--warm)' : 'none', background: task.done ? 'var(--warm)' : '#fff', transition:'background .15s' }}>
+                  // flexWrap: die Aktionen-Gruppe rechts (Badge/Zuweisen/Icons)
+                  // ist unten in EINEN Wrapper gebündelt, damit sie auf
+                  // schmalen Screens als Ganzes in eine zweite Zeile
+                  // umbricht, statt Titel/Text zu zerquetschen.
+                  <div key={task.id} style={{ display:'flex', alignItems:'center', gap:12, padding:'12px 16px', borderBottom: i < catTasks.length-1 ? '1px solid var(--warm)' : 'none', background: task.done ? 'var(--warm)' : '#fff', transition:'background .15s', flexWrap:'wrap' }}>
 
                     {/* Checkbox */}
                     <button onClick={()=>toggle(task.id)} style={{ width:22, height:22, borderRadius:'50%', border:`2px solid ${task.done?'var(--sage)':'var(--sand)'}`, background:task.done?'var(--sage)':'#fff', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, transition:'all .15s' }}>
@@ -217,7 +221,7 @@ export default function Tasks() {
                     </button>
 
                     {/* Text */}
-                    <div style={{ flex:1 }}>
+                    <div style={{ flex:'1 1 140px' }}>
                       <div style={{ fontSize:13.5, fontWeight:500, color:task.done?'var(--mocha)':'var(--espresso)', textDecoration:task.done?'line-through':'none' }}>
                         {task.title}
                       </div>
@@ -229,45 +233,48 @@ export default function Tasks() {
                       )}
                     </div>
 
-                    {/* Priority badge */}
-                    <span style={{ fontSize:11, padding:'2px 8px', borderRadius:20, flexShrink:0, background:task.priority==='high'?'#FEE2E2':task.priority==='low'?'#F0F5EE':'var(--warm)', color:task.priority==='high'?'#991B1B':task.priority==='low'?'var(--sage)':'var(--mocha)', fontWeight:500 }}>
-                      {task.priority==='high'?'Hoch':task.priority==='medium'?'Mittel':'Niedrig'}
-                    </span>
+                    {/* Aktionen-Gruppe: Priorität, Zuweisen, Icons */}
+                    <div style={{ display:'flex', alignItems:'center', gap:8, flexShrink:0, marginLeft:'auto' }}>
+                      {/* Priority badge */}
+                      <span style={{ fontSize:11, padding:'2px 8px', borderRadius:20, flexShrink:0, background:task.priority==='high'?'#FEE2E2':task.priority==='low'?'#F0F5EE':'var(--warm)', color:task.priority==='high'?'#991B1B':task.priority==='low'?'var(--sage)':'var(--mocha)', fontWeight:500 }}>
+                        {task.priority==='high'?'Hoch':task.priority==='medium'?'Mittel':'Niedrig'}
+                      </span>
 
-                    {/* Assignee avatar — proper select */}
-                    {assignees.length > 0 && (
-                      <select
-                        value={task.assignee||''}
-                        onChange={e => updateAssignee(task.id, e.target.value || null)}
-                        style={{ fontSize:11, padding:'2px 6px', borderRadius:20, border:'1px solid var(--sand)', background:'var(--warm)', color:'var(--mocha)', cursor:'pointer', maxWidth:90, flexShrink:0 }}
-                        title="Zuweisen"
-                      >
-                        <option value="">— Niemand —</option>
-                        {assignees.map(a => <option key={a.id} value={a.id}>{a.label}</option>)}
-                      </select>
-                    )}
+                      {/* Assignee avatar — proper select */}
+                      {assignees.length > 0 && (
+                        <select
+                          value={task.assignee||''}
+                          onChange={e => updateAssignee(task.id, e.target.value || null)}
+                          style={{ fontSize:11, padding:'2px 6px', borderRadius:20, border:'1px solid var(--sand)', background:'var(--warm)', color:'var(--mocha)', cursor:'pointer', maxWidth:90, flexShrink:0 }}
+                          title="Zuweisen"
+                        >
+                          <option value="">— Niemand —</option>
+                          {assignees.map(a => <option key={a.id} value={a.id}>{a.label}</option>)}
+                        </select>
+                      )}
 
-                    {/* Edit */}
-                    <button className="btn-icon" style={{ padding:5, flexShrink:0 }} onClick={() => openEdit(task)}>
-                      <IconEdit size={13} stroke={1.5}/>
-                    </button>
-
-                    {/* Calendar export */}
-                    {task.due && (
-                      <button
-                        className="btn-icon"
-                        style={{ padding:5, flexShrink:0 }}
-                        title="In Kalender eintragen"
-                        onClick={() => downloadICS(task)}
-                      >
-                        <IconCalendar size={13} stroke={1.5}/>
+                      {/* Edit */}
+                      <button className="btn-icon" style={{ padding:5, flexShrink:0 }} onClick={() => openEdit(task)}>
+                        <IconEdit size={13} stroke={1.5}/>
                       </button>
-                    )}
 
-                    {/* Delete */}
-                    <button className="btn-icon" style={{ padding:5, flexShrink:0 }} onClick={()=>removeTask(task.id)}>
-                      <IconTrash size={13} stroke={1.5}/>
-                    </button>
+                      {/* Calendar export */}
+                      {task.due && (
+                        <button
+                          className="btn-icon"
+                          style={{ padding:5, flexShrink:0 }}
+                          title="In Kalender eintragen"
+                          onClick={() => downloadICS(task)}
+                        >
+                          <IconCalendar size={13} stroke={1.5}/>
+                        </button>
+                      )}
+
+                      {/* Delete */}
+                      <button className="btn-icon" style={{ padding:5, flexShrink:0 }} onClick={()=>removeTask(task.id)}>
+                        <IconTrash size={13} stroke={1.5}/>
+                      </button>
+                    </div>
                   </div>
                 );
               })}
