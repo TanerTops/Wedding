@@ -37,6 +37,7 @@ const GuestPageSettings = lazy(() => import('./pages/GuestPageSettings'));
 // jeweils auf den benannten Export gemappt.
 const Impressum    = lazy(() => import('./pages/Legal').then(m => ({ default: m.Impressum })));
 const Datenschutz  = lazy(() => import('./pages/Legal').then(m => ({ default: m.Datenschutz })));
+const Widerruf     = lazy(() => import('./pages/Legal').then(m => ({ default: m.Widerruf })));
 const Memories     = lazy(() => import('./pages/Memories'));
 const Photos       = lazy(() => import('./pages/Photos'));
 const MusicPage    = lazy(() => import('./pages/Misc').then(m => ({ default: m.MusicPage })));
@@ -184,6 +185,7 @@ export default function App() {
           <Route path="/photographer/:token" element={<PhotographerPage />} />
           <Route path="/impressum"           element={<Impressum />} />
           <Route path="/datenschutz"         element={<Datenschutz />} />
+          <Route path="/widerruf"            element={<Widerruf />} />
           <Route path="/login"        element={!session && supabase ? <Auth onAuth={setSession} /> : <Navigate to="/" />} />
           <Route path="/*"            element={
             supabase && !session
