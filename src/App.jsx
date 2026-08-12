@@ -5,7 +5,7 @@ import {
   IconGift, IconNotes, IconSettings, IconWorldWww, IconX, IconMenu2,
   IconPhoto, IconCamera, IconLogout, IconBuildingStore
 } from '@tabler/icons-react';
-import { useState, useEffect, lazy, Suspense } from 'react';
+import { useState, useEffect, lazy, Suspense, Component } from 'react';
 import { supabase } from './lib/supabase';
 import { initializeUser, getWedding } from './lib/db';
 import { loadState, defaultWedding, hasFullAccess } from './data/store';
@@ -59,6 +59,45 @@ function PageLoading({ full }) {
     );
   }
   return <div style={{ padding: 60, textAlign: 'center', color: 'var(--mocha)' }}>Wird geladen…</div>;
+}
+
+// ── Error Boundary ────────────────────────────────────────────────
+// Fängt unerwartete Rendering-Fehler ab (z.B. kaputtes Datum, unerwartetes
+// null irgendwo tief in einer der großen Seiten wie Sitzordnung), damit die
+// ganze App nicht auf einen leeren weißen Bildschirm abstürzt. Umschließt
+// unten die komplette App — sowohl den eingeloggten Bereich als auch die
+// öffentlichen Gästeseiten. Zeigt dieselbe Fehler-UI wie der bestehende
+// Verbindungsfehler-Fallback in AdminLayout, aus Konsistenzgründen.
+class ErrorBoundary extends Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false };
+  }
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+  componentDidCatch(error, info) {
+    console.error('[WeddingBuddy] Unerwarteter Fehler beim Rendern:', error, info);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', background:'var(--cream)', fontFamily:"'DM Sans',sans-serif" }}>
+          <div style={{ textAlign:'center', maxWidth:400, padding:32 }}>
+            <div style={{ fontSize:48, marginBottom:16 }}>⚠️</div>
+            <h2 style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:28, color:'var(--espresso)', marginBottom:8 }}>Etwas ist schiefgelaufen</h2>
+            <p style={{ fontSize:14, color:'var(--mocha)', lineHeight:1.6, marginBottom:20 }}>
+              Ein unerwarteter Fehler ist aufgetreten. Eure Daten sind davon nicht betroffen — bitte lade die Seite neu.
+            </p>
+            <button className="btn btn-primary" onClick={() => window.location.reload()}>
+              Neu laden
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
 }
 
 // ── Bottom nav ────────────────────────────────────────────────────
@@ -177,24 +216,26 @@ export default function App() {
   }
 
   return (
-    <BrowserRouter>
-      <Suspense fallback={<PageLoading full />}>
-        <Routes>
-          <Route path="/guest/:slug"        element={<GuestPage />} />
-          <Route path="/memories/:slug"     element={<MemoriesSharePage />} />
-          <Route path="/photographer/:token" element={<PhotographerPage />} />
-          <Route path="/impressum"           element={<Impressum />} />
-          <Route path="/datenschutz"         element={<Datenschutz />} />
-          <Route path="/widerruf"            element={<Widerruf />} />
-          <Route path="/login"        element={!session && supabase ? <Auth onAuth={setSession} /> : <Navigate to="/" />} />
-          <Route path="/*"            element={
-            supabase && !session
-              ? <Navigate to="/login" />
-              : <AdminLayout onLogout={handleLogout} />
-          } />
-        </Routes>
-      </Suspense>
-    </BrowserRouter>
+    <ErrorBoundary>
+      <BrowserRouter>
+        <Suspense fallback={<PageLoading full />}>
+          <Routes>
+            <Route path="/guest/:slug"        element={<GuestPage />} />
+            <Route path="/memories/:slug"     element={<MemoriesSharePage />} />
+            <Route path="/photographer/:token" element={<PhotographerPage />} />
+            <Route path="/impressum"           element={<Impressum />} />
+            <Route path="/datenschutz"         element={<Datenschutz />} />
+            <Route path="/widerruf"            element={<Widerruf />} />
+            <Route path="/login"        element={!session && supabase ? <Auth onAuth={setSession} /> : <Navigate to="/" />} />
+            <Route path="/*"            element={
+              supabase && !session
+                ? <Navigate to="/login" />
+                : <AdminLayout onLogout={handleLogout} />
+            } />
+          </Routes>
+        </Suspense>
+      </BrowserRouter>
+    </ErrorBoundary>
   );
 }
 
