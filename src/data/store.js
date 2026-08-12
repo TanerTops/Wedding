@@ -117,14 +117,30 @@ export const defaultSeating = {
 };
 
 // LocalStorage helpers
-// Generate invite code from guest name
-export function makeInviteCode(name, year) {
-  const weddingYear = year || new Date().getFullYear() + 1;
+// Zeichen ohne leicht verwechselbare: kein O/0, kein I/1/L.
+const INVITE_CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+
+function randomInviteSuffix(length = 5) {
+  let out = '';
+  for (let i = 0; i < length; i++) {
+    out += INVITE_CODE_ALPHABET[Math.floor(Math.random() * INVITE_CODE_ALPHABET.length)];
+  }
+  return out;
+}
+
+// Generate invite code from guest name.
+// Vorher rein aus Nachname+Jahr (z.B. "MUELLER2026") — vorhersehbar, wer
+// den Nachnamen eines Gasts kennt oder errät, konnte sich als dieser Gast
+// ausgeben. Jetzt: Nachname bleibt als lesbares Präfix (Wiedererkennung für
+// Paar und Gast), dazu ein zufälliger, nicht erratbarer Teil. Bereits
+// verschickte Codes im alten Format bleiben gültig — nur neu generierte
+// Codes bekommen den zufälligen Teil.
+export function makeInviteCode(name) {
   const last = name.trim().split(' ').pop();
   const clean = last.toUpperCase()
     .replace(/Ä/g,'AE').replace(/Ö/g,'OE').replace(/Ü/g,'UE').replace(/ß/g,'SS')
     .replace(/[^A-Z]/g,'');
-  return clean + weddingYear;
+  return `${clean}-${randomInviteSuffix()}`;
 }
 
 export function loadState(key, defaultValue) {

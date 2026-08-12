@@ -4,13 +4,13 @@ import {
   IconUsers, IconWallet, IconBuildingStore, IconCheckbox, IconClock,
   IconLayoutColumns, IconMapPin, IconMusic, IconGift, IconNotes,
   IconWorldWww, IconPhoto, IconSettings, IconSparkles, IconExternalLink,
+  IconTrash,
 } from '@tabler/icons-react';
 import { DndContext, closestCenter, PointerSensor, TouchSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { loadState, saveState, defaultWedding, QUICK_ACTION_CATALOG, DEFAULT_QUICK_ACTIONS, hasFullAccess, FULL_ACCESS_PRICE, STRIPE_PAYMENT_LINK } from '../data/store';
-import { saveWedding, deleteAccount, syncLocalToSupabase, getWedding } from '../lib/db';
-import { supabase } from '../lib/supabase';
+import { saveWedding, deleteAccount, syncLocalToSupabase, getWedding, getRawUserId, getCollaborators, inviteCollaborator, revokeCollaborator } from '../lib/db';
 import CheckoutConsentModal from '../components/CheckoutConsentModal';
 
 const ICON_MAP = {
@@ -47,6 +47,8 @@ export default function Settings() {
   const [wedding,       setWedding]       = useState(() => loadState('wedding', defaultWedding));
   const [saved,         setSaved]         = useState(false);
   const [deleting,      setDeleting]      = useState(false);
+  const [collaborators, setCollaborators] = useState([]);
+  const [isOwner,       setIsOwner]       = useState(true);
   const [coAdminEmail,  setCoAdminEmail]  = useState('');
   const [coAdminSending,setCoAdminSending]= useState(false);
   const [coAdminMsg,    setCoAdminMsg]    = useState('');
@@ -88,10 +90,21 @@ export default function Settings() {
   }
 
   useEffect(() => {
-    getWedding().then(({ data }) => {
+    getWedding().then(async ({ data }) => {
       if (data) { setWedding(data); saveState('wedding', data); }
+      // Nur die tatsächliche Eigentümerin/der Eigentümer sieht "Mitplaner
+      // einladen" und die Gefahrenzone — getWedding() liefert bei
+      // Mitplaner:innen bereits die aufgelöste Hochzeit des Teams, deren
+      // user_id NICHT der eigenen auth.uid() entspricht.
+      const rawUserId = await getRawUserId();
+      setIsOwner(!data?.user_id || rawUserId === data.user_id);
     });
+    loadCollaborators();
   }, []);
+
+  function loadCollaborators() {
+    getCollaborators().then(({ data }) => setCollaborators(data || []));
+  }
 
   const photographerUrl = wedding.photographer_token
     ? `${window.location.origin}/photographer/${wedding.photographer_token}`
@@ -134,18 +147,22 @@ export default function Settings() {
   async function inviteCoAdmin() {
     if (!coAdminEmail.trim()) return;
     setCoAdminSending(true);
-    const { error } = await supabase.auth.signInWithOtp({
-      email: coAdminEmail,
-      options: { emailRedirectTo: window.location.origin }
-    });
+    const { error } = await inviteCollaborator(coAdminEmail);
     if (error) {
       setCoAdminMsg('Fehler: ' + error.message);
     } else {
       setCoAdminMsg(`✓ Einladungs-Link wurde an ${coAdminEmail} gesendet`);
       setCoAdminEmail('');
+      loadCollaborators();
     }
     setCoAdminSending(false);
     setTimeout(() => setCoAdminMsg(''), 4000);
+  }
+
+  async function handleRevokeCollaborator(id, email) {
+    if (!confirm(`Zugang für ${email} wirklich widerrufen?`)) return;
+    await revokeCollaborator(id);
+    loadCollaborators();
   }
 
   async function handleDeleteAccount() {
@@ -350,42 +367,73 @@ export default function Settings() {
         </div>
 
         {/* Co-Admin */}
-        <div className="card" style={{ marginBottom:20 }}>
-          <div className="section-title" style={{ marginBottom:4 }}>Mitplaner einladen</div>
-          <p style={{ fontSize:13, color:'var(--mocha)', marginBottom:16, lineHeight:1.6 }}>
-            Lade eine zweite Person ein (z.B. Trauzeugin) — sie bekommt einen Login-Link per Email und kann gemeinsam mit euch planen.
-          </p>
-          <div style={{ display:'flex', gap:8 }}>
-            <input className="input" style={{ flex:1 }} type="email" placeholder="email@beispiel.de" value={coAdminEmail} onChange={e => setCoAdminEmail(e.target.value)} onKeyDown={e => e.key==='Enter'&&inviteCoAdmin()}/>
-            <button className="btn btn-primary" onClick={inviteCoAdmin} disabled={coAdminSending}>
-              {coAdminSending ? '…' : 'Einladen'}
+        {isOwner ? (
+          <div className="card" style={{ marginBottom:20 }}>
+            <div className="section-title" style={{ marginBottom:4 }}>Mitplaner einladen</div>
+            <p style={{ fontSize:13, color:'var(--mocha)', marginBottom:16, lineHeight:1.6 }}>
+              Lade eine zweite Person ein (z.B. Trauzeugin) — sie bekommt einen Login-Link per Email und kann danach gemeinsam mit euch an derselben Hochzeit planen (gleicher Zugriff wie du, außer Konto löschen und weitere Personen einladen).
+            </p>
+            <div style={{ display:'flex', gap:8 }}>
+              <input className="input" style={{ flex:1 }} type="email" placeholder="email@beispiel.de" value={coAdminEmail} onChange={e => setCoAdminEmail(e.target.value)} onKeyDown={e => e.key==='Enter'&&inviteCoAdmin()}/>
+              <button className="btn btn-primary" onClick={inviteCoAdmin} disabled={coAdminSending}>
+                {coAdminSending ? '…' : 'Einladen'}
+              </button>
+            </div>
+            {coAdminMsg && <div style={{ fontSize:13, color:coAdminMsg.startsWith('✓')?'var(--sage)':'#E57373', marginTop:8 }}>{coAdminMsg}</div>}
+            <div style={{ fontSize:11, color:'var(--mocha)', marginTop:8 }}>
+              ℹ️ Die eingeladene Person muss sich mit genau dieser Email einloggen, um Zugang zu erhalten.
+            </div>
+
+            {collaborators.length > 0 && (
+              <div style={{ marginTop:16, paddingTop:16, borderTop:'1px solid var(--sand)', display:'flex', flexDirection:'column', gap:8 }}>
+                {collaborators.map(c => (
+                  <div key={c.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'8px 12px', borderRadius:10, background:'var(--warm)', border:'1px solid var(--sand)' }}>
+                    <span style={{ flex:'1 1 160px', fontSize:13, color:'var(--espresso)' }}>{c.email}</span>
+                    <span style={{
+                      fontSize:10.5, fontWeight:600, padding:'2px 8px', borderRadius:20, flexShrink:0,
+                      background: c.status === 'active' ? 'var(--sage-light)' : 'var(--sand)',
+                      color: c.status === 'active' ? '#3D5A3D' : 'var(--mocha)',
+                    }}>
+                      {c.status === 'active' ? 'Aktiv' : 'Einladung ausstehend'}
+                    </span>
+                    <button className="btn-icon" style={{ padding:4, flexShrink:0 }} onClick={() => handleRevokeCollaborator(c.id, c.email)} title="Zugang widerrufen">
+                      <IconTrash size={14} stroke={1.5} style={{ color:'#E57373' }} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="card" style={{ marginBottom:20 }}>
+            <div className="section-title" style={{ marginBottom:4 }}>Mitplaner-Zugang</div>
+            <p style={{ fontSize:13, color:'var(--mocha)', lineHeight:1.6 }}>
+              Du bist als Mitplaner:in an dieser Hochzeit angemeldet, nicht als Eigentümer:in. Einladungen verwalten und den Account löschen kann nur die Person, die die Hochzeit ursprünglich angelegt hat.
+            </p>
+          </div>
+        )}
+
+        {/* Danger zone — nur für die tatsächliche Eigentümerin/den Eigentümer */}
+        {isOwner && (
+          <div className="card" style={{ border:'1px solid #FECACA' }}>
+            <div className="section-title" style={{ marginBottom:4, color:'#991B1B' }}>⚠️ Gefahrenzone</div>
+            <p style={{ fontSize:13, color:'var(--mocha)', marginBottom:16, lineHeight:1.6 }}>
+              Account und alle Daten unwiderruflich löschen — Gäste, Budget, Zeitplan, Fotos, alles.
+            </p>
+            <div className="form-group">
+              <label className="form-label">Tippe <strong>LÖSCHEN</strong> zur Bestätigung</label>
+              <input className="input" placeholder="LÖSCHEN" value={confirmDelete} onChange={e => setConfirmDelete(e.target.value)} style={{ borderColor:confirmDelete==='LÖSCHEN'?'#EF4444':undefined }}/>
+            </div>
+            <button
+              className="btn"
+              style={{ background:confirmDelete==='LÖSCHEN'?'#EF4444':'#FEE2E2', color:confirmDelete==='LÖSCHEN'?'#fff':'#991B1B', border:'none', padding:'10px 20px', borderRadius:10, cursor:confirmDelete==='LÖSCHEN'?'pointer':'not-allowed', fontFamily:"'DM Sans',sans-serif", fontWeight:600, fontSize:13 }}
+              onClick={handleDeleteAccount}
+              disabled={confirmDelete!=='LÖSCHEN'||deleting}
+            >
+              {deleting ? 'Wird gelöscht...' : 'Account endgültig löschen'}
             </button>
           </div>
-          {coAdminMsg && <div style={{ fontSize:13, color:coAdminMsg.startsWith('✓')?'var(--sage)':'#E57373', marginTop:8 }}>{coAdminMsg}</div>}
-          <div style={{ fontSize:11, color:'var(--mocha)', marginTop:8 }}>
-            ℹ️ Die eingeladene Person muss sich mit der gleichen Email registrieren um Zugang zu erhalten.
-          </div>
-        </div>
-
-        {/* Danger zone */}
-        <div className="card" style={{ border:'1px solid #FECACA' }}>
-          <div className="section-title" style={{ marginBottom:4, color:'#991B1B' }}>⚠️ Gefahrenzone</div>
-          <p style={{ fontSize:13, color:'var(--mocha)', marginBottom:16, lineHeight:1.6 }}>
-            Account und alle Daten unwiderruflich löschen — Gäste, Budget, Zeitplan, Fotos, alles.
-          </p>
-          <div className="form-group">
-            <label className="form-label">Tippe <strong>LÖSCHEN</strong> zur Bestätigung</label>
-            <input className="input" placeholder="LÖSCHEN" value={confirmDelete} onChange={e => setConfirmDelete(e.target.value)} style={{ borderColor:confirmDelete==='LÖSCHEN'?'#EF4444':undefined }}/>
-          </div>
-          <button
-            className="btn"
-            style={{ background:confirmDelete==='LÖSCHEN'?'#EF4444':'#FEE2E2', color:confirmDelete==='LÖSCHEN'?'#fff':'#991B1B', border:'none', padding:'10px 20px', borderRadius:10, cursor:confirmDelete==='LÖSCHEN'?'pointer':'not-allowed', fontFamily:"'DM Sans',sans-serif", fontWeight:600, fontSize:13 }}
-            onClick={handleDeleteAccount}
-            disabled={confirmDelete!=='LÖSCHEN'||deleting}
-          >
-            {deleting ? 'Wird gelöscht...' : 'Account endgültig löschen'}
-          </button>
-        </div>
+        )}
       </div>
 
       {showConsent && (

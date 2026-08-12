@@ -65,7 +65,41 @@ const TEMPLATE_CONFIG = {
 };
 
 // ── Get current user id ──────────────────────────────────────────
+// "Effektive" user_id: bei Mitplaner:innen (siehe Kollaborateur-Feature
+// unten) ist das NICHT die eigene auth.uid(), sondern die user_id der
+// Hochzeit, an der man mitplant — dadurch funktioniert der komplette Rest
+// dieser Datei (alle .eq('user_id', userId)-Aufrufe) transparent für
+// Mitplaner:innen, ohne dass jede einzelne Funktion angepasst werden
+// müsste. Wird pro auth.uid() einmal aufgelöst und zwischengespeichert,
+// damit nicht bei jedem Request extra eine Abfrage nötig ist. Der Cache ist
+// an die jeweilige auth.uid() gebunden, damit ein Wechsel des eingeloggten
+// Kontos (selbes Browser-Tab, kein Reload) nicht versehentlich die
+// vorherige Person weiterverwendet.
+let _effectiveUserIdCache = null; // { for: rawAuthUid, value: effectiveUserId }
+
 async function getUserId() {
+  if (!hasSupabase()) return null;
+  const rawUserId = await getRawUserId();
+  if (!rawUserId) return null;
+  if (_effectiveUserIdCache && _effectiveUserIdCache.for === rawUserId) {
+    return _effectiveUserIdCache.value;
+  }
+  const { data: collab } = await supabase
+    .from('wedding_collaborators')
+    .select('wedding_user_id')
+    .eq('collaborator_user_id', rawUserId)
+    .eq('status', 'active')
+    .limit(1)
+    .maybeSingle();
+  const effective = collab?.wedding_user_id || rawUserId;
+  _effectiveUserIdCache = { for: rawUserId, value: effective };
+  return effective;
+}
+
+// Die tatsächliche eigene auth.uid(), ungefiltert — für Fälle, in denen
+// wirklich das eigene Konto gemeint ist (user_profiles, Einladungen
+// verwalten), nicht die Hochzeit, an der man ggf. nur mitplant.
+export async function getRawUserId() {
   if (!hasSupabase()) return null;
   const { data: { user } } = await supabase.auth.getUser();
   return user?.id || null;
@@ -74,8 +108,25 @@ async function getUserId() {
 // ── Initialize new user with template data ───────────────────────
 export async function initializeUser(customWedding = null) {
   if (!hasSupabase()) return;
-  const userId = await getUserId();
+  const userId = await getRawUserId();
   if (!userId) return;
+
+  // Mitplaner-Einladung einlösen, falls die Email dieses Kontos zu einer
+  // offenen Einladung passt. Läuft über eine serverseitige Funktion
+  // (SECURITY DEFINER), die die Email direkt aus der authentifizierten
+  // Session liest — ein Konto kann sich also nicht einfach als
+  // Mitplaner:in einer fremden Hochzeit ausgeben, indem es irgendeine
+  // Email angibt, die Prüfung läuft serverseitig gegen die echte,
+  // bestätigte Login-Email.
+  const { data: claimedWeddingUserId } = await supabase.rpc('claim_collaborator_invite');
+  if (claimedWeddingUserId) {
+    // Dieses Konto ist jetzt Mitplaner:in einer bestehenden Hochzeit —
+    // keine eigene Vorlage anlegen, nur als initialisiert markieren.
+    await supabase.from('user_profiles').upsert({ id: userId, initialized: true });
+    _effectiveUserIdCache = { for: userId, value: claimedWeddingUserId };
+    console.log('[WeddingBuddy] Mitplaner-Einladung erkannt — Zugriff auf bestehende Hochzeit aktiv');
+    return;
+  }
 
   const { data: profile } = await supabase
     .from('user_profiles')
@@ -651,6 +702,55 @@ export async function deleteAccount() {
   Object.keys(localStorage).filter(k => k.startsWith('vince_')).forEach(k => localStorage.removeItem(k));
   await supabase.auth.signOut();
   return { error: null };
+}
+
+// ── Mitplaner:innen (Collaborators) ───────────────────────────────
+// Eigene, echte Freigabe statt nur eines Login-Links: Wer eingeladen wird
+// und sich mit genau dieser Email einloggt, bekommt vollen Lese-/
+// Schreibzugriff auf dieselbe Hochzeit (siehe getUserId() oben +
+// RLS-Policies in sql-fix-collaborator-sharing-2026-08-12.sql). Nur die
+// tatsächliche Eigentümerin/der Eigentümer der Hochzeit kann einladen oder
+// widerrufen — die eigene auth.uid() wird hier bewusst über
+// getRawUserId() ermittelt, nicht über die (ggf. auf die Hochzeit
+// aufgelöste) getUserId().
+
+export async function getCollaborators() {
+  if (!hasSupabase()) return { data: [], error: null };
+  const rawUserId = await getRawUserId();
+  const { data, error } = await supabase
+    .from('wedding_collaborators')
+    .select('*')
+    .eq('wedding_user_id', rawUserId)
+    .order('invited_at', { ascending: false });
+  return { data: data || [], error };
+}
+
+export async function inviteCollaborator(email) {
+  if (!hasSupabase()) return { error: new Error('Supabase not configured') };
+  const rawUserId = await getRawUserId();
+  if (!rawUserId) return { error: new Error('Not logged in') };
+  const cleanEmail = email.trim().toLowerCase();
+
+  const { error: insertError } = await supabase.from('wedding_collaborators').insert({
+    wedding_user_id: rawUserId,
+    email: cleanEmail,
+    status: 'pending',
+  });
+  // Schon eingeladen (aktiv oder noch ausstehend) — kein Fehler nach außen,
+  // einfach den Login-Link erneut verschicken.
+  if (insertError && insertError.code !== '23505') return { error: insertError };
+
+  const { error: otpError } = await supabase.auth.signInWithOtp({
+    email: cleanEmail,
+    options: { emailRedirectTo: window.location.origin },
+  });
+  return { error: otpError };
+}
+
+export async function revokeCollaborator(id) {
+  if (!hasSupabase()) return { error: new Error('Supabase not configured') };
+  const { error } = await supabase.from('wedding_collaborators').delete().eq('id', id);
+  return { error };
 }
 
 // ── Tasks ────────────────────────────────────────────────────────
