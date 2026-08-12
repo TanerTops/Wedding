@@ -246,7 +246,7 @@ export default function GuestPage() {
                     <p style={{ fontSize: 13, color: 'var(--mocha)', marginBottom: 18 }}>Den findet ihr auf eurer Einladung.</p>
                     <div style={{ display: 'flex', gap: 8, maxWidth: 320, margin: '0 auto' }}>
                       <input
-                        className="input" placeholder="z.B. MUELLER2026" value={inviteCode}
+                        className="input" placeholder="z.B. MUELLER-4X7Q9" value={inviteCode}
                         onChange={e => { setInviteCode(e.target.value); setCodeError(''); }}
                         onKeyDown={e => e.key === 'Enter' && verifyCode()}
                         style={{ flex: 1, textAlign: 'center', textTransform: 'uppercase' }}
